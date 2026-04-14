@@ -1,0 +1,250 @@
+/* ============================================
+   COLLEGE MODAL - FRESH DESIGN
+   ============================================ */
+
+/* IMPORTANT: Override any conflicting .modal styles */
+#createCollegeModal.college-modal-overlay {
+    display: none !important;
+}
+
+#createCollegeModal.college-modal-overlay.active {
+    display: flex !important;
+}
+
+/* Modal Overlay - Full Screen Dark Backdrop */
+.college-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 9999;
+    display: none !important;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.college-modal-overlay.active {
+    display: flex !important;
+    opacity: 1;
+}
+
+/* Modal Container */
+.college-modal-container {
+    background: #FFFFFF;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+}
+
+.college-modal-overlay.active .college-modal-container {
+    transform: translateY(0);
+}
+
+/* Modal Header */
+.college-modal-header {
+    background: linear-gradient(135deg, #E31E24 0%, #C41E3A 100%);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.college-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.college-modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 28px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.college-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* Modal Body - Scrollable */
+.college-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+}
+
+/* Form Grid - 2 Columns */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.form-row.full-width {
+    grid-template-columns: 1fr;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-group label .required {
+    color: #E31E24;
+    margin-left: 2px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 12px;
+    border: 1.5px solid #D1D5DB;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #E31E24;
+    box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Error Message */
+.error-message {
+    background: #FEE2E2;
+    color: #991B1B;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #DC2626;
+    margin-bottom: 20px;
+    display: none;
+    font-size: 0.875rem;
+}
+
+.error-message.show {
+    display: block;
+}
+
+/* Success Message */
+.success-message {
+    background: #D1FAE5;
+    color: #065F46;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #10B981;
+    margin-bottom: 20px;
+    display: none;
+    font-size: 0.875rem;
+}
+
+.success-message.show {
+    display: block;
+}
+
+/* Modal Footer */
+.college-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #E5E7EB;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+    background: #F9FAFB;
+    border-radius: 0 0 12px 12px;
+}
+
+/* Buttons */
+.btn-cancel {
+    padding: 10px 20px;
+    background: #FFFFFF;
+    border: 1.5px solid #D1D5DB;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+    background: #F3F4F6;
+    border-color: #9CA3AF;
+}
+
+.btn-submit {
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #E31E24 0%, #C41E3A 100%);
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(227, 30, 36, 0.3);
+}
+
+.btn-submit:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .college-modal-container {
+        max-height: 95vh;
+    }
+}

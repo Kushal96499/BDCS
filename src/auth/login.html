@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Biyani Digital Campus System</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/src/assets/css/main.css">
+    <link rel="stylesheet" href="/src/assets/css/login.css">
+</head>
+
+<body class="login-page">
+
+    <div class="login-container">
+        <!-- Login Header -->
+        <div class="login-header">
+            <div class="login-logo">B</div>
+            <h1>Biyani Digital Campus</h1>
+            <p>Institutional Management System</p>
+        </div>
+
+        <!-- Login Form -->
+        <form class="login-form" id="loginForm">
+            <!-- Institutional Notice -->
+            <div class="institutional-notice">
+                <strong>⚠️ Authorized Access Only</strong>
+                This system is for authorized institutional users only. All users must be created by authorized
+                administrators. Self-registration is not permitted.
+            </div>
+
+            <!-- Error Message -->
+            <div class="login-error" id="errorMessage"></div>
+
+            <!-- Email Field -->
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" placeholder="your.email@biyani.edu" required
+                    autocomplete="email">
+            </div>
+
+            <!-- Password Field -->
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-field">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required
+                        autocomplete="current-password">
+                    <button type="button" class="password-toggle" id="togglePassword" aria-label="Show password">
+                        👁️
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary" id="loginButton">
+                Login
+            </button>
+        </form>
+
+        <!-- Login Footer -->
+        <div class="login-footer">
+            <p class="warning-text">
+                No signup link? Contact your department administrator for account creation.
+            </p>
+            <p style="color: var(--gray-400); font-size: 0.8rem; margin: 0;">
+                © 2026 Biyani Group of Colleges. All rights reserved.
+            </p>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script src="/src/assets/js/config/firebase.js"></script>
+
+    <!-- Login Script -->
+    <script src="/src/assets/js/auth/login.js"></script>
+</body>
+
+</html>

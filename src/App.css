@@ -1,0 +1,225 @@
+/* ============================================
+   BIYANI DIGITAL CAMPUS SYSTEM (BDCS)
+   Custom CSS - Branding & Components Only
+   Tailwind CSS handles all layout/spacing
+   ============================================ */
+
+/* ============================================
+   CSS VARIABLES - Biyani Branding
+   ============================================ */
+:root {
+  /* Primary Colors */
+  --biyani-red: #C62828;
+  --biyani-red-dark: #B71C1C;
+  --biyani-red-light: #E53935;
+
+  /* Neutral Colors */
+  --gray-50: #FAFAFA;
+  --gray-100: #F5F5F5;
+  --gray-200: #EEEEEE;
+  --gray-300: #E0E0E0;
+  --gray-400: #BDBDBD;
+  --gray-500: #9E9E9E;
+  --gray-600: #757575;
+  --gray-700: #616161;
+  --gray-800: #424242;
+  --gray-900: #212121;
+}
+
+/* ============================================
+   GLOBAL STYLES
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--gray-900);
+  background-color: var(--gray-50);
+}
+
+/* ============================================
+   CUSTOM COMPONENTS - Buttons
+   ============================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--biyani-red);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--biyani-red-dark);
+}
+
+.btn-secondary {
+  background-color: var(--gray-600);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--gray-700);
+}
+
+.btn-outline {
+  background-color: white;
+  color: var(--biyani-red);
+  border-color: var(--biyani-red);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--biyani-red);
+  color: white;
+}
+
+/* ============================================
+   CUSTOM COMPONENTS - Forms
+   ============================================ */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  font-size: 0.875rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--biyani-red);
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.1);
+}
+
+.form-input.error {
+  border-color: #D32F2F;
+}
+
+.form-error {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #D32F2F;
+}
+
+/* ============================================
+   CUSTOM COMPONENTS - Cards
+   ============================================ */
+.card {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   CUSTOM COMPONENTS - Loading Spinner
+   ============================================ */
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--gray-200);
+  border-top-color: var(--biyani-red);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 2.25rem;
+}
+
+h2 {
+  font-size: 1.875rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+h5 {
+  font-size: 1.125rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+p {
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   UTILITY CLASSES (Minimal)
+   ============================================ */
+.text-biyani-red {
+  color: var(--biyani-red);
+}
+
+.bg-biyani-red {
+  background-color: var(--biyani-red);
+}
+
+.border-biyani-red {
+  border-color: var(--biyani-red);
+}

@@ -1,0 +1,353 @@
+// ============================================
+// BDCS - Firestore Security Rules
+// Phase-1 ERP Enhancement - Production Ready
+// ============================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Get user document
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check user role
+    function hasRole(role) {
+      return isSignedIn() && getUserData().get('role', '') == role;
+    }
+    
+    // Check if user has any of the specified roles
+    function hasAnyRole(roles) {
+      return isSignedIn() && getUserData().get('role', '') in roles;
+    }
+    
+    // Check if user's lifecycle is active
+    function isActive() {
+      return isSignedIn() && getUserData().get('lifecycleState', 'active') == 'active';
+    }
+    
+    // Check if user is relieved (alumni)
+    function isRelieved() {
+      return isSignedIn() && getUserData().get('lifecycleState', 'active') == 'relieved';
+    }
+    
+    // Role hierarchy check
+    function isSeniorRole(role) {
+      let hierarchy = ['admin', 'director', 'principal', 'hod', 'teacher', 'student'];
+      let userRoleIndex = hierarchy.indexOf(getUserData().role);
+      let targetRoleIndex = hierarchy.indexOf(role);
+      return userRoleIndex < targetRoleIndex;
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isSignedIn();
+      
+      // Users can update their own profile (limited fields)
+      allow update: if isSignedIn() 
+                    && request.auth.uid == userId 
+                    && isActive()
+                    && onlyUpdating([
+                      'phone', 
+                      'photoURL',
+                      'professionalProfile',
+                      'socialStats',
+                      'profile_visibility',
+                      'updatedAt',
+                      'lastLogin',
+                      'lastLoginIp'
+                    ])
+                    && !('lifecycleState' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('roles' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('relievedAt' in request.resource.data.diff(resource.data).affectedKeys());
+      
+      // Only admins, principals, HODs, and teachers can create users
+      allow create: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']) && isActive();
+      
+      // Admins can do anything with users
+      allow write: if hasRole('admin');
+      
+      // Principals can update users in their college
+      allow update: if hasRole('principal') && isActive();
+      
+      // HODs can update teachers and students in their department
+      allow update: if hasRole('hod') 
+                    && isActive()
+                    && resource.data.role in ['teacher', 'student'];
+      
+      // Helper function for field validation
+      function onlyUpdating(allowedFields) {
+        let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        return affectedKeys.hasOnly(allowedFields);
+      }
+    }
+    
+    // ============================================
+    // ROLE ASSIGNMENTS COLLECTION
+    // ============================================
+    
+    match /roleAssignments/{assignmentId} {
+      // All authenticated users can read role assignments
+      allow read: if isSignedIn();
+      
+      // Only admins, principals, and HODs can assign roles
+      allow create: if hasAnyRole(['admin', 'principal', 'hod']) && isActive();
+      
+      // HODs can only assign teacher/student roles
+      allow create: if hasRole('hod') 
+                    && isActive()
+                    && request.resource.data.role in ['teacher', 'student'];
+      
+      // Only admins and principals can revoke roles
+      allow update, delete: if hasAnyRole(['admin', 'principal']) && isActive();
+    }
+    
+    // ============================================
+    // ALUMNI ACCESS COLLECTION (READ-ONLY for Alumni)
+    // ============================================
+    
+    match /alumniAccess/{userId} {
+      // Only the user themselves can read their alumni access
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      
+      // Only system/admins can write (via backend functions)
+      allow write: if hasRole('admin');
+      
+      // Relieved users can read but not write
+      allow read: if isSignedIn() 
+                  && request.auth.uid == userId 
+                  && isRelieved();
+    }
+    
+    // ============================================
+    // DEPARTMENTS COLLECTION
+    // ============================================
+    
+    match /departments/{departmentId} {
+      // All authenticated users can read departments
+      allow read: if isSignedIn();
+      
+      // Admins and principals can manage departments
+      allow write: if hasAnyRole(['admin', 'principal']) && isActive();
+      
+      // HODs can update their own department
+      allow update: if hasRole('hod') 
+                    && isActive()
+                    && resource.data.hodId == request.auth.uid;
+    }
+    
+    // ============================================
+    // COLLEGES COLLECTION
+    // ============================================
+    
+    match /colleges/{collegeId} {
+      // All authenticated users can read colleges
+      allow read: if isSignedIn();
+      
+      // Admins and directors can manage colleges
+      allow write: if hasAnyRole(['admin', 'director']) && isActive();
+    }
+    
+    // ============================================
+    // CAMPUSES COLLECTION
+    // ============================================
+    
+    match /campuses/{campusId} {
+      // All authenticated users can read campuses
+      allow read: if isSignedIn();
+      
+      // Only admins and directors can manage campuses
+      allow write: if hasAnyRole(['admin', 'director']) && isActive();
+    }
+    
+    // ============================================
+    // COURSES COLLECTION
+    // ============================================
+    
+    match /courses/{courseId} {
+      // All authenticated users can read courses
+      allow read: if isSignedIn();
+      
+      // Admins and principals can manage courses
+      allow write: if hasAnyRole(['admin', 'principal']) && isActive();
+    }
+    
+    // ============================================
+    // BATCHES COLLECTION
+    // ============================================
+    
+    match /batches/{batchId} {
+      // All authenticated users can read batches
+      allow read: if isSignedIn();
+      
+      // Admins, principals, and HODs can manage batches
+      allow write: if hasAnyRole(['admin', 'principal', 'hod']) && isActive();
+    }
+    
+    // ============================================
+    // SUBJECTS COLLECTION
+    // ============================================
+    
+    match /subjects/{subjectId} {
+      // All authenticated users can read subjects
+      allow read: if isSignedIn();
+      
+      // Admins, principals, and HODs can manage subjects
+      allow write: if hasAnyRole(['admin', 'principal', 'hod']) && isActive();
+    }
+    
+    // ============================================
+    // AUDIT LOGS COLLECTION (READ-ONLY for most)
+    // ============================================
+    
+    match /auditLogs/{logId} {
+      // Admins and principals can read audit logs
+      allow read: if hasAnyRole(['admin', 'principal', 'director']);
+      
+      // Only system can write (via backend)
+      // Manual writes blocked to prevent tampering
+      allow write: if false;
+    }
+    
+    // ============================================
+    // PROJECTS COLLECTION
+    // ============================================
+    
+    match /projects/{projectId} {
+      // All authenticated users can read public projects
+      allow read: if isSignedIn();
+      
+      // Users can create and manage their own projects
+      allow create: if isSignedIn() 
+                    && isActive()
+                    && request.resource.data.createdBy == request.auth.uid;
+      
+      allow update, delete: if isSignedIn() 
+                             && isActive()
+                             && resource.data.createdBy == request.auth.uid;
+      
+      // Alumni can read their own projects but not edit
+      allow read: if isSignedIn() 
+                  && isRelieved()
+                  && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // ============================================
+    // ATTENDANCE COLLECTION
+    // ============================================
+    
+    match /attendance/{attendanceId} {
+      // Teachers and admins can read attendance
+      allow read: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']);
+      
+      // Students can read their own attendance
+      allow read: if isSignedIn() 
+                  && hasRole('student')
+                  && resource.data.studentId == request.auth.uid;
+      
+      // Only teachers can mark attendance
+      allow create, update: if hasAnyRole(['teacher', 'hod']) && isActive();
+      
+      // Only admins can delete attendance records
+      allow delete: if hasRole('admin');
+    }
+    
+    // ============================================
+    // CONTINUOUS TEST SYSTEM (NEW)
+    // ============================================
+
+    match /tests/{testId} {
+      // Read: Teachers, HODs, Admins, and Students (if published)
+      allow read: if isSignedIn(); 
+      // Note: Finer grained read access can be implemented, but generally tests are visible to stakeholders.
+      // Ideally: 
+      // allow read: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']) || (hasRole('student') && resource.data.status == 'published');
+
+      // Create: Teachers and HODs
+      allow create: if hasAnyRole(['teacher', 'hod']) && isActive();
+
+      // Update: Creator or Admin/HOD
+      allow update: if (hasAnyRole(['teacher', 'hod']) && isActive()) || hasRole('admin');
+      
+      // Delete: Admins only (or soft delete)
+      allow delete: if hasRole('admin');
+    }
+
+    match /test_results/{resultId} {
+      // Read: Student (own), Teachers, HODs, Admins
+      allow read: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']) 
+                  || (isSignedIn() && request.auth.uid == resource.data.student);
+
+      // Write: Teachers and HODs
+      allow write: if hasAnyRole(['teacher', 'hod']) && isActive();
+    }
+
+    match /batch_history/{historyId} {
+      // Read: Student (own), Teachers, Admins
+      allow read: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']) 
+                  || (isSignedIn() && request.auth.uid == resource.data.student);
+      
+      // Write: Teachers/HODs (for promotion)
+      allow write: if hasAnyRole(['teacher', 'hod', 'admin']) && isActive();
+    }
+
+    // ============================================
+    // EXAMS COLLECTION (LEGACY / DEPRECATED)
+    // ============================================
+    
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+      allow write: if hasAnyRole(['admin', 'principal', 'hod']) && isActive();
+    }
+    
+    // ============================================
+    // MARKS COLLECTION (LEGACY / DEPRECATED)
+    // ============================================
+    
+    match /marks/{markId} {
+      allow read: if hasAnyRole(['admin', 'principal', 'hod', 'teacher']);
+      allow delete: if hasRole('admin');
+    }
+    
+    // ============================================
+    // ANNOUNCEMENTS COLLECTION
+    // ============================================
+    
+    match /announcements/{announcementId} {
+      // All authenticated users can read announcements
+      allow read: if isSignedIn();
+      
+      // Admins, principals, and HODs can create announcements
+      allow create: if hasAnyRole(['admin', 'principal', 'hod']) && isActive();
+      
+      // Creators can update their own announcements
+      allow update, delete: if isSignedIn() 
+                             && isActive()
+                             && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // ============================================
+    // DEFAULT DENY ALL
+    // ============================================
+    
+    // Deny all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

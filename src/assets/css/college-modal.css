@@ -1,0 +1,58 @@
+/* College Modal Form Grid - FORCE 2 COLUMNS */
+#createCollegeModal .modal-body {
+    padding: var(--spacing-xl);
+}
+
+#createCollegeModal .form-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important;
+    margin-bottom: 1rem !important;
+}
+
+#createCollegeModal .form-group {
+    display: flex !important;
+    flex-direction: column !important;
+    margin-bottom: 0 !important;
+}
+
+#createCollegeModal .form-group label {
+    display: block !important;
+    margin-bottom: 0.5rem !important;
+    font-weight: 500 !important;
+    color: #374151 !important;
+    font-size: 0.875rem !important;
+}
+
+#createCollegeModal .form-group input,
+#createCollegeModal .form-group select,
+#createCollegeModal .form-group textarea {
+    display: block !important;
+    width: 100% !important;
+    padding: 0.625rem !important;
+    border: 1px solid #D1D5DB !important;
+    border-radius: 6px !important;
+    font-size: 0.9375rem !important;
+    font-family: inherit !important;
+    transition: all 0.2s ease !important;
+}
+
+#createCollegeModal .form-group input:focus,
+#createCollegeModal .form-group select:focus,
+#createCollegeModal .form-group textarea:focus {
+    outline: none !important;
+    border-color: #E31E24 !important;
+    box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1) !important;
+}
+
+#createCollegeModal .form-group textarea {
+    resize: vertical !important;
+    min-height: 60px !important;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    #createCollegeModal .form-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

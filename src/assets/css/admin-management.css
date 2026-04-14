@@ -1,0 +1,448 @@
+/* ============================================
+   BIYANI DIGITAL CAMPUS SYSTEM (BDCS)
+   Admin Management Panel Styles
+   ============================================ */
+
+/* Management Grid Layout */
+.management-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.management-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.management-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--biyani-red);
+}
+
+.management-card-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--biyani-red), #c71a1f);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.management-card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: var(--spacing-sm);
+}
+
+.management-card-desc {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin-bottom: var(--spacing-md);
+}
+
+.management-card-stats {
+    display: flex;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--gray-200);
+}
+
+.management-stat {
+    flex: 1;
+    text-align: center;
+}
+
+.management-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--biyani-red);
+}
+
+.management-stat-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    margin-top: 0.25rem;
+}
+
+/* Hierarchy Breadcrumb */
+.hierarchy-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.875rem;
+}
+
+.hierarchy-breadcrumb-item {
+    color: var(--gray-700);
+}
+
+.hierarchy-breadcrumb-separator {
+    color: var(--gray-400);
+}
+
+.hierarchy-breadcrumb-item.active {
+    color: var(--biyani-red);
+    font-weight: 600;
+}
+
+/* Tab Navigation for Management */
+.management-tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: 0;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--gray-200);
+    list-style: none;
+}
+
+.management-tab {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--gray-600);
+    transition: all 0.2s ease;
+}
+
+.management-tab:hover {
+    color: var(--biyani-red);
+    background: var(--gray-50);
+}
+
+.management-tab.active {
+    color: var(--biyani-red);
+    border-bottom-color: var(--biyani-red);
+}
+
+/* Action Toolbar */
+.action-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+}
+
+.toolbar-search {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    max-width: 400px;
+}
+
+.toolbar-search input {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+/* Info Badge */
+.info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--info-light);
+    color: var(--info);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* System Role Card */
+.role-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    transition: all 0.3s ease;
+}
+
+.role-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--biyani-red);
+}
+
+.role-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.role-card-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--biyani-red), #c71a1f);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 1.5rem;
+}
+
+.role-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.role-card-desc {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin-bottom: var(--spacing-md);
+}
+
+.role-card-stats {
+    display: flex;
+    justify-content: space-between;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--gray-200);
+}
+
+.role-stat {
+    text-align: center;
+}
+
+.role-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--biyani-red);
+}
+
+.role-stat-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .management-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .action-toolbar {
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+
+    .toolbar-search {
+        max-width: 100%;
+    }
+
+    .management-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+}
+
+/* ============================================
+   ENHANCED CARD UI IMPROVEMENTS
+   ============================================ */
+
+/* Enhanced Card Actions */
+.management-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+
+.management-card-actions .btn {
+    flex: 1;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+/* Card Meta: Badges */
+.management-card-meta {
+    margin: 0.75rem 0;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #F3F4F6;
+    color: #6B7280;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Enhanced Management Cards */
+.management-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
+    /* Remove pointer cursor when actions are in card */
+}
+
+.management-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(227, 30, 36, 0.15);
+    border-color: #E31E24;
+}
+
+.management-card-icon {
+    font-size: 3rem !important;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    width: auto !important;
+    height: auto !important;
+    background: none !important;
+}
+
+.management-card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin: 0 0 0.5rem 0;
+}
+
+.management-card-desc {
+    color: #6B7280;
+    font-size: 0.875rem;
+    margin: 0 0 1rem 0;
+}
+
+/* Stats Enhancement */
+.management-card-stats {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    padding: 1rem 0;
+}
+
+.management-stat {
+    text-align: center;
+}
+
+.management-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #E31E24;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.management-stat-label {
+    font-size: 0.75rem;
+    color: #6B7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   MODAL POSITIONING & BACKDROP - FIXED
+   ============================================ */
+#createCollegeModal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 20000 !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2rem !important;
+}
+
+#createCollegeModal.show {
+    display: flex !important;
+}
+
+#createCollegeModal .modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    z-index: 20001 !important;
+}
+
+#createCollegeModal .modal-content {
+    position: relative !important;
+    z-index: 20002 !important;
+    margin: 0 auto !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+
+/* Form Grid for College Modal */
+#createCollegeModal .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+#createCollegeModal .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+#createCollegeModal .form-group label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+#createCollegeModal .form-group input,
+#createCollegeModal .form-group select,
+#createCollegeModal .form-group textarea {
+    padding: 0.625rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-size: 0.9375rem;
+}
+
+#createCollegeModal .form-group input:focus,
+#createCollegeModal .form-group select:focus,
+#createCollegeModal .form-group textarea:focus {
+    outline: none;
+    border-color: var(--biyani-red);
+    box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1);
+}
+
+@media (max-width: 768px) {
+    #createCollegeModal .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
