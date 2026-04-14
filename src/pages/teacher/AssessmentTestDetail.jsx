@@ -13,7 +13,6 @@ import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, get
 import { db } from '../../config/firebase';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import StudentProgressModal from '../../components/teacher/StudentProgressModal';
 
 export default function AssessmentTestDetail() {
     const { testId } = useParams();
@@ -30,7 +29,6 @@ export default function AssessmentTestDetail() {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [attendanceStatus, setAttendanceStatus] = useState('loading'); // 'loading' | 'missing' | 'verified' | 'future'
     const [presentStudentIds, setPresentStudentIds] = useState(new Set());
-    const [showProgressModal, setShowProgressModal] = useState(false);
 
     useEffect(() => {
         loadTestData();
@@ -236,11 +234,6 @@ export default function AssessmentTestDetail() {
         } finally {
             setExporting(false);
         }
-    };
-
-    const handleStudentAction = (result) => {
-        setSelectedStudent(result);
-        setShowProgressModal(true);
     };
 
     if (loading) {
@@ -473,9 +466,6 @@ export default function AssessmentTestDetail() {
                                     <th className="px-8 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Percentage</th>
                                     <th className="px-8 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
                                     <th className="px-8 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Remarks</th>
-                                    {test.status === 'published' && (
-                                        <th className="px-8 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Actions</th>
-                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -542,17 +532,6 @@ export default function AssessmentTestDetail() {
                                                         placeholder="Add remarks..."
                                                     />
                                                 </td>
-                                                {test.status === 'published' && (
-                                                    <td className="px-8 py-6">
-                                                        <button
-                                                            onClick={() => handleStudentAction(result)}
-                                                            className="p-2 text-gray-400 hover:text-biyani-red hover:bg-red-50 rounded-lg transition-all"
-                                                            title="Manage Student"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                                                        </button>
-                                                    </td>
-                                                )}
                                             </tr>
                                         );
                                     })}
@@ -567,24 +546,6 @@ export default function AssessmentTestDetail() {
                 </div>
             )}
 
-            {/* Student Progress Modal */}
-            {
-                showProgressModal && selectedStudent && (
-                    <StudentProgressModal
-                        student={selectedStudent}
-                        currentBatch={test.batch}
-                        onClose={() => {
-                            setShowProgressModal(false);
-                            setSelectedStudent(null);
-                        }}
-                        onSuccess={() => {
-                            loadTestData();
-                            setShowProgressModal(false);
-                            setSelectedStudent(null);
-                        }}
-                    />
-                )
-            }
         </div >
     );
 }
