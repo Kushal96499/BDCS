@@ -16,6 +16,7 @@ import UserProfileModal from '../components/UserProfileModal';
 export default function AdminLayout() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
