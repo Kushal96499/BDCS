@@ -25,7 +25,7 @@ const CollegeList = lazy(() => import('./pages/admin/college/CollegeList'));
 const DepartmentList = lazy(() => import('./pages/admin/department/DepartmentList'));
 const CourseList = lazy(() => import('./pages/admin/course/CourseList'));
 const SpecialResponsibility = lazy(() => import('./pages/admin/academic/SpecialResponsibility'));
-const AuditLogViewer = lazy(() => import('./pages/admin/logs/AuditLogs'));
+const AuditLogViewer = lazy(() => import('./pages/admin/audit/AuditLogs'));
 const SystemRules = lazy(() => import('./pages/admin/config/AcademicConfig'));
 const AlumniPortal = lazy(() => import('./pages/alumni/AlumniPortal'));
 
