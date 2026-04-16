@@ -295,7 +295,7 @@ export default function Login() {
                 <div className="mt-8 pt-6 border-t border-gray-200/50">
                     <p className="text-center text-xs text-gray-500">
                         © 2026 Biyani Group of Colleges. <br />
-                        Managed by <span className="font-semibold text-gray-700">BitBrawlers</span>
+                        Managed by <span className="font-semibold text-gray-700">Kushal Kumawat</span>
                     </p>
                 </div>
             </div>
