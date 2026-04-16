@@ -2,7 +2,6 @@
 // BIYANI DIGITAL CAMPUS SYSTEM (BDCS)
 // Convex Storage Utilities
 // ============================================
-// Replaces the former Supabase storage utilities.
 // Upload flow:
 //   1. generateUploadUrl()  → short-lived upload URL
 //   2. PUT/POST file to URL → { storageId }

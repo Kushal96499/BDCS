@@ -11,6 +11,7 @@ import { logCreate, logUpdate, buildHierarchyPath } from '../../../utils/auditLo
 import { validateRequired, sanitizeInput } from '../../../utils/validators';
 import FormModal from '../../../components/admin/FormModal';
 import Input from '../../../components/Input';
+import Select from '../../../components/admin/Select';
 
 export default function DepartmentForm({ department, onClose, onSuccess }) {
     const { user } = useAuth();
@@ -40,7 +41,14 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
         try {
             const q = query(collection(db, 'colleges'), where('status', '==', 'active'));
             const snapshot = await getDocs(q);
-            setColleges(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setColleges(snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                label: `${doc.data().name} (${doc.data().campusName || 'Main Campus'})`, 
+                value: doc.id,
+                collegeName: doc.data().name,
+                campusName: doc.data().campusName,
+                affiliation: doc.data().affiliation
+            })));
         } catch (error) {
             console.error('Error:', error);
         }
@@ -82,13 +90,15 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
         setLoading(true);
 
         try {
-            const selectedCollege = colleges.find(c => c.id === formData.collegeId);
+            const selectedCollege = colleges.find(c => c.value === formData.collegeId);
 
             const sanitizedData = {
                 name: sanitizeInput(formData.name),
                 code: formData.code.toUpperCase(),
                 collegeId: formData.collegeId,
-                collegeName: selectedCollege.name,
+                collegeName: selectedCollege.collegeName,
+                campusName: selectedCollege.campusName || null,
+                collegeAffiliation: selectedCollege.affiliation || null,
                 courseIds: formData.courseIds,
                 status: formData.status
             };
@@ -96,21 +106,18 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
             const metadata = {
                 label: sanitizedData.name,
                 path: buildHierarchyPath({
-                    campusName: selectedCollege?.campusName,
-                    collegeName: selectedCollege?.name,
+                    collegeName: sanitizedData.collegeName,
                     departmentName: sanitizedData.name
                 })
             };
 
             if (department) {
-                // Update: Do NOT touch HOD fields. Admin cannot assign HODs.
                 const deptRef = doc(db, 'departments', department.id);
                 const updateData = { ...sanitizedData, updatedAt: serverTimestamp(), updatedBy: user.uid };
                 await updateDoc(deptRef, updateData);
                 await logUpdate('departments', department.id, department, { ...department, ...updateData }, user, metadata);
-                toast.success('Department updated successfully');
+                toast.success('Department metadata synchronized');
             } else {
-                // Create: Initialize HOD fields as null
                 const newDept = {
                     ...sanitizedData,
                     hodId: null,
@@ -122,7 +129,7 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                 };
                 const docRef = await addDoc(collection(db, 'departments'), newDept);
                 await logCreate('departments', docRef.id, newDept, user, metadata);
-                toast.success('Department created successfully');
+                toast.success('Department establishment records saved');
             }
 
             onSuccess();
@@ -135,45 +142,96 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
     };
 
     return (
-        <FormModal isOpen={true} onClose={onClose} onSubmit={handleSubmit} title={department ? 'Edit Department' : 'Add New Department'} submitText={department ? 'Update' : 'Create'} loading={loading} size="lg">
-            <div className="space-y-4">
-                <Input label="Department Name" name="name" value={formData.name} onChange={handleChange} error={errors.name} placeholder="e.g., Computer Science" required />
-                <Input label="Department Code" name="code" value={formData.code} onChange={handleChange} error={errors.code} placeholder="e.g., CS" required />
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">College <span className="text-red-600">*</span></label>
-                    <select name="collegeId" value={formData.collegeId} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-biyani-red ${errors.collegeId ? 'border-red-500' : 'border-gray-300'}`}>
-                        <option value="">Select College</option>
-                        {colleges.map(college => <option key={college.id} value={college.id}>{college.name} ({college.campusName})</option>)}
-                    </select>
-                    {errors.collegeId && <p className="text-sm text-red-600 mt-1">{errors.collegeId}</p>}
+        <FormModal 
+            isOpen={true} 
+            onClose={onClose} 
+            onSubmit={handleSubmit} 
+            title={department ? 'Modify Department Records' : 'Establish Academic Department'} 
+            submitText={department ? 'Update Structure' : 'Initialize Dept'} 
+            loading={loading} 
+            size="lg"
+        >
+            <div className="space-y-6 py-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <Input 
+                        label="Department Designation" 
+                        name="name" 
+                        value={formData.name} 
+                        onChange={handleChange} 
+                        error={errors.name} 
+                        placeholder="e.g., Computer Science & IT" 
+                        required 
+                    />
+                    <Input 
+                        label="Indexing Code" 
+                        name="code" 
+                        value={formData.code} 
+                        onChange={handleChange} 
+                        error={errors.code} 
+                        placeholder="e.g., CSIT" 
+                        required 
+                    />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Assign Courses (Optional)</label>
-                    <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                <Select
+                    label="Parent Institutional Authority"
+                    name="collegeId"
+                    value={formData.collegeId}
+                    options={colleges}
+                    onChange={handleChange}
+                    error={errors.collegeId}
+                    placeholder="Select College Profile"
+                    required
+                />
+
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Curricular Scope (Optional)</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto no-scrollbar p-1">
                         {courses.length === 0 ? (
-                            <p className="text-sm text-gray-500">No active courses available</p>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest col-span-2 text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-100 italic">No academic courses found</p>
                         ) : (
                             courses.map(course => (
-                                <label key={course.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                    <input type="checkbox" checked={formData.courseIds.includes(course.id)} onChange={() => handleCourseToggle(course.id)} className="w-4 h-4 text-biyani-red focus:ring-biyani-red border-gray-300 rounded" />
-                                    <span className="text-sm">{course.name} ({course.code})</span>
-                                </label>
+                                <button
+                                    key={course.id}
+                                    type="button"
+                                    onClick={() => handleCourseToggle(course.id)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+                                        formData.courseIds.includes(course.id)
+                                        ? 'bg-red-50 border-red-100 text-[#E31E24]'
+                                        : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                                        formData.courseIds.includes(course.id)
+                                        ? 'bg-[#E31E24] border-[#E31E24]'
+                                        : 'bg-white border-gray-200'
+                                    }`}>
+                                        {formData.courseIds.includes(course.id) && (
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                                                <path d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold leading-none">{course.name}</p>
+                                        <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mt-0.5">{course.code}</p>
+                                    </div>
+                                </button>
                             ))
                         )}
                     </div>
                 </div>
 
-                {/* HOD Assignment Removed: Only Principals can assign HODs */}
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
-                </div>
+                <Select
+                    label="Operational Mandate"
+                    name="status"
+                    value={formData.status}
+                    options={[
+                        { value: 'active', label: 'In Service' },
+                        { value: 'inactive', label: 'Suspended' }
+                    ]}
+                    onChange={handleChange}
+                />
             </div>
         </FormModal>
     );

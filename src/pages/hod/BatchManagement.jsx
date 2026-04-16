@@ -1,6 +1,7 @@
 // ============================================
 // BDCS - Batch Management (HOD)
 // The Core Hub: Create Batches & Assign Class Teachers
+// Modernized "Neo-Campus" Edition
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -10,11 +11,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
 import { logCreate, logUpdate } from '../../utils/auditLogger';
 import DataTable from '../../components/admin/DataTable';
-import StatusBadge from '../../components/admin/StatusBadge';
+import StatusPill from '../../components/common/StatusPill';
 import FormModal from '../../components/admin/FormModal';
 import Input from '../../components/Input';
+import PremiumSelect from '../../components/common/PremiumSelect';
 import BatchStudentListModal from '../../components/hod/BatchStudentListModal';
 import PromoteBatchModal from '../../components/hod/PromoteBatchModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function BatchManagement() {
     const { user } = useAuth();
@@ -50,13 +53,10 @@ export default function BatchManagement() {
     const fetchData = async () => {
         try {
             setLoading(true);
-
-            // 1. Fetch Department Courses
             const coursesQ = query(collection(db, 'courses'), where('status', '==', 'active'));
             const coursesSnap = await getDocs(coursesQ);
             setCourses(coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 2. Fetch Department Teachers
             const teachersQ = query(
                 collection(db, 'users'),
                 where('departmentId', '==', user.departmentId),
@@ -66,11 +66,9 @@ export default function BatchManagement() {
             const teachersSnap = await getDocs(teachersQ);
             setTeachers(teachersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 3. Fetch Batches for this Department
             const batchesQ = query(collection(db, 'batches'), where('departmentId', '==', user.departmentId));
             const batchesSnap = await getDocs(batchesQ);
             setBatches(batchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error('Failed to load batch data');
@@ -100,7 +98,7 @@ export default function BatchManagement() {
             courseId: batch.courseId,
             sessionStart: batch.sessionStart,
             sessionEnd: batch.sessionEnd,
-            currentSemester: batch.currentSemester,
+            currentSemester: String(batch.currentSemester),
             classTeacherId: batch.classTeacherId || '',
             status: batch.status
         });
@@ -109,7 +107,7 @@ export default function BatchManagement() {
 
     const handleSubmit = async () => {
         if (!formData.name || !formData.courseId || !formData.classTeacherId) {
-            toast.error('Please fill all required fields');
+            toast.error('Required fields: Name, Course, and Faculty');
             return;
         }
 
@@ -139,46 +137,35 @@ export default function BatchManagement() {
                 const batchRef = doc(db, 'batches', editingBatch.id);
                 await updateDoc(batchRef, payload);
 
-                // ── SYNC STUDENTS IF SEMESTER CHANGED ──
-                const oldSem = parseInt(editingBatch.currentSemester);
-                const newSem = parseInt(formData.currentSemester);
-                if (oldSem !== newSem) {
-                    const { writeBatch: createWriteBatch, query: fbQuery, where: fbWhere, collection: fbCollection } = await import('firebase/firestore');
+                // Sync students if semester changed
+                if (parseInt(editingBatch.currentSemester) !== parseInt(formData.currentSemester)) {
+                    const { writeBatch: createWriteBatch } = await import('firebase/firestore');
                     const { getSemesterYear } = await import('../../services/batchPromotionService');
-                    
-                    const studentsQ = query(
-                        collection(db, 'users'),
-                        where('batchId', '==', editingBatch.id),
-                        where('role', '==', 'student')
-                    );
+                    const studentsQ = query(collection(db, 'users'), where('batchId', '==', editingBatch.id), where('role', '==', 'student'));
                     const studentsSnap = await getDocs(studentsQ);
-                    
                     if (!studentsSnap.empty) {
-                        const batch = createWriteBatch(db);
+                        const batchSync = createWriteBatch(db);
                         studentsSnap.docs.forEach(studentDoc => {
                             const studentData = studentDoc.data();
-                            // Only update ACTIVE and BACK_PROMOTED students (not NOT_PROMOTED/detained)
                             if (studentData.academicStatus !== 'NOT_PROMOTED' && studentData.academicStatus !== 'PASSOUT') {
-                                batch.update(doc(db, 'users', studentDoc.id), {
-                                    currentSemester: newSem,
-                                    currentYear: getSemesterYear(newSem),
+                                batchSync.update(doc(db, 'users', studentDoc.id), {
+                                    currentSemester: parseInt(formData.currentSemester),
+                                    currentYear: getSemesterYear(parseInt(formData.currentSemester)),
                                     updatedAt: serverTimestamp()
                                 });
                             }
                         });
-                        await batch.commit();
-                        console.log(`Synced ${studentsSnap.size} students to Sem ${newSem}`);
+                        await batchSync.commit();
                     }
                 }
-
                 await logUpdate('batches', editingBatch.id, editingBatch, payload, user);
-                toast.success('Batch updated successfully');
+                toast.success('Batch Config Synchronized');
             } else {
                 payload.createdAt = serverTimestamp();
                 payload.createdBy = user.uid;
                 const ref = await addDoc(collection(db, 'batches'), payload);
                 await logCreate('batches', ref.id, payload, user);
-                toast.success('Batch created successfully');
+                toast.success('New Batch Manifest Created');
             }
 
             setShowForm(false);
@@ -191,112 +178,80 @@ export default function BatchManagement() {
         }
     };
 
-    const handleDelete = async (batch) => {
-        if (!window.confirm(`Are you sure you want to delete ${batch.name}?`)) return;
-        try {
-            await deleteDoc(doc(db, 'batches', batch.id));
-            toast.success('Batch deleted');
-            fetchData();
-        } catch (error) {
-            console.error('Error deleting batch:', error);
-            toast.error('Failed to delete batch');
-        }
-    };
-
-    const openStudentModal = (batch) => {
-        setActiveBatch(batch);
-        setShowStudentModal(true);
-    };
-
-    const openPromoteModal = (batch) => {
-        setActiveBatch(batch);
-        setShowPromoteModal(true);
-    };
-
     const columns = [
         {
-            header: 'Batch Infos',
+            header: 'Batch Details',
             field: 'name',
             render: (row) => (
-                <div>
-                    <div className="font-bold text-gray-900">{row.name}</div>
-                    <div className="text-xs text-gray-500">{row.courseName}</div>
+                <div className="flex items-center gap-4 py-2">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs shadow-sm shadow-emerald-100/50">
+                        {row.name.split(' ')[0][0]}{row.name.split(' ').pop()[0]}
+                    </div>
+                    <div>
+                        <div className="font-black text-gray-900 tracking-tight">{row.name}</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{row.courseName}</div>
+                    </div>
                 </div>
             )
         },
         {
-            header: 'Session',
+            header: 'Timeline',
             field: 'sessionStart',
-            render: (row) => <span className="text-sm font-mono">{row.sessionStart}-{row.sessionEnd}</span>
+            render: (row) => (
+                <div className="bg-gray-50/50 px-4 py-2 rounded-xl border border-gray-100/50 inline-block">
+                    <span className="text-xs font-black text-gray-600 tracking-tighter">{row.sessionStart} — {row.sessionEnd}</span>
+                </div>
+            )
         },
         {
-            header: 'Current Sem',
+            header: 'Semester',
             field: 'currentSemester',
             render: (row) => (
-                <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
-                    Sem {row.currentSemester}
-                </span>
+                <div className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest border border-blue-100 shadow-sm shadow-blue-100/20">
+                    Semester {row.currentSemester}
+                </div>
             )
         },
         {
             header: 'Class Teacher',
             field: 'classTeacherName',
             render: (row) => (
-                <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-[10px] font-black border border-violet-100 shadow-sm">
                         {row.classTeacherName?.[0] || '?'}
                     </div>
-                    <span className="text-sm">{row.classTeacherName}</span>
+                    <span className="text-sm font-bold text-gray-700 tracking-tight">{row.classTeacherName}</span>
                 </div>
             )
         },
         {
             header: 'Status',
             field: 'status',
-            render: (row) => <StatusBadge status={row.status} />
+            render: (row) => <StatusPill status={row.status} />
         },
         {
-            header: 'Management',
+            header: 'Operations',
             field: 'management',
             render: (row) => (
-                <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => openStudentModal(row)}
-                        className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-xs font-bold flex items-center gap-1"
-                        title="View Students"
+                        onClick={() => { setActiveBatch(row); setShowStudentModal(true); }}
+                        className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-100 shadow-sm shadow-emerald-100/30"
                     >
-                        <span>👥</span> Students
+                        Roster
                     </button>
-
                     <button
-                        onClick={() => openPromoteModal(row)}
-                        className="p-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors text-xs font-bold flex items-center gap-1"
-                        title="Promote Batch"
+                        onClick={() => { setActiveBatch(row); setShowPromoteModal(true); }}
+                        className="px-4 py-2 bg-[#E31E24] text-white rounded-xl hover:bg-black transition-all text-[10px] font-black uppercase tracking-widest border border-white/20 shadow-lg shadow-red-200"
                     >
-                        <span>🚀</span> Promote
+                        Promote
                     </button>
-                </div>
-            )
-        },
-        {
-            header: 'Actions',
-            field: 'actions',
-            render: (row) => (
-                <div className="flex items-center gap-2 mt-1">
                     <button
                         onClick={() => handleEdit(row)}
-                        className="p-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                        title="Settings"
+                        data-tooltip="Configure Parameters"
+                        className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-900 hover:text-white transition-all border border-gray-100"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    </button>
-
-                    <button
-                        onClick={() => handleDelete(row)}
-                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                        title="Delete"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
                 </div>
             )
@@ -304,158 +259,126 @@ export default function BatchManagement() {
     ];
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Batches & Classes</h2>
-                    <p className="text-sm text-gray-600">Create batches and assign Class Teachers for attendance</p>
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Batches</h2>
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                        HOD Panel • {user?.departmentName}
+                    </p>
                 </div>
                 <button
                     onClick={handleAdd}
-                    className="bg-biyani-red text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center gap-2"
+                    className="bg-[#E31E24] text-white px-8 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-black font-black uppercase tracking-widest text-xs flex items-center gap-3 active:scale-95 transition-all border border-white/20"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
-                    New Batch
+                    Add Batch
                 </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
                 <DataTable
                     columns={columns}
                     data={batches}
                     loading={loading}
-                    emptyMessage="No batches found. Initialize your first batch."
+                    emptyMessage="No batches found. Add your first batch to start."
                     actions={false}
                 />
             </div>
 
-            {showForm && (
-                <FormModal
-                    isOpen={true}
-                    onClose={() => setShowForm(false)}
-                    onSubmit={handleSubmit}
-                    title={editingBatch ? 'Edit Batch Configuration' : 'Create New Batch'}
-                    submitText={editingBatch ? 'Update Batch' : 'Create Batch'}
-                    loading={formLoading}
-                >
-                    <div className="space-y-4">
-                        {/* Course Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Course *</label>
-                            <select
-                                value={formData.courseId}
-                                onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-biyani-red"
-                                required
-                            >
-                                <option value="">-- Choose Course --</option>
-                                {courses.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                                ))}
-                            </select>
-                        </div>
+            <FormModal
+                isOpen={showForm}
+                onClose={() => setShowForm(false)}
+                onSubmit={handleSubmit}
+                title={editingBatch ? 'Edit Batch' : 'Add New Batch'}
+                submitText={editingBatch ? 'Save Changes' : 'Add Batch'}
+                loading={formLoading}
+            >
+                <div className="space-y-6 pt-4">
+                    <PremiumSelect
+                        label="Course *"
+                        placeholder="Select Course"
+                        value={formData.courseId}
+                        onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+                        options={courses.map(c => ({ label: `${c.name} (${c.code})`, value: c.id }))}
+                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13" /></svg>}
+                    />
 
-                        {/* Batch Name */}
+                    <Input
+                        label="Batch Name *"
+                        placeholder="e.g. BCA 2023-26 Section A"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
                         <Input
-                            label="Batch Name *"
-                            placeholder="e.g. BCA 2023-2026 Batch A"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            required
+                            label="Session Start Year"
+                            type="number"
+                            value={formData.sessionStart}
+                            onChange={(e) => setFormData({ ...formData, sessionStart: e.target.value })}
                         />
-
-                        {/* Session */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="Session Start"
-                                type="number"
-                                value={formData.sessionStart}
-                                onChange={(e) => setFormData({ ...formData, sessionStart: e.target.value })}
-                                required
-                            />
-                            <Input
-                                label="Session End"
-                                type="number"
-                                value={formData.sessionEnd}
-                                onChange={(e) => setFormData({ ...formData, sessionEnd: e.target.value })}
-                                required
-                            />
-                        </div>
-
-                        {/* Current Configuration */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Current Semester</label>
-                                <select
-                                    value={formData.currentSemester}
-                                    onChange={(e) => setFormData({ ...formData, currentSemester: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                    disabled={!formData.courseId}
-                                >
-                                    {(() => {
-                                        const selectedCourse = courses.find(c => c.id === formData.courseId);
-                                        const duration = selectedCourse?.duration ? parseInt(selectedCourse.duration) : 4;
-                                        const maxSemesters = duration * 2 || 8;
-
-                                        return Array.from({ length: maxSemesters }, (_, i) => i + 1).map(sem => (
-                                            <option key={sem} value={sem}>Semester {sem}</option>
-                                        ));
-                                    })()}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                >
-                                    <option value="active">Active (Running)</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="archived">Archived</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Class Teacher Assignment */}
-                        <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                            <label className="block text-sm font-bold text-red-800 mb-1">Assign Class Teacher *</label>
-                            <p className="text-xs text-red-600 mb-2">This teacher will be responsible for FULL DAY attendance.</p>
-                            <select
-                                value={formData.classTeacherId}
-                                onChange={(e) => setFormData({ ...formData, classTeacherId: e.target.value })}
-                                className="w-full border border-red-200 rounded-lg px-3 py-2 bg-white"
-                                required
-                            >
-                                <option value="">-- Select Faculty --</option>
-                                {teachers.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name} ({t.employeeId})</option>
-                                ))}
-                            </select>
-                        </div>
-
+                        <Input
+                            label="Session End Year"
+                            type="number"
+                            value={formData.sessionEnd}
+                            onChange={(e) => setFormData({ ...formData, sessionEnd: e.target.value })}
+                        />
                     </div>
-                </FormModal>
-            )}
 
-            {/* View Students Modal */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <PremiumSelect
+                            label="Current Semester"
+                            value={String(formData.currentSemester)}
+                            onChange={(e) => setFormData({ ...formData, currentSemester: e.target.value })}
+                            options={Array.from({ length: 12 }, (_, i) => ({ label: `Semester ${i + 1}`, value: String(i + 1) }))}
+                            disabled={!formData.courseId}
+                        />
+                        <PremiumSelect
+                            label="Status"
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            options={[
+                                { label: 'Active', value: 'active' },
+                                { label: 'Completed', value: 'completed' },
+                                { label: 'Archived', value: 'archived' }
+                            ]}
+                        />
+                    </div>
+
+                    <div className="p-6 bg-red-50/50 rounded-[1.5rem] border border-red-100 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-[#E31E24] rounded-full" />
+                            <h4 className="text-[10px] font-black text-red-600 uppercase tracking-widest">Class Teacher Details</h4>
+                        </div>
+                        <PremiumSelect
+                            label="Select Teacher *"
+                            placeholder="Select a teacher for this batch"
+                            value={formData.classTeacherId}
+                            onChange={(e) => setFormData({ ...formData, classTeacherId: e.target.value })}
+                            options={teachers.map(t => ({ label: `${t.name} (${t.employeeId})`, value: t.id }))}
+                            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 4.354l-8 4 8 4 8-4-8-4zM4 12.354l8 4 8-4" /></svg>}
+                        />
+                        <p className="text-[9px] font-bold text-red-400 uppercase tracking-tighter text-center">This teacher will manage daily attendance for the batch.</p>
+                    </div>
+                </div>
+            </FormModal>
+
             <BatchStudentListModal
                 isOpen={showStudentModal}
                 onClose={() => setShowStudentModal(false)}
                 batch={activeBatch}
             />
 
-            {/* Promote Batch Modal */}
             <PromoteBatchModal
                 isOpen={showPromoteModal}
                 onClose={() => setShowPromoteModal(false)}
                 batch={activeBatch}
-                onSuccess={() => {
-                    setShowPromoteModal(false);
-                    fetchData(); // Refresh list to see updated semester
-                }}
+                onSuccess={() => { setShowPromoteModal(false); fetchData(); }}
             />
         </div>
     );

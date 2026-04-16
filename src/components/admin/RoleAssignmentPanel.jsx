@@ -1,9 +1,11 @@
 // ============================================
 // BDCS - Role Assignment Panel
 // Manage multi-role assignments for users
+// Portal-powered for reliable screen coverage
 // ============================================
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
     getUserRoles,
@@ -14,6 +16,8 @@ import {
 } from '../../services/roleManagementService';
 import { toast } from '../admin/Toast';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import Button from '../Button';
 
 export default function RoleAssignmentPanel({ targetUser, onUpdate }) {
     const { user: currentUser } = useAuth();
@@ -110,16 +114,16 @@ export default function RoleAssignmentPanel({ targetUser, onUpdate }) {
 
     const getRoleBadge = (role, isOriginal) => {
         const colors = {
-            admin: 'bg-purple-100 text-purple-800',
-            principal: 'bg-blue-100 text-blue-800',
-            hod: 'bg-green-100 text-green-800',
-            teacher: 'bg-yellow-100 text-yellow-800',
-            student: 'bg-gray-100 text-gray-800'
+            admin: 'bg-red-50 text-red-700 border-red-100',
+            principal: 'bg-blue-50 text-blue-700 border-blue-100',
+            hod: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            teacher: 'bg-amber-50 text-amber-700 border-amber-100',
+            student: 'bg-gray-50 text-gray-700 border-gray-100'
         };
         return (
-            <span className={`px-2 py-1 text-xs font-semibold rounded ${colors[role] || 'bg-gray-100 text-gray-800'}`}>
-                {role.toUpperCase()}
-                {isOriginal && <span className="ml-1 text-xs">(Primary)</span>}
+            <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border ${colors[role] || 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+                {role}
+                {isOriginal && <span className="ml-1 opacity-50">(Primary)</span>}
             </span>
         );
     };
@@ -130,45 +134,52 @@ export default function RoleAssignmentPanel({ targetUser, onUpdate }) {
     });
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-8">
             {/* Active Roles */}
             <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Active Role Assignments</h3>
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Active Tenures</h3>
                     {availableRoles.length > 0 && (
-                        <button
+                        <Button
+                            variant="primary"
                             onClick={() => setShowAddModal(true)}
-                            className="px-3 py-1 text-xs font-medium text-white bg-biyani-red rounded hover:bg-red-700 transition-colors"
+                            className="px-4 py-2 text-[10px]"
                         >
-                            + Assign Role
-                        </button>
+                            + Assign New Domain
+                        </Button>
                     )}
                 </div>
 
                 {loading ? (
-                    <div className="text-center py-4 text-sm text-gray-500">Loading...</div>
+                    <div className="animate-pulse space-y-3">
+                        {[1, 2].map(i => <div key={i} className="h-16 bg-gray-50 rounded-2xl" />)}
+                    </div>
                 ) : roles.length === 0 ? (
-                    <div className="text-center py-4 text-sm text-gray-500">No role assignments</div>
+                    <div className="text-center py-12 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No active role assignments found</p>
+                    </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {roles.map((assignment) => (
-                            <div key={assignment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    {getRoleBadge(assignment.role, assignment.metadata?.isOriginalRole)}
-                                    {assignment.scope?.departmentId && (
-                                        <span className="ml-2 text-xs text-gray-600">
-                                            Dept: {assignment.scope.departmentName || assignment.scope.departmentId}
-                                        </span>
-                                    )}
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Assigned {assignment.assignedAt && format(assignment.assignedAt.toDate(), 'MMM d, yyyy')}
+                            <div key={assignment.id} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-3">
+                                        {getRoleBadge(assignment.role, assignment.metadata?.isOriginalRole)}
+                                        {assignment.scope?.departmentName && (
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                                Dept: {assignment.scope.departmentName}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-[10px] font-bold text-gray-300 uppercase tracking-widest pl-1">
+                                        Enrolled {assignment.assignedAt && format(assignment.assignedAt.toDate(), 'MMM d, yyyy')}
                                     </div>
                                 </div>
                                 {!assignment.metadata?.isOriginalRole && (
                                     <button
                                         onClick={() => handleRevokeRole(assignment.id, assignment.role)}
                                         disabled={loading}
-                                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                                        className="px-4 py-2 text-[10px] font-black text-red-600 hover:text-white hover:bg-red-600 rounded-xl transition-all uppercase tracking-widest border border-red-100"
                                     >
                                         Revoke
                                     </button>
@@ -179,25 +190,23 @@ export default function RoleAssignmentPanel({ targetUser, onUpdate }) {
                 )}
             </div>
 
-            {/* Assignment History */}
-            <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Assignment History</h3>
+            {/* History */}
+            <div className="pt-6 border-t border-gray-50">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-6">Historical Log</h3>
                 {history.length === 0 ? (
-                    <div className="text-center py-4 text-sm text-gray-500">No history</div>
+                    <p className="text-[10px] font-bold text-gray-300 uppercase pl-1">No historical data available</p>
                 ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                    <div className="space-y-4">
                         {history.map((assignment) => (
-                            <div key={assignment.id} className="flex items-center justify-between p-2 text-xs border-l-2 border-gray-300 pl-3">
-                                <div>
-                                    {getRoleBadge(assignment.role, false)}
-                                    <span className={`ml-2 ${assignment.status === 'active' ? 'text-green-600' : 'text-gray-500'}`}>
-                                        {assignment.status}
-                                    </span>
-                                    {assignment.status === 'revoked' && assignment.revokedAt && (
-                                        <span className="ml-2 text-gray-500">
-                                            ({format(assignment.revokedAt.toDate(), 'MMM d, yyyy')})
-                                        </span>
-                                    )}
+                            <div key={assignment.id} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-xl border border-transparent hover:border-gray-100 transition-all group">
+                                <div className="flex items-center gap-4">
+                                     <div className={`w-2 h-2 rounded-full ${assignment.status === 'active' ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+                                     <div>
+                                        <p className="text-xs font-black text-gray-900 uppercase tracking-tight">{assignment.role}</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                            {assignment.status} {assignment.revokedAt && `• ${format(assignment.revokedAt.toDate(), 'MMM d, yyyy')}`}
+                                        </p>
+                                     </div>
                                 </div>
                             </div>
                         ))}
@@ -205,62 +214,80 @@ export default function RoleAssignmentPanel({ targetUser, onUpdate }) {
                 )}
             </div>
 
-            {/* Add Role Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Assign New Role</h3>
+            {/* Add Role Modal (Portaled) */}
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {showAddModal && (
+                        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 overflow-hidden">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-gray-900/40 backdrop-blur-md"
+                                onClick={() => setShowAddModal(false)}
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="relative bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-10 overflow-hidden"
+                            >
+                                <div className="space-y-8">
+                                    <div>
+                                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">Assign Domain</h3>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Elevate user privileges</p>
+                                    </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Role
-                                </label>
-                                <select
-                                    value={newRole}
-                                    onChange={(e) => setNewRole(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red"
-                                >
-                                    <option value="">Select a role</option>
-                                    {availableRoles.map(role => (
-                                        <option key={role} value={role}>{role.toUpperCase()}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Rank</label>
+                                            <select
+                                                value={newRole}
+                                                onChange={(e) => setNewRole(e.target.value)}
+                                                className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-[#E31E24] transition-all"
+                                            >
+                                                <option value="">Operational Roles</option>
+                                                {availableRoles.map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                                            </select>
+                                        </div>
 
-                            {newRole === 'hod' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Department (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Department ID"
-                                        value={scope.departmentId || ''}
-                                        onChange={(e) => setScope({ ...scope, departmentId: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red"
-                                    />
+                                        {newRole === 'hod' && (
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Department Identifier</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. DEPT-CS"
+                                                    value={scope.departmentId || ''}
+                                                    onChange={(e) => setScope({ ...scope, departmentId: e.target.value })}
+                                                    className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-[#E31E24] transition-all"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-3 pt-4">
+                                        <Button
+                                            onClick={handleAssignRole}
+                                            disabled={loading || !newRole}
+                                            className="w-full h-14 rounded-2xl"
+                                        >
+                                            {loading ? 'Initializing...' : 'Commit Assignment'}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setShowAddModal(false)}
+                                            disabled={loading}
+                                            className="w-full text-gray-400"
+                                        >
+                                            Discard
+                                        </Button>
+                                    </div>
                                 </div>
-                            )}
-
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    onClick={() => setShowAddModal(false)}
-                                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleAssignRole}
-                                    disabled={loading || !newRole}
-                                    className="flex-1 px-4 py-2 text-white bg-biyani-red rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                                >
-                                    {loading ? 'Assigning...' : 'Assign Role'}
-                                </button>
-                            </div>
+                            </motion.div>
                         </div>
-                    </div>
-                </div>
+                    )}
+                </AnimatePresence>,
+                document.body
             )}
         </div>
     );

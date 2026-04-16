@@ -11,6 +11,7 @@ import { logCreate, logUpdate, buildHierarchyPath } from '../../../utils/auditLo
 import { validateRequired, validateCodeFormat, isCodeUnique, sanitizeInput } from '../../../utils/validators';
 import FormModal from '../../../components/admin/FormModal';
 import Input from '../../../components/Input';
+import Select from '../../../components/admin/Select';
 
 export default function CollegeForm({ college, onClose, onSuccess }) {
     const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
         name: '',
         code: '',
         campusId: '',
+        affiliation: 'University of Rajasthan', // Default as per most BDCS use-cases
         type: 'coed',
         status: 'active'
     });
@@ -32,6 +34,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 name: college.name,
                 code: college.code,
                 campusId: college.campusId,
+                affiliation: college.affiliation || 'University of Rajasthan',
                 type: college.type,
                 status: college.status
             });
@@ -42,7 +45,11 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
         try {
             const q = query(collection(db, 'campuses'), where('status', '==', 'active'));
             const snapshot = await getDocs(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const data = snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                label: doc.data().name, 
+                value: doc.id 
+            }));
             setCampuses(data);
         } catch (error) {
             console.error('Error fetching campuses:', error);
@@ -58,7 +65,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
 
     const validate = async () => {
         const newErrors = {};
-        const requiredValidation = validateRequired(formData, ['name', 'code', 'campusId']);
+        const requiredValidation = validateRequired(formData, ['name', 'code', 'campusId', 'affiliation']);
         if (!requiredValidation.valid) Object.assign(newErrors, requiredValidation.errors);
 
         const codeValidation = validateCodeFormat(formData.code);
@@ -78,12 +85,13 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
         setLoading(true);
 
         try {
-            const selectedCampus = campuses.find(c => c.id === formData.campusId);
+            const selectedCampus = campuses.find(c => c.value === formData.campusId);
             const sanitizedData = {
                 name: sanitizeInput(formData.name),
                 code: formData.code.toUpperCase(),
                 campusId: formData.campusId,
-                campusName: selectedCampus.name,
+                campusName: selectedCampus.label,
+                affiliation: sanitizeInput(formData.affiliation),
                 type: formData.type,
                 status: formData.status
             };
@@ -91,7 +99,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
             const metadata = {
                 label: sanitizedData.name,
                 path: buildHierarchyPath({
-                    campusName: selectedCampus.name,
+                    campusName: selectedCampus.label,
                     collegeName: sanitizedData.name
                 })
             };
@@ -101,7 +109,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 const updateData = { ...sanitizedData, updatedAt: serverTimestamp(), updatedBy: user.uid };
                 await updateDoc(collegeRef, updateData);
                 await logUpdate('colleges', college.id, college, { ...college, ...updateData }, user, metadata);
-                toast.success('College updated successfully');
+                toast.success('College portfolio updated');
             } else {
                 const newCollege = {
                     ...sanitizedData,
@@ -112,7 +120,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 };
                 const docRef = await addDoc(collection(db, 'colleges'), newCollege);
                 await logCreate('colleges', docRef.id, newCollege, user, metadata);
-                toast.success('College created successfully');
+                toast.success('College registration complete');
             }
 
             onSuccess();
@@ -129,38 +137,78 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
             isOpen={true}
             onClose={onClose}
             onSubmit={handleSubmit}
-            title={college ? 'Edit College' : 'Add New College'}
-            submitText={college ? 'Update' : 'Create'}
+            title={college ? 'Modify Institutional Portfolio' : 'Register New College Instance'}
+            submitText={college ? 'Sync Records' : 'Initialize College'}
             loading={loading}
             size="md"
         >
-            <div className="space-y-4">
-                <Input label="College Name" name="name" value={formData.name} onChange={handleChange} error={errors.name} placeholder="e.g., Biyani Girls College" required />
-                <Input label="College Code" name="code" value={formData.code} onChange={handleChange} error={errors.code} placeholder="e.g., BGC" required helperText="2-10 uppercase letters/numbers" />
+            <div className="space-y-6 py-2">
+                <Input 
+                    label="College Legal Name" 
+                    name="name" 
+                    value={formData.name} 
+                    onChange={handleChange} 
+                    error={errors.name} 
+                    placeholder="e.g., Biyani Girls College" 
+                    required 
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <Input 
+                        label="Portfolio Code" 
+                        name="code" 
+                        value={formData.code} 
+                        onChange={handleChange} 
+                        error={errors.code} 
+                        placeholder="e.g., BGC" 
+                        required 
+                    />
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Campus <span className="text-red-600">*</span></label>
-                    <select name="campusId" value={formData.campusId} onChange={handleChange} className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent ${errors.campusId ? 'border-red-500' : 'border-gray-300'}`}>
-                        <option value="">Select Campus</option>
-                        {campuses.map(campus => <option key={campus.id} value={campus.id}>{campus.name}</option>)}
-                    </select>
-                    {errors.campusId && <p className="text-sm text-red-600 mt-1">{errors.campusId}</p>}
+                    <Select
+                        label="Campus Territory"
+                        name="campusId"
+                        value={formData.campusId}
+                        options={campuses}
+                        onChange={handleChange}
+                        error={errors.campusId}
+                        placeholder="Select Campus"
+                        required
+                    />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">College Type</label>
-                    <select name="type" value={formData.type} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent">
-                        <option value="girls">Girls</option>
-                        <option value="coed">Co-ed</option>
-                    </select>
-                </div>
+                <Input 
+                    label="University Affiliation" 
+                    name="affiliation" 
+                    value={formData.affiliation} 
+                    onChange={handleChange} 
+                    error={errors.affiliation} 
+                    placeholder="e.g., University of Rajasthan" 
+                    required 
+                    helperText="Official university governing this college"
+                />
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                <div className="grid grid-cols-2 gap-4">
+                    <Select
+                        label="Institutional Structure"
+                        name="type"
+                        value={formData.type}
+                        options={[
+                            { value: 'girls', label: 'Girls Only' },
+                            { value: 'coed', label: 'Co-Educational' }
+                        ]}
+                        onChange={handleChange}
+                    />
+
+                    <Select
+                        label="Operational Status"
+                        name="status"
+                        value={formData.status}
+                        options={[
+                            { value: 'active', label: 'Active Service' },
+                            { value: 'inactive', label: 'Inactive/Suspended' }
+                        ]}
+                        onChange={handleChange}
+                    />
                 </div>
             </div>
         </FormModal>

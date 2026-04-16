@@ -11,6 +11,7 @@ import { logCreate, logUpdate, buildHierarchyPath } from '../../../utils/auditLo
 import { validateRequired, validateCodeFormat, validateDuration, isCodeUnique, sanitizeInput } from '../../../utils/validators';
 import FormModal from '../../../components/admin/FormModal';
 import Input from '../../../components/Input';
+import Select from '../../../components/admin/Select';
 
 export default function CourseForm({ course, onClose, onSuccess }) {
     const { user } = useAuth();
@@ -24,7 +25,15 @@ export default function CourseForm({ course, onClose, onSuccess }) {
     useEffect(() => {
         fetchColleges();
         if (course) {
-            setFormData({ name: course.name, code: course.code, degreeType: course.degreeType, duration: course.duration, systemType: course.systemType, collegeIds: course.collegeIds || [], status: course.status });
+            setFormData({ 
+                name: course.name, 
+                code: course.code, 
+                degreeType: course.degreeType, 
+                duration: course.duration, 
+                systemType: course.systemType, 
+                collegeIds: course.collegeIds || [], 
+                status: course.status 
+            });
         }
     }, [course]);
 
@@ -41,7 +50,10 @@ export default function CourseForm({ course, onClose, onSuccess }) {
 
     const handleChange = (e) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseInt(value) : (name === 'code' ? value.toUpperCase() : value) }));
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: type === 'number' ? parseInt(value) : (name === 'code' ? value.toUpperCase() : value) 
+        }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     };
 
@@ -112,55 +124,124 @@ export default function CourseForm({ course, onClose, onSuccess }) {
     };
 
     return (
-        <FormModal isOpen={true} onClose={onClose} onSubmit={handleSubmit} title={course ? 'Edit Course' : 'Add New Course'} submitText={course ? 'Update' : 'Create'} loading={loading} size="lg">
-            <div className="space-y-4">
-                <Input label="Course Name" name="name" value={formData.name} onChange={handleChange} error={errors.name} placeholder="e.g., Bachelor of Computer Applications" required />
-                <Input label="Course Code" name="code" value={formData.code} onChange={handleChange} error={errors.code} placeholder="e.g., BCA" required helperText="2-10 uppercase letters/numbers" />
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Degree Type</label>
-                        <select name="degreeType" value={formData.degreeType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent">
-                            <option value="ug">Undergraduate (UG)</option>
-                            <option value="pg">Postgraduate (PG)</option>
-                            <option value="diploma">Diploma</option>
-                            <option value="certificate">Certificate</option>
-                        </select>
-                    </div>
-                    <Input label="Duration (years)" name="duration" type="number" value={formData.duration} onChange={handleChange} error={errors.duration} min="1" max="10" required />
+        <FormModal 
+            isOpen={true} 
+            onClose={onClose} 
+            onSubmit={handleSubmit} 
+            title={course ? 'Modify Degree Program' : 'Register Academic Course'} 
+            submitText={course ? 'Update Curriculum' : 'Initialize Course'} 
+            loading={loading} 
+            size="lg"
+        >
+            <div className="space-y-6 py-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <Input 
+                        label="Course Title" 
+                        name="name" 
+                        value={formData.name} 
+                        onChange={handleChange} 
+                        error={errors.name} 
+                        placeholder="e.g., Bachelor of Computer Applications" 
+                        required 
+                    />
+                    <Input 
+                        label="Course Code" 
+                        name="code" 
+                        value={formData.code} 
+                        onChange={handleChange} 
+                        error={errors.code} 
+                        placeholder="e.g., BCA" 
+                        required 
+                        helperText="2-10 uppercase identifier" 
+                    />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">System Type</label>
-                    <select name="systemType" value={formData.systemType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent">
-                        <option value="semester">Semester</option>
-                        <option value="year">Year</option>
-                    </select>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <Select
+                        label="Degree Level"
+                        name="degreeType"
+                        value={formData.degreeType}
+                        options={[
+                            { value: 'ug', label: 'Undergraduate' },
+                            { value: 'pg', label: 'Postgraduate' },
+                            { value: 'diploma', label: 'Diploma' },
+                            { value: 'certificate', label: 'Certificate' }
+                        ]}
+                        onChange={handleChange}
+                    />
+
+                    <Input 
+                        label="Duration (Years)" 
+                        name="duration" 
+                        type="number" 
+                        value={formData.duration} 
+                        onChange={handleChange} 
+                        error={errors.duration} 
+                        min="1" 
+                        max="10" 
+                        required 
+                    />
+
+                    <Select
+                        label="Evaluation System"
+                        name="systemType"
+                        value={formData.systemType}
+                        options={[
+                            { value: 'semester', label: 'Semester Mode' },
+                            { value: 'year', label: 'Annual Mode' }
+                        ]}
+                        onChange={handleChange}
+                    />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Colleges (Optional)</label>
-                    <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Institutional Affiliation (Optional)</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto no-scrollbar p-1">
                         {colleges.length === 0 ? (
-                            <p className="text-sm text-gray-500">No active colleges available</p>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest col-span-2 text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-100 italic">No colleges found</p>
                         ) : (
                             colleges.map(college => (
-                                <label key={college.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                    <input type="checkbox" checked={formData.collegeIds.includes(college.id)} onChange={() => handleCollegeToggle(college.id)} className="w-4 h-4 text-biyani-red focus:ring-biyani-red border-gray-300 rounded" />
-                                    <span className="text-sm">{college.name} ({college.campusName})</span>
-                                </label>
+                                <button
+                                    key={college.id}
+                                    type="button"
+                                    onClick={() => handleCollegeToggle(college.id)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+                                        formData.collegeIds.includes(college.id)
+                                        ? 'bg-red-50 border-red-100 text-[#E31E24]'
+                                        : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                                        formData.collegeIds.includes(college.id)
+                                        ? 'bg-[#E31E24] border-[#E31E24]'
+                                        : 'bg-white border-gray-200'
+                                    }`}>
+                                        {formData.collegeIds.includes(college.id) && (
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                                                <path d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold leading-none">{college.name}</p>
+                                        <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mt-0.5">{college.campusName}</p>
+                                    </div>
+                                </button>
                             ))
                         )}
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
-                </div>
+                <Select
+                    label="Program Status"
+                    name="status"
+                    value={formData.status}
+                    options={[
+                        { value: 'active', label: 'Active Program' },
+                        { value: 'inactive', label: 'Discontinued' }
+                    ]}
+                    onChange={handleChange}
+                />
             </div>
         </FormModal>
     );

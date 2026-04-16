@@ -4,16 +4,18 @@ import { BrowserRouter } from 'react-router-dom'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import './index.css'
 import './App.css'
-import App from './App.jsx'
+import ProductionErrorBoundary from './components/common/ProductionErrorBoundary.jsx'
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL)
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
-        <ConvexProvider client={convex}>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
-        </ConvexProvider>
+        <ProductionErrorBoundary>
+            <ConvexProvider client={convex}>
+                <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+                    <App />
+                </BrowserRouter>
+            </ConvexProvider>
+        </ProductionErrorBoundary>
     </StrictMode>,
 )

@@ -276,20 +276,23 @@ export default function ProjectShowcase() {
                         </div>
                     </div>
 
-                    {/* Filter Chips – Tightened for Mobile */}
-                    <div className="flex gap-2 overflow-x-auto py-1 -mx-3 px-3 md:-mx-0 md:px-0 scrollbar-hide no-scrollbar select-none">
-                        {['All', ...PROJECT_TYPES.map(t => t.id)].map(type => (
-                            <button
-                                key={type}
-                                onClick={() => setActiveFilter(type)}
-                                className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest whitespace-nowrap border transition-all shrink-0 ${activeFilter === type
-                                    ? 'bg-gray-900 text-white border-gray-900 shadow-lg scale-105'
-                                    : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
-                                    }`}
-                            >
-                                {type === 'All' ? '✨ All' : `${PROJECT_TYPES.find(t => t.id === type)?.icon} ${PROJECT_TYPES.find(t => t.id === type)?.label}`}
-                            </button>
-                        ))}
+                    {/* Filter Dropdown */}
+                    <div className="relative w-full md:w-auto mt-2 md:mt-0">
+                        <select
+                            value={activeFilter}
+                            onChange={(e) => setActiveFilter(e.target.value)}
+                            className="appearance-none w-full md:w-56 bg-white border border-gray-100 text-gray-700 py-3 pl-5 pr-10 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+                        >
+                            <option value="All">✨ All Projects</option>
+                            {PROJECT_TYPES.map(t => (
+                                <option key={t.id} value={t.id}>
+                                    {t.icon} {t.label}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -331,10 +334,10 @@ export default function ProjectShowcase() {
             {/* MODAL (Keeping existing structure but cleaner UI) */}
             <AnimatePresence>
                 {showModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
                             onClick={() => setShowModal(false)}
                         />
                         <motion.div
@@ -525,11 +528,11 @@ function ProjectDetailModal({ project, isOwner, onClose, onEdit, onDelete }) {
     }, []);
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
                 onClick={onClose}
             />
 

@@ -1,10 +1,16 @@
+// ============================================
+// BDCS - HOD Event Approvals
+// Manage Event Proposals — "Neo-Campus" Edition
+// ============================================
+
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import DataTable from '../../components/admin/DataTable';
-import StatusBadge from '../../components/admin/StatusBadge';
+import StatusPill from '../../components/common/StatusPill';
 import { toast } from '../../components/admin/Toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function EventApprovals() {
     const { user, loading: authLoading } = useAuth();
@@ -29,28 +35,15 @@ export default function EventApprovals() {
         try {
             setLoading(true);
             let q;
-
             if (user.departmentId) {
-                // Preferred: filter by department
-                q = query(
-                    collection(db, 'events'),
-                    where('departmentId', '==', user.departmentId)
-                );
-            } else if (user.collegeId) {
-                // Fallback: filter by college
-                q = query(
-                    collection(db, 'events'),
-                    where('collegeId', '==', user.collegeId)
-                );
+                q = query(collection(db, 'events'), where('departmentId', '==', user.departmentId));
             } else {
-                // Last resort: fetch all events
                 q = query(collection(db, 'events'));
             }
 
             const snap = await getDocs(q);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            // Sort by Date (Newest First)
             data.sort((a, b) => {
                 const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
                 const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
@@ -70,8 +63,6 @@ export default function EventApprovals() {
         const reason = status === 'rejected' ? window.prompt('Enter rejection reason:') : null;
         if (status === 'rejected' && !reason) return;
 
-        if (!confirm(`Are you sure you want to ${status.toUpperCase()} this event?`)) return;
-
         try {
             await updateDoc(doc(db, 'events', id), {
                 status,
@@ -80,7 +71,7 @@ export default function EventApprovals() {
                 rejectionReason: reason || null,
                 approvedAt: serverTimestamp()
             });
-            toast.success(`Event ${status.toUpperCase()} Successfully`);
+            toast.success(`Manifest ${status.toUpperCase()} Successfully`);
             setEvents(prev => prev.map(e => e.id === id ? { ...e, status } : e));
         } catch (error) {
             console.error('Error updating event:', error);
@@ -90,131 +81,122 @@ export default function EventApprovals() {
 
     const columns = [
         {
-            header: 'Event Details',
+            header: 'Event Identity',
             field: 'title',
             render: (row) => (
-                <div>
-                    <div className="font-bold text-gray-900">{row.title}</div>
-                    <div className="text-xs text-biyani-red font-medium">{row.type}</div>
+                <div className="flex items-center gap-4 py-2">
+                    <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#E31E24] flex items-center justify-center font-black text-[10px] border border-red-100 shadow-sm">
+                        {row.title?.[0]}
+                    </div>
+                    <div>
+                        <div className="font-black text-gray-900 tracking-tight">{row.title}</div>
+                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{row.type}</div>
+                    </div>
                 </div>
             )
         },
         {
-            header: 'Organizer',
+            header: 'Origin (Organizer)',
             field: 'organizerName',
             render: (row) => (
-                <div>
-                    <div className="font-medium text-gray-800">{row.organizerName}</div>
-                    <div className="text-xs text-gray-500">{row.batchName || row.organizerRole}</div>
+                <div className="flex flex-col gap-1">
+                    <div className="font-bold text-gray-800 tracking-tight text-sm">{row.organizerName}</div>
+                    <div className="text-[10px] font-black text-violet-600 uppercase tracking-widest">{row.batchName || row.organizerRole}</div>
                 </div>
             )
         },
         {
-            header: 'Scope',
+            header: 'Jurisdiction',
             field: 'scope',
             render: (row) => {
-                const scopeColors = {
-                    department: 'bg-violet-100 text-violet-700',
-                    college: 'bg-blue-100 text-blue-700',
-                    campus: 'bg-emerald-100 text-emerald-700',
-                };
-                const scopeLabels = { department: '🏛️ Dept', college: '🏫 College', campus: '🌐 Campus' };
                 const scope = row.scope || 'department';
+                const colors = {
+                    department: 'bg-violet-50 text-violet-600 border-violet-100',
+                    college: 'bg-blue-50 text-blue-600 border-blue-100',
+                    campus: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                };
                 return (
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${scopeColors[scope] || 'bg-gray-100 text-gray-600'}`}>
-                        {scopeLabels[scope] || scope}
+                    <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${colors[scope] || 'bg-gray-50 text-gray-600 border-gray-100'}`}>
+                        {scope}
                     </span>
                 );
             }
         },
         {
-            header: 'Date & Venue',
+            header: 'Schedule & Sector',
             field: 'date',
             render: (row) => (
-                <div className="text-sm">
-                    <div>{row.date ? new Date(row.date).toLocaleDateString() : 'TBD'}</div>
-                    <div className="text-gray-500 text-xs">{row.venue}</div>
+                <div className="flex flex-col gap-1">
+                    <div className="text-sm font-bold text-gray-700">{row.date ? new Date(row.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD'}</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{row.venue || 'Global Campus'}</div>
                 </div>
             )
         },
         {
-            header: 'Status',
+            header: 'Protocol Status',
             field: 'status',
-            render: (row) => <StatusBadge status={row.status} />
+            render: (row) => <StatusPill status={row.status} />
         },
         {
-            header: 'Actions',
+            header: 'Operations',
             field: 'actions',
-            render: (row) => row.status === 'pending' ? (
-                <div className="flex gap-2">
+            render: (row) => row.status === 'pending' || row.status === 'pending_hod' ? (
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => handleAction(row.id, 'approved')}
-                        className="p-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
-                        title="Approve"
+                        className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 active:scale-95"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
                     </button>
                     <button
                         onClick={() => handleAction(row.id, 'rejected')}
-                        className="p-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
-                        title="Reject"
+                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-black hover:text-white transition-all border border-red-100 active:scale-95"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
             ) : (
-                <span className="text-xs text-gray-400 font-mono">
-                    {row.status === 'approved' ? `Approved by ${row.approverName || 'HOD'}` : 'Resolved'}
-                </span>
+                <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest italic">
+                    Resolved
+                </div>
             )
         }
     ];
 
-    // Don't attempt to render until auth is resolved
-    if (authLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-biyani-red"></div>
-            </div>
-        );
-    }
+    if (authLoading) return null;
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Event Approvals & History</h2>
-                    <p className="text-sm text-gray-600">
-                        Manage event proposals for {user?.departmentName || user?.collegeName || 'your department'}
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Event Logistics</h2>
+                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mt-1 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse" />
+                        Infrastructure Planning • {user?.departmentName}
                     </p>
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-xl">
+
+                <div className="flex bg-white/50 backdrop-blur-md p-1.5 rounded-[1.5rem] border border-gray-100 shadow-sm">
                     {['pending', 'approved', 'rejected', 'all'].map(f => (
                         <button
                             key={f}
                             onClick={() => setCurrentFilter(f)}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-all ${currentFilter === f ? 'bg-white shadow-sm text-biyani-red' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${currentFilter === f ? 'bg-black text-white shadow-lg' : 'text-gray-400 hover:text-gray-900'}`}
                         >
                             {f}
-                            {f !== 'all' && (
-                                <span className="ml-1.5 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">
-                                    {events.filter(e => e.status === f).length}
-                                </span>
-                            )}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
                 <DataTable
                     columns={columns}
                     data={filteredEvents}
                     loading={loading}
                     actions={false}
-                    emptyMessage={`No ${currentFilter === 'all' ? '' : currentFilter + ' '}events found.`}
+                    emptyMessage={`No ${currentFilter === 'all' ? '' : currentFilter + ' '}manifests in archive.`}
                 />
-
             </div>
         </div>
     );

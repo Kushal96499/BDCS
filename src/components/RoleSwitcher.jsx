@@ -1,12 +1,15 @@
 // ============================================
-// BDCS - Role Switcher Component
+// BDCS - Premium Role Switcher Component
 // UI for switching between multiple assigned roles
+// Portal-powered backdrop for full-screen coverage
 // ============================================
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getUserRoles, switchActiveRole } from '../services/roleManagementService';
 import { toast } from './admin/Toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function RoleSwitcher() {
     const { user, refreshUser } = useAuth();
@@ -23,12 +26,8 @@ export default function RoleSwitcher() {
     const loadRoles = async () => {
         try {
             const userRoles = await getUserRoles(user.uid);
-
-            // Verify against user.roles to ensure we don't show stale/revoked roles
             const validUserRoles = (user.roles || [user.role]);
             const filteredUserRoles = userRoles.filter(r => validUserRoles.includes(r.role));
-
-            // robustness: If roleAssignments is missing some roles that are in user.roles, add them virtually
             const assignedRoleNames = new Set(filteredUserRoles.map(r => r.role));
             const missingRoles = validUserRoles.filter(r => r && !assignedRoleNames.has(r));
 
@@ -37,14 +36,13 @@ export default function RoleSwitcher() {
                 role: role,
                 userId: user.uid,
                 status: 'active',
-                scope: {}, // Default empty scope
+                scope: {},
                 metadata: { isOriginalRole: role === (user.primaryRole || user.role) }
             }));
 
             setRoles([...filteredUserRoles, ...virtualRoles]);
         } catch (error) {
             console.error('Error loading roles:', error);
-            // Fallback to user.roles if service fails
             const fallbackRoles = (user.roles || [user.role]).map(role => ({
                 id: `fallback_${role}`,
                 role: role,
@@ -66,19 +64,10 @@ export default function RoleSwitcher() {
         setSwitching(true);
         try {
             await switchActiveRole(user.uid, targetRole);
-
-            // Refresh user data
-            if (refreshUser) {
-                await refreshUser();
-            }
-
-            toast.success(`Switched to ${getRoleLabel(targetRole)} view`);
+            if (refreshUser) await refreshUser();
+            toast.success(`Access level changed to ${getRoleLabel(targetRole)}`);
             setIsOpen(false);
-
-            // Sync sessionStorage
             sessionStorage.setItem('bdcs_activeRole', targetRole);
-
-            // navigate to the target role's dashboard
             const rolePaths = {
                 admin: '/admin',
                 director: '/director',
@@ -87,11 +76,10 @@ export default function RoleSwitcher() {
                 teacher: '/teacher',
                 student: '/student'
             };
-
             window.location.href = rolePaths[targetRole] || '/';
         } catch (error) {
             console.error('Error switching role:', error);
-            toast.error('Failed to switch role');
+            toast.error('Privilege escalation failed');
         } finally {
             setSwitching(false);
         }
@@ -99,32 +87,27 @@ export default function RoleSwitcher() {
 
     const getRoleLabel = (role) => {
         const labels = {
-            admin: 'Admin',
-            director: 'Director',
-            principal: 'Principal',
-            hod: 'Head of Department',
-            teacher: 'Teacher',
-            student: 'Student'
+            admin: 'Global Admin',
+            director: 'Executive Director',
+            principal: 'Campus Principal',
+            hod: 'Dept. Chair',
+            teacher: 'Faculty Member',
+            student: 'Enrolled Student'
         };
         return labels[role] || role;
     };
 
-    const getRoleBadgeColor = (role) => {
-        const colors = {
-            admin: 'bg-purple-100 text-purple-800 border-purple-200',
-            director: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-            principal: 'bg-blue-100 text-blue-800 border-blue-200',
-            hod: 'bg-green-100 text-green-800 border-green-200',
-            teacher: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            student: 'bg-gray-100 text-gray-800 border-gray-200'
+    const getRoleStyles = (role) => {
+        const styles = {
+            admin: 'bg-red-50 text-[#E31E24] border-red-100',
+            director: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+            principal: 'bg-blue-50 text-blue-700 border-blue-100',
+            hod: 'bg-emerald-50 text-emerald-700 border-emerald-100'
         };
-        return colors[role] || 'bg-gray-100 text-gray-800 border-gray-200';
+        return styles[role] || 'bg-gray-50 text-gray-500 border-gray-100';
     };
 
-    // Only show if user has multiple roles
-    if (!roles || roles.length <= 1) {
-        return null;
-    }
+    if (!roles || roles.length <= 1) return null;
 
     const currentRole = user.currentActiveRole || user.primaryRole || user.role;
 
@@ -132,71 +115,92 @@ export default function RoleSwitcher() {
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${getRoleBadgeColor(currentRole)} hover:opacity-80`}
+                className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md hover:border-gray-200 active:scale-95 disabled:opacity-50 ${switching ? 'cursor-wait' : ''}`}
                 disabled={switching}
             >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span>{getRoleLabel(currentRole)}</span>
-                <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <div className={`w-2.5 h-2.5 rounded-full ${currentRole === 'admin' ? 'bg-[#E31E24] shadow-[0_0_10px_rgba(227,30,36,0.3)]' : 'bg-emerald-500'}`} />
+                <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">
+                    {getRoleLabel(currentRole)}
+                </span>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
             </button>
 
-            {isOpen && (
-                <>
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 z-30"
-                        onClick={() => setIsOpen(false)}
-                    />
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        {/* Portaled Backdrop untuk Full Screen Blur */}
+                        {typeof document !== 'undefined' && createPortal(
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[800] bg-gray-900/10 backdrop-blur-md"
+                                onClick={() => setIsOpen(false)}
+                            />,
+                            document.body
+                        )}
 
-                    {/* Dropdown */}
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-40 animate-fade-in">
-                        <div className="p-2">
-                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                Switch Role
-                            </div>
-                            {roles.map((roleAssignment) => {
-                                const isActive = roleAssignment.role === currentRole;
-                                return (
-                                    <button
-                                        key={roleAssignment.id}
-                                        onClick={() => handleRoleSwitch(roleAssignment.role)}
-                                        disabled={switching || isActive}
-                                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${isActive
-                                            ? 'bg-biyani-red text-white cursor-default'
-                                            : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
-                                            }`}
-                                    >
-                                        <div className="flex flex-col items-start text-left">
-                                            <div className="flex items-center gap-2">
-                                                <span>{getRoleLabel(roleAssignment.role)}</span>
-                                                {roleAssignment.metadata?.isOriginalRole && (
-                                                    <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">
-                                                        Primary
-                                                    </span>
+                        {/* Dropdown Panel remains absolute to button but above portal-backdrop z-index */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                            className="absolute right-0 mt-4 w-80 bg-white rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.15)] border border-gray-100 z-[850] overflow-hidden"
+                        >
+                            <div className="p-4">
+                                <div className="px-4 py-4 mb-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Available Tenures</span>
+                                    {switching && <div className="w-4 h-4 border-2 border-[#E31E24]/30 border-t-[#E31E24] rounded-full animate-spin" />}
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    {roles.map((roleAssignment) => {
+                                        const isActive = roleAssignment.role === currentRole;
+                                        const styles = getRoleStyles(roleAssignment.role);
+                                        
+                                        return (
+                                            <button
+                                                key={roleAssignment.id}
+                                                onClick={() => handleRoleSwitch(roleAssignment.role)}
+                                                disabled={switching || isActive}
+                                                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all relative group
+                                                    ${isActive ? styles : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+                                            >
+                                                <div className="flex flex-col items-start text-left">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs font-bold tracking-tight ${isActive ? 'font-black' : ''}`}>
+                                                            {getRoleLabel(roleAssignment.role)}
+                                                        </span>
+                                                        {roleAssignment.metadata?.isOriginalRole && (
+                                                            <span className="text-[8px] px-1.5 py-0.5 bg-white/50 rounded-lg font-black uppercase tracking-tighter border border-current opacity-50">
+                                                                Root
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {roleAssignment.scope?.departmentName && (
+                                                        <span className={`text-[9px] font-bold mt-0.5 opacity-60 uppercase tracking-tighter`}>
+                                                            {roleAssignment.scope.departmentName}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isActive && (
+                                                    <div className="w-5 h-5 flex items-center justify-center">
+                                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
                                                 )}
-                                            </div>
-                                            {roleAssignment.scope?.departmentName && (
-                                                <span className={`text-xs ${isActive ? 'text-red-100' : 'text-gray-500'}`}>
-                                                    {roleAssignment.scope.departmentName}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {isActive && (
-                                            <svg className="w-4 h-4 flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </>
-            )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

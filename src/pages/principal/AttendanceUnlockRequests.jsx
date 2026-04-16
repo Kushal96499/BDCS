@@ -1,6 +1,7 @@
 // ============================================
 // BDCS - Attendance Unlock Requests (Principal)
 // Manage requests from teachers to unlock attendance
+// Modernized "Neo-Campus" Edition
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -8,10 +9,8 @@ import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, wri
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
-import DataTable from '../../components/admin/DataTable';
-import StatusBadge from '../../components/admin/StatusBadge';
 import { format } from 'date-fns';
-
+import { motion, AnimatePresence } from 'framer-motion';
 import { getCollegeDepartments } from '../../services/principalService';
 
 export default function AttendanceUnlockRequests() {
@@ -19,7 +18,7 @@ export default function AttendanceUnlockRequests() {
     const [loading, setLoading] = useState(true);
     const [requests, setRequests] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [actionLoading, setActionLoading] = useState(null); // ID of request being processed
+    const [actionLoading, setActionLoading] = useState(null);
 
     useEffect(() => {
         if (user?.collegeId) {
@@ -43,35 +42,30 @@ export default function AttendanceUnlockRequests() {
             setRequests(requestsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         } catch (error) {
             console.error('Error fetching data:', error);
-            toast.error('Failed to load requests');
+            toast.error('Failed to load access requests');
         } finally {
             setLoading(false);
         }
     };
 
-    // Helper
     const getDeptName = (deptId) => {
         const d = departments.find(dept => dept.id === deptId);
-        return d ? d.name : deptId; // Fallback to ID if not found
+        return d ? d.name : 'Unknown Department';
     };
 
     const handleAction = async (request, action) => {
-        if (!window.confirm(`Are you sure you want to ${action} this request?`)) return;
-
         setActionLoading(request.id);
         try {
             const batch = writeBatch(db);
             const requestRef = doc(db, 'attendance_unlock_requests', request.id);
 
             if (action === 'APPROVE') {
-                // 1. Update Request Status
                 batch.update(requestRef, {
                     status: 'APPROVED',
                     actionBy: user.uid,
                     actionAt: serverTimestamp()
                 });
 
-                // 2. Unlock the Session
                 if (request.sessionId) {
                     const sessionRef = doc(db, 'attendance_sessions', request.sessionId);
                     batch.update(sessionRef, {
@@ -80,159 +74,137 @@ export default function AttendanceUnlockRequests() {
                         unlockedAt: serverTimestamp()
                     });
                 }
-
-                toast.success('Request Approved & Session Unlocked');
+                toast.success('Access Granted • Session Unlocked');
             } else {
-                // REJECT
                 batch.update(requestRef, {
                     status: 'REJECTED',
                     actionBy: user.uid,
                     actionAt: serverTimestamp()
                 });
-                toast.info('Request Rejected');
+                toast.info('Access Request Denied');
             }
 
             await batch.commit();
-
-            // Remove from local list
             setRequests(prev => prev.filter(r => r.id !== request.id));
-
         } catch (error) {
-            console.error('Error processing request:', error);
-            toast.error('Action failed');
+            console.error('Action error:', error);
+            toast.error('Administrative action failed');
         } finally {
             setActionLoading(null);
         }
     };
 
-    const columns = [
-        {
-            header: 'Teacher',
-            field: 'teacherName',
-            render: (row) => (
-                <div>
-                    <div className="font-bold text-gray-900">{row.teacherName}</div>
-                    <div className="text-xs text-gray-500 font-medium text-indigo-600">{getDeptName(row.departmentId)}</div>
-                </div>
-            )
-        },
-        {
-            header: 'Batch Information',
-            field: 'batchName',
-            render: (row) => (
-                <div>
-                    <div className="font-medium text-gray-800">{row.batchName}</div>
-                    <div className="text-xs text-gray-500">Date: {format(new Date(row.date), 'dd MMM yyyy')}</div>
-                </div>
-            )
-        },
-        {
-            header: 'Requested At',
-            field: 'createdAt',
-            render: (row) => row.createdAt?.seconds ? format(new Date(row.createdAt.seconds * 1000), 'dd MMM, hh:mm a') : '-'
-        },
-        {
-            header: 'Actions',
-            field: 'actions',
-            render: (row) => (
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => handleAction(row, 'APPROVE')}
-                        disabled={actionLoading === row.id}
-                        className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
-                    >
-                        {actionLoading === row.id ? '...' : 'Approve'}
-                    </button>
-                    <button
-                        onClick={() => handleAction(row, 'REJECT')}
-                        disabled={actionLoading === row.id}
-                        className="px-3 py-1 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
-                    >
-                        Reject
-                    </button>
-                </div>
-            )
-        }
-    ];
-
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Unlock Requests</h1>
-                    <p className="text-gray-500">Manage teacher requests to reopen attendance sessions</p>
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Access Control</h2>
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                        Institutional Oversight • Attendance Unlock Registry
+                    </p>
                 </div>
                 <button
                     onClick={fetchData}
-                    className="self-start md:self-auto p-2 text-gray-400 hover:text-biyani-red hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-3 bg-white border border-gray-100 shadow-sm rounded-2xl hover:bg-gray-50 transition-all active:scale-95 group"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    <svg className={`w-5 h-5 text-gray-400 group-hover:text-blue-600 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                 </button>
             </div>
 
             {loading ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-white rounded-xl h-24 animate-pulse border border-gray-100"></div>
+                        <div key={i} className="h-64 bg-white/50 rounded-[2.5rem] border border-gray-100 animate-pulse" />
                     ))}
                 </div>
             ) : requests.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
-                    <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="bg-white/40 backdrop-blur-md rounded-[3rem] border border-dashed border-gray-200 p-20 text-center">
+                    <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-100/50">
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">All Caught Up!</h3>
-                    <p className="text-gray-500">No pending unlock requests at the moment.</p>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">Protocol Verified</h3>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">No outstanding unlock requests detected.</p>
                 </div>
             ) : (
-                <div className="grid gap-4">
-                    {requests.map(request => (
-                        <div key={request.id} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            {/* Request Info */}
-                            <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
-                                    {request.teacherName?.charAt(0)}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-bold text-gray-900">{request.batchName}</h4>
-                                        <span className="text-xs font-semibold bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-100">
-                                            {request.date ? format(new Date(request.date), 'MMM d') : 'Unknown Date'}
-                                        </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <AnimatePresence mode="popLayout">
+                        {requests.map(request => (
+                            <motion.div
+                                key={request.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
+                                className="group relative bg-white rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden flex flex-col"
+                            >
+                                {/* Header */}
+                                <div className="p-8 border-b border-gray-50 flex items-start justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
+                                            {request.teacherName?.[0]}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-gray-900 tracking-tight leading-none group-hover:text-blue-600 transition-colors">{request.teacherName}</h4>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">{getDeptName(request.departmentId)}</p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-1">
-                                        Requested by <span className="font-semibold text-gray-900">{request.teacherName}</span> • {getDeptName(request.departmentId)}
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                        {request.createdAt?.seconds ? format(new Date(request.createdAt.seconds * 1000), 'MMM d, h:mm a') : 'Just now'}
-                                    </p>
+                                    <div className="px-3 py-1 bg-red-50 text-[#E31E24] rounded-lg border border-red-100 text-[9px] font-black uppercase tracking-widest">
+                                        Pending
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center gap-3 self-end md:self-center">
-                                <button
-                                    onClick={() => handleAction(request, 'REJECT')}
-                                    disabled={!!actionLoading}
-                                    className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    Reject
-                                </button>
-                                <button
-                                    onClick={() => handleAction(request, 'APPROVE')}
-                                    disabled={!!actionLoading}
-                                    className="px-6 py-2 text-sm font-bold text-white bg-gradient-to-r from-biyani-red to-orange-600 rounded-lg shadow-sm hover:shadow hover:-translate-y-0.5 transition-all flex items-center gap-2"
-                                >
-                                    {actionLoading === request.id ? (
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                                    )}
-                                    Unlock
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                                {/* Body */}
+                                <div className="p-8 space-y-5 flex-1 bg-gray-50/10">
+                                    <div className="flex flex-col gap-1.5 p-5 bg-white rounded-2xl border border-gray-50 shadow-sm group-hover:bg-blue-50/30 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Academic Target</span>
+                                            <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">{request.date ? format(new Date(request.date), 'MMMM yyyy') : 'Term Scope'}</span>
+                                        </div>
+                                        <p className="text-sm font-black text-gray-900 tracking-tight">{request.batchName}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeWidth={2.5}/></svg>
+                                            <span className="text-[11px] font-bold text-gray-600">{request.date ? format(new Date(request.date), 'EEEE, do MMM') : 'Indefinite Date'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 px-1">
+                                        <div className="w-1.5 h-6 bg-orange-400 rounded-full" />
+                                        <p className="text-[10px] font-bold text-gray-500 italic leading-relaxed">
+                                            Access requested {request.createdAt?.seconds ? format(new Date(request.createdAt.seconds * 1000), 'h:mm a') : 'just now'} via faculty terminal.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="p-6 bg-gray-50/50 flex gap-3">
+                                    <button
+                                        onClick={() => handleAction(request, 'REJECT')}
+                                        disabled={!!actionLoading}
+                                        className="flex-1 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all disabled:opacity-30 border border-transparent hover:border-red-100"
+                                    >
+                                        Decline
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction(request, 'APPROVE')}
+                                        disabled={!!actionLoading}
+                                        className="flex-[2] py-4 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-gray-200 hover:bg-blue-600 hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 group/btn active:scale-95 disabled:opacity-50"
+                                    >
+                                        {actionLoading === request.id ? (
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                <svg className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                                                Authorize
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
                 </div>
             )}
         </div>

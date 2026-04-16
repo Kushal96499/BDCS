@@ -277,46 +277,64 @@ export default function AssessmentTestDetail() {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
             {/* Header / Hero Section */}
-            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-rose-600 via-purple-600 to-indigo-700 p-8 text-white shadow-xl shadow-purple-500/20">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 blur-[60px] rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-40 h-40 bg-pink-500 opacity-20 blur-[50px] rounded-full -ml-10 -mb-10"></div>
-                <div className="relative z-10">
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gray-900 p-10 text-white shadow-2xl">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#E31E24] opacity-5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-600 opacity-5 blur-[80px] rounded-full -ml-32 -mb-32"></div>
+                
+                <div className="relative z-10 space-y-8">
                     <button
                         onClick={() => navigate('/teacher/tests')}
-                        className="flex items-center gap-2 text-white/80 hover:text-white mb-6 transition-colors group"
+                        className="flex items-center gap-2 text-gray-400 hover:text-white transition-all group"
                     >
-                        <div className="p-1.5 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm">
+                        <div className="p-2 rounded-xl bg-white/5 group-hover:bg-[#E31E24] transition-all border border-white/5">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                             </svg>
                         </div>
-                        <span className="font-medium text-sm">Back to Assessment</span>
+                        <span className="font-black text-[10px] uppercase tracking-widest">Return to Assessment Catalog</span>
                     </button>
 
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-white/20 shadow-sm">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+                        <div className="space-y-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="px-4 py-1.5 rounded-full bg-white/5 text-gray-300 text-[9px] font-black uppercase tracking-[0.2em] border border-white/10 shadow-sm">
                                     {test.batchName}
                                 </span>
-                                <span className="px-3 py-1 rounded-full bg-indigo-500/30 text-indigo-100 text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-indigo-400/30 shadow-sm">
+                                <span className="px-4 py-1.5 rounded-full bg-[#E31E24]/10 text-[#E31E24] text-[10px] font-black uppercase tracking-[0.2em] border border-[#E31E24]/20 shadow-sm">
                                     Semester {test.semester}
                                 </span>
                             </div>
-                            <h1 className="text-4xl font-black tracking-tight mb-2 drop-shadow-sm">{test.subjectName}</h1>
-                            <p className="text-xl text-white/90 font-medium tracking-wide">{test.topic}</p>
+                            <div>
+                                <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-none mb-3">
+                                    {test.subjectName}
+                                </h1>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-1 bg-[#E31E24] rounded-full" />
+                                    <p className="text-lg text-gray-400 font-bold tracking-tight uppercase">{test.topic || 'General Assessment'}</p>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Status Badge */}
-                        <div className={`px-6 py-3 rounded-2xl border backdrop-blur-md shadow-lg ${test.status === 'published' ? 'bg-green-500/20 border-green-400/30 text-green-100' :
-                            test.status === 'scheduled' && new Date() > new Date(test.testDate) ? 'bg-purple-500/20 border-purple-400/30 text-purple-100' :
-                                'bg-white/10 border-white/20 text-white'
-                            }`}>
-                            <div className="flex items-center gap-3">
-                                <span className={`w-3 h-3 rounded-full animate-pulse shadow-sm ${test.status === 'published' ? 'bg-green-400' : 'bg-gray-300'}`}></span>
-                                <span className="font-bold tracking-widest text-sm drop-shadow-sm">
-                                    {test.status === 'scheduled' && new Date() > new Date(test.testDate) ? 'CONDUCTED' : test.status.toUpperCase()}
-                                </span>
+                        <div className={`px-8 py-4 rounded-[2rem] border backdrop-blur-md shadow-2xl transition-all ${
+                            test.status === 'published' 
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                            test.status === 'scheduled' && new Date() > new Date(test.testDate) 
+                                ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' :
+                            'bg-white/5 border-white/10 text-white'
+                        }`}>
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <span className={`block w-3 h-3 rounded-full ${test.status === 'published' ? 'bg-emerald-400' : 'bg-gray-400'}`}></span>
+                                    <span className={`absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-75 ${test.status === 'published' ? 'bg-emerald-400' : 'bg-gray-400'}`}></span>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1">State Marker</p>
+                                    <span className="font-black tracking-[0.2em] text-xs">
+                                        {test.status === 'scheduled' && new Date() > new Date(test.testDate) ? 'CONDUCTED' : test.status.toUpperCase()}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -366,24 +384,11 @@ export default function AssessmentTestDetail() {
             <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                     {/* Progress */}
-                    <div className="w-full md:w-1/2">
-                        <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
-                            <span>Evaluated</span>
-                            <span>{evaluatedApplicable} / {totalApplicable} ({progress.toFixed(0)}%)</span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                            <div
-                                className="bg-gradient-to-r from-rose-500 to-purple-600 h-3 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(236,72,153,0.4)]"
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                    </div>
-
                     {/* Action Toolbar */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
                         {test.status === 'draft' && (
-                            <button onClick={handlePublishTest} disabled={publishing} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                                {publishing ? <span className="animate-spin">⏳</span> : 'Publish Test'}
+                            <button onClick={handlePublishTest} disabled={publishing} className="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 text-sm sm:text-base">
+                                {publishing ? <span className="animate-spin text-xs">⏳</span> : 'Publish Test'}
                             </button>
                         )}
 
@@ -392,26 +397,26 @@ export default function AssessmentTestDetail() {
                                 <button
                                     onClick={handleSaveMarks}
                                     disabled={saving || test.status === 'published'}
-                                    className="px-5 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-gray-900/20 flex items-center gap-2"
+                                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-gray-900/20 flex items-center justify-center gap-2 text-sm sm:text-base"
                                 >
-                                    {saving ? <span className="animate-spin">Re</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>}
-                                    Save Draft
+                                    {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>}
+                                    <span className="whitespace-nowrap">Save Draft</span>
                                 </button>
 
                                 <button
                                     onClick={handlePublishResults}
                                     disabled={publishing || test.status === 'published' || test.resultsMissing > 0}
-                                    className={`px-5 py-2.5 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-2
+                                    className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base
                                         ${test.status === 'published'
                                             ? 'bg-green-600 shadow-green-500/20 cursor-default'
                                             : 'bg-green-600 hover:bg-green-700 shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed'}`}
                                 >
                                     {test.status === 'published' ? (
-                                        <><span>✓</span> Published</>
+                                        <><span className="text-xs sm:text-sm">✓</span> <span className="whitespace-nowrap">Published</span></>
                                     ) : (
                                         <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                            Publish Results
+                                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                            <span className="whitespace-nowrap">Publish</span>
                                         </>
                                     )}
                                 </button>
@@ -421,10 +426,10 @@ export default function AssessmentTestDetail() {
                         <button
                             onClick={handleExport}
                             disabled={exporting || results.length === 0}
-                            className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all flex items-center gap-2"
+                            className="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
                         >
-                            {exporting ? '...' : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
-                            Export
+                            {exporting ? '...' : <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                            <span className="whitespace-nowrap">Export</span>
                         </button>
                     </div>
                 </div>
@@ -453,10 +458,11 @@ export default function AssessmentTestDetail() {
                 </div>
             )}
 
-            {/* Marks Table */}
+            {/* Marks Table / Mobile Cards */}
             {attendanceStatus !== 'missing' && (
                 <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop View (md+) */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50/50">
                                 <tr>
@@ -470,14 +476,11 @@ export default function AssessmentTestDetail() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {results
-                                    .filter(r => {
-                                        if (attendanceStatus === 'verified') return presentStudentIds.has(r.student);
-                                        return true;
-                                    })
+                                    .filter(r => attendanceStatus === 'verified' ? presentStudentIds.has(r.student) : true)
                                     .map((result, index) => {
                                         const studentMarks = marks[result.student]?.marksObtained || result.marksObtained || '';
                                         const percentage = studentMarks ? ((studentMarks / test.maxMarks) * 100).toFixed(2) : '0';
-                                        const passFailStatus = percentage >= 40 ? 'PASS' : 'FAIL';
+                                        const passFailStatus = parseFloat(percentage) >= 40 ? 'PASS' : 'FAIL';
 
                                         return (
                                             <tr key={result.student} className="hover:bg-gray-50/50 transition-colors group">
@@ -508,7 +511,7 @@ export default function AssessmentTestDetail() {
                                                         <div className="flex-1 w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                                             <div
                                                                 className={`h-full rounded-full ${passFailStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}
-                                                                style={{ width: `${Math.min(percentage, 100)}%` }}
+                                                                style={{ width: `${Math.min(parseFloat(percentage), 100)}%` }}
                                                             ></div>
                                                         </div>
                                                         <span className="text-sm font-bold text-gray-600 w-12 text-right">{percentage}%</span>
@@ -537,12 +540,85 @@ export default function AssessmentTestDetail() {
                                     })}
                             </tbody>
                         </table>
-                        {results.filter(r => attendanceStatus === 'verified' ? presentStudentIds.has(r.student) : true).length === 0 && (
-                            <div className="p-12 text-center">
-                                <p className="text-gray-400 text-lg">No students were present on this date.</p>
-                            </div>
-                        )}
                     </div>
+
+                    {/* Mobile View (<md) */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {results
+                            .filter(r => attendanceStatus === 'verified' ? presentStudentIds.has(r.student) : true)
+                            .map((result, index) => {
+                                const studentMarks = marks[result.student]?.marksObtained || result.marksObtained || '';
+                                const percentage = studentMarks ? ((studentMarks / test.maxMarks) * 100).toFixed(2) : '0';
+                                const passFailStatus = parseFloat(percentage) >= 40 ? 'PASS' : 'FAIL';
+
+                                return (
+                                    <div key={result.student} className="p-5 space-y-4">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Student {String(index + 1).padStart(2, '0')}</span>
+                                                <span className="text-base font-black text-gray-900">{result.studentName}</span>
+                                                <span className="text-[10px] font-bold text-gray-500 font-mono">{result.enrollmentNumber}</span>
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${passFailStatus === 'PASS'
+                                                ? 'bg-green-50 text-green-700 border-green-100'
+                                                : 'bg-red-50 text-red-700 border-red-100'
+                                                }`}>
+                                                {passFailStatus}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Marks Obtained</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max={test.maxMarks}
+                                                        value={studentMarks}
+                                                        onChange={(e) => handleMarkChange(result.student, e.target.value)}
+                                                        disabled={test.status === 'published'}
+                                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-center focus:ring-2 focus:ring-biyani-red/20 focus:border-biyani-red outline-none transition-all disabled:opacity-50"
+                                                        placeholder="-"
+                                                    />
+                                                    <span className="text-xs font-bold text-gray-400">/ {test.maxMarks}</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5 text-right">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Performance</label>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="text-sm font-black text-gray-900">{percentage}%</span>
+                                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full ${passFailStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}
+                                                            style={{ width: `${Math.min(parseFloat(percentage), 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Remarks</label>
+                                            <input
+                                                type="text"
+                                                value={marks[result.student]?.remarks || result.remarks || ''}
+                                                onChange={(e) => handleRemarksChange(result.student, e.target.value)}
+                                                disabled={test.status === 'published'}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-biyani-red/20 focus:border-biyani-red outline-none transition-all disabled:opacity-50"
+                                                placeholder="Add remarks for student..."
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                    </div>
+
+                    {results.filter(r => attendanceStatus === 'verified' ? presentStudentIds.has(r.student) : true).length === 0 && (
+                        <div className="p-12 text-center">
+                            <p className="text-gray-400 font-bold">No students were present on this date.</p>
+                        </div>
+                    )}
                 </div>
             )}
 

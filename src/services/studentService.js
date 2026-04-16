@@ -55,7 +55,8 @@ export const updateStudentRole = async (studentId, newRole, departmentId) => {
         }
     }
 
-    await updateDoc(doc(db, 'users', studentId), { councilRole: newRole });
+    const councilRoleValue = newRole === 'student' ? null : newRole;
+    await updateDoc(doc(db, 'users', studentId), { councilRole: councilRoleValue });
 };
 
 /**

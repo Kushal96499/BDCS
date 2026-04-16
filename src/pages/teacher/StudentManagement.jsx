@@ -36,6 +36,7 @@ export default function StudentManagement() {
         email: '',
         phone: '',
         address: '',
+        rollNumber: '',
         enrollmentNumber: '',
         currentSemester: 1,
         academicYear: '',
@@ -89,6 +90,7 @@ export default function StudentManagement() {
             email: '',
             phone: '',
             address: '',
+            rollNumber: '',
             enrollmentNumber: '',
             currentSemester: 1,
             academicYear: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
@@ -110,6 +112,7 @@ export default function StudentManagement() {
             email: student.email || '',
             phone: student.phone || '',
             address: student.address || '',
+            rollNumber: student.rollNumber || '',
             enrollmentNumber: student.enrollmentNumber || '',
             currentSemester: student.currentSemester || 1,
             academicYear: student.academicYear || '',
@@ -141,7 +144,7 @@ export default function StudentManagement() {
 
     const validate = () => {
         const newErrors = {};
-        const requiredValidation = validateRequired(formData, ['name', 'email', 'enrollmentNumber', 'academicYear']);
+        const requiredValidation = validateRequired(formData, ['name', 'email', 'rollNumber', 'enrollmentNumber', 'academicYear']);
         if (!requiredValidation.valid) Object.assign(newErrors, requiredValidation.errors);
 
         if (formData.email && !validateEmail(formData.email)) {
@@ -171,6 +174,7 @@ export default function StudentManagement() {
                 role: 'student',
                 phone: sanitizeInput(formData.phone) || null,
                 address: sanitizeInput(formData.address) || null,
+                rollNumber: formData.rollNumber,
                 enrollmentNumber: formData.enrollmentNumber,
                 currentSemester: formData.currentSemester,
                 academicYear: formData.academicYear,
@@ -326,9 +330,16 @@ export default function StudentManagement() {
             )
         },
         {
+            header: 'Roll No.',
+            field: 'rollNumber',
+            render: (row) => <span className="font-mono text-sm">{row.rollNumber || row.enrollmentNumber}</span>
+        },
+        {
             header: 'Enrollment No.',
             field: 'enrollmentNumber',
-            render: (row) => <span className="font-mono text-sm">{row.enrollmentNumber}</span>
+            className: 'hidden md:table-cell',
+            headerClassName: 'hidden md:table-cell',
+            render: (row) => <span className="font-mono text-sm text-gray-400">{row.enrollmentNumber}</span>
         },
         {
             header: 'Semester',
@@ -410,9 +421,10 @@ export default function StudentManagement() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
+                            <Input label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} error={errors.rollNumber} required placeholder="2024001" />
                             <Input label="Enrollment Number" name="enrollmentNumber" value={formData.enrollmentNumber} onChange={handleChange} error={errors.enrollmentNumber} required placeholder="2024BCA001" />
-                            <Input label="Phone" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} placeholder="+91-9876543210" />
                         </div>
+                        <Input label="Phone" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} placeholder="+91-9876543210" />
 
                         <div className="grid grid-cols-2 gap-4">
                             <Input label="Father Name" name="fatherName" value={formData.fatherName} onChange={handleChange} placeholder="Father's Name" />

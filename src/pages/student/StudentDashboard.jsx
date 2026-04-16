@@ -67,43 +67,41 @@ export default function StudentDashboard() {
             <div className="md:hidden px-4 pt-3 pb-28 space-y-4">
 
                 {/* ── MOBILE HERO ── */}
-                <motion.div variants={popUp} className="relative overflow-hidden rounded-[1.75rem] min-h-[200px]">
+                <motion.div variants={popUp} className="relative overflow-hidden rounded-[2rem] min-h-[210px] shadow-xl shadow-red-900/10">
                     {/* Animated gradient BG */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#E31E24] to-[#ff6b6b]" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_-20%,rgba(255,107,107,0.4),transparent_50%)]" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_120%,rgba(123,44,191,0.3),transparent_50%)]" />
-                    {/* Floating orbs */}
-                    <div className="absolute top-4 right-8 w-20 h-20 bg-white/10 rounded-full blur-xl animate-pulse" />
-                    <div className="absolute bottom-6 left-4 w-14 h-14 bg-pink-400/20 rounded-full blur-lg" />
-                    {/* Glass top line */}
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-                    <div className="relative z-10 p-5 pb-6 flex flex-col">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#111827] via-[#E31E24] to-[#ff4d4d]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_-20%,rgba(255,255,255,0.1),transparent_50%)]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_120%,rgba(0,0,0,0.2),transparent_50%)]" />
+                    
+                    {/* Floating decoration */}
+                    <div className="absolute top-4 right-8 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse" />
+                    
+                    <div className="relative z-10 p-6 flex flex-col h-full font-bold">
                         {/* Top row: Greeting */}
-                        <div className="flex items-start mb-4">
+                        <div className="flex items-center gap-2 mb-4">
                             <motion.span
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: 0.3, type: 'spring' }}
-                                className="bg-white/15 backdrop-blur-xl text-white/90 text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/10 tracking-wide"
+                                className="bg-white/20 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-white/10"
                             >
                                 {greeting.emoji} {greeting.text}
                             </motion.span>
                         </div>
 
-                        <h1 className="text-[28px] font-black text-white leading-tight tracking-tight mb-1 flex items-center gap-2 flex-wrap max-w-full">
+                        <h1 className="text-3xl font-black text-white leading-tight tracking-tight mb-2 flex items-center gap-2">
                             <span>Hey {firstName}!</span> 
                             <span className="inline-block shrink-0" style={{ animation: 'wave 2s ease-in-out infinite', transformOrigin: '70% 70%' }}>👋</span>
                         </h1>
-                        <p className="text-white/50 text-[11px] font-semibold mb-4">{greeting.vibe}</p>
+                        <p className="text-white/60 text-[11px] font-black uppercase tracking-[0.1em] mb-5">{greeting.vibe}</p>
 
                         {/* Info chips */}
-                        <div className="flex gap-2 flex-wrap">
-                            <span className="bg-white/10 backdrop-blur-sm text-white/80 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/5">
-                                📚 {user?.courseName?.split(' ').slice(0, 2).join(' ') || 'Student'}
+                        <div className="flex gap-2 flex-wrap mt-auto">
+                            <span className="bg-black/20 backdrop-blur-md text-white/90 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl border border-white/5">
+                                📚 {user?.courseName?.split(' ')[0] || 'Student'}
                             </span>
-                            <span className="bg-white/10 backdrop-blur-sm text-white/80 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/5">
-                                🎓 Semester {user?.currentSemester || 1}
+                            <span className="bg-black/20 backdrop-blur-md text-white/90 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl border border-white/5">
+                                🎓 Sem {user?.currentSemester || 1}
                             </span>
                             {user?.academicStatus && user.academicStatus !== 'ACTIVE' && (
                                 <StatusBadge status={user.academicStatus} />

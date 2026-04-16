@@ -3,7 +3,7 @@ import { collection, getDocs, query, where, orderBy, limit, doc, updateDoc } fro
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getRollbackSemester, getRollbackYear } from '../../services/batchPromotionService';
 
 export default function HODDashboard() {
@@ -39,9 +39,6 @@ export default function HODDashboard() {
                 const s = docSnap.data();
                 if (s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR') continue;
 
-                // If they don't have originalBatchId, they haven't been processed by the new rollback system properly
-                // Or if they were processed before we added the batch shifting logic.
-
                 const history = s.progressionHistory || [];
                 const lastFailure = [...history].reverse().find(h => h.action === 'BACKLOG' || h.action === 'REPEAT_YEAR');
                 if (!lastFailure) continue;
@@ -51,7 +48,6 @@ export default function HODDashboard() {
                 const expectedYear = getRollbackYear(originalSem);
 
                 if (parseInt(s.currentSemester) === expectedSem && s.originalBatchId && s.batchId !== s.originalBatchId) {
-                    // Already fixed
                     continue;
                 }
 
@@ -63,7 +59,6 @@ export default function HODDashboard() {
                     }
                 }
 
-                // Need to find junior batch
                 let targetBatchId = s.batchId;
                 let targetBatchName = s.batchName;
 
@@ -90,7 +85,6 @@ export default function HODDashboard() {
                     originalBatchId: s.originalBatchId || s.batchId,
                     originalBatchName: s.originalBatchName || s.batchName
                 });
-                console.log(`Auto-fixed backlogged student ${s.name} -> Batch ${targetBatchName}`);
             }
         } catch (e) {
             console.error('Failed fixing legacy batches', e);
@@ -100,34 +94,18 @@ export default function HODDashboard() {
     const fetchStats = async () => {
         try {
             setLoading(true);
-
-            // 1. Teachers Count
             const teachersQ = query(collection(db, 'users'), where('departmentId', '==', user.departmentId), where('role', '==', 'teacher'), where('status', '==', 'active'));
             const teachersSnap = await getDocs(teachersQ);
-
-            // 2. Active Students
             const studentsQ = query(collection(db, 'users'), where('departmentId', '==', user.departmentId), where('role', '==', 'student'), where('status', '==', 'active'));
             const studentsSnap = await getDocs(studentsQ);
-
-            // 3. Pending Approvals (Leaves + Attendance Unlocks)
             const leavesQ = query(collection(db, 'leave_requests'), where('departmentId', '==', user.departmentId), where('status', '==', 'pending'));
             const unlocksQ = query(collection(db, 'attendance_edit_requests'), where('departmentId', '==', user.departmentId), where('status', '==', 'PENDING'));
-
             const [leavesSnap, unlocksSnap] = await Promise.all([getDocs(leavesQ), getDocs(unlocksQ)]);
             const pendingTotal = leavesSnap.size + unlocksSnap.size;
-
-            // 4. Event Proposals (Status: pending_hod)
-            const eventsQ = query(
-                collection(db, 'events'),
-                where('status', '==', 'pending_hod'),
-                where('departmentId', '==', user.departmentId)
-            );
+            const eventsQ = query(collection(db, 'events'), where('status', '==', 'pending_hod'), where('departmentId', '==', user.departmentId));
             const eventsSnap = await getDocs(eventsQ);
-
-            // 5. Batches
             const batchesQ = query(collection(db, 'batches'), where('departmentId', '==', user.departmentId), where('status', '==', 'active'));
             const batchesSnap = await getDocs(batchesQ);
-
 
             setStats({
                 teachers: teachersSnap.size,
@@ -137,7 +115,6 @@ export default function HODDashboard() {
                 eventRequests: eventsSnap.size,
                 totalBatches: batchesSnap.size
             });
-
         } catch (error) {
             console.error('Error fetching HOD stats:', error);
         } finally {
@@ -145,149 +122,123 @@ export default function HODDashboard() {
         }
     };
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
+    const MetricCard = ({ title, value, icon, colorClass, path }) => (
+        <motion.button
+            whileHover={{ y: -5, scale: 1.02 }}
+            onClick={() => path && navigate(path)}
+            className="relative bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-50 flex flex-col justify-between overflow-hidden group text-left w-full"
+        >
+            <div className="relative z-10">
+                <div className={`w-14 h-14 rounded-2xl ${colorClass.bg} flex items-center justify-center ${colorClass.icon} mb-6 transition-transform group-hover:rotate-6 shadow-sm`}>
+                    {icon}
+                </div>
+                <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{title}</p>
+                    <h3 className="text-4xl font-black text-gray-900 tracking-tight">{value}</h3>
+                </div>
+            </div>
+            <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full ${colorClass.bg} opacity-5 group-hover:scale-150 transition-transform duration-700`} />
+        </motion.button>
+    );
 
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1 }
+    const cardStyles = {
+        emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600' },
+        blue: { bg: 'bg-blue-50', icon: 'text-blue-600' },
+        orange: { bg: 'bg-orange-50', icon: 'text-orange-600' },
+        red: { bg: 'bg-red-50', icon: 'text-red-600' }
     };
 
     return (
-        <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="space-y-8 p-8"
-        >
-            {/* Header & Department Card */}
-            <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
-                <motion.div variants={itemVariants} className="space-y-2">
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight">
-                        Department Overview
-                    </h1>
-                    <p className="text-gray-500 font-medium text-lg">
-                        Welcome, <span className="text-gray-900 font-bold">{user?.name}</span>. managing {stats.activeStudents} active students.
-                    </p>
-                </motion.div>
-
-                {/* Status Pills */}
-                <motion.div variants={itemVariants} className="flex gap-3">
-                    <div className="px-4 py-2 bg-red-50 text-red-700 rounded-full text-xs font-black uppercase tracking-widest border border-red-100 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        {stats.pendingApprovals > 0 ? `${stats.pendingApprovals} Actions Pending` : 'All Clear'}
-                    </div>
-                </motion.div>
-            </div>
-
-            {/* Modern Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <motion.div variants={itemVariants} className="group relative overflow-hidden bg-gradient-to-br from-[#FFE5E5] to-[#FFF0F0] p-6 rounded-[2rem] border border-red-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-200/50 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm">
-                                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        <div className="space-y-10 pb-12">
+            {/* Header Section */}
+            <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-[#059669] to-emerald-800 p-10 md:p-14 text-white shadow-2xl shadow-emerald-200/50 border border-white/10">
+                <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 bg-white rounded-2xl p-2 flex items-center justify-center shadow-lg border border-red-50">
+                                <img src="/assets/biyani-logo.png" alt="BDCS" className="w-full h-full object-contain" />
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/50 px-2 py-1 rounded-lg text-red-400">Faculty</span>
+                            <span className="px-4 py-1.5 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md border border-white/20">
+                                Departmental Authority
+                            </span>
                         </div>
-                        <h3 className="text-4xl font-black text-gray-900 mb-1">{stats.teachers}</h3>
-                        <p className="text-sm font-bold text-red-400">Active Teachers</p>
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-loose mb-4">
+                            Welcome, <br/>
+                            <span className="text-emerald-100">{user?.name?.split(' ')[0]}</span>
+                        </h1>
+                        <p className="text-emerald-50/80 text-lg font-bold max-w-lg leading-relaxed flex items-center gap-3 italic">
+                            <span className="w-4 h-1 bg-red-500 rounded-full" />
+                            {user?.departmentName || 'Department Management'}
+                        </p>
                     </div>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="group relative overflow-hidden bg-gradient-to-br from-[#E0F2FE] to-[#F0F9FF] p-6 rounded-[2rem] border border-blue-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/50 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm">
-                                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/50 px-2 py-1 rounded-lg text-blue-400">Batches</span>
+                    <div className="hidden md:flex flex-col items-end justify-center">
+                        <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 text-right">
+                            <p className="text-emerald-200 font-black text-[10px] uppercase tracking-widest mb-2">Metrics Pulse</p>
+                            <p className="text-3xl font-black text-white">{stats.activeStudents}</p>
+                            <p className="text-emerald-100/60 font-bold text-[10px] mt-1 uppercase tracking-widest leading-none">Active Scholars Under Supervision</p>
                         </div>
-                        <h3 className="text-4xl font-black text-gray-900 mb-1">{stats.totalBatches}</h3>
-                        <p className="text-sm font-bold text-blue-400">Active Sessions</p>
                     </div>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="group relative overflow-hidden bg-gradient-to-br from-[#DCFCE7] to-[#F0FDF4] p-6 rounded-[2rem] border border-green-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/50 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm">
-                                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/50 px-2 py-1 rounded-lg text-green-600">Students</span>
-                        </div>
-                        <h3 className="text-4xl font-black text-gray-900 mb-1">{stats.activeStudents}</h3>
-                        <p className="text-sm font-bold text-green-600">Enrolled Students</p>
-                    </div>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="group relative overflow-hidden bg-gradient-to-br from-[#FFEDD5] to-[#FFF7ED] p-6 rounded-[2rem] border border-orange-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-200/50 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm">
-                                <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/50 px-2 py-1 rounded-lg text-orange-400">Events</span>
-                        </div>
-                        <h3 className="text-4xl font-black text-gray-900 mb-1">{stats.eventRequests}</h3>
-                        <p className="text-sm font-bold text-orange-400">Pending Request</p>
-                    </div>
-                </motion.div>
-            </div>
-
-            {/* Quick Actions Grid */}
-            <motion.div variants={itemVariants}>
-                <h3 className="text-xl font-bold text-gray-900 mb-6 tracking-tight flex items-center gap-2">
-                    <span className="w-1.5 h-6 bg-red-500 rounded-full"></span>
-                    Management Modules
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-
-                    <button onClick={() => navigate('/hod/teachers')} className="group p-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-bl-[80px] -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-red-500/20 group-hover:scale-110 transition-transform">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        </div>
-                        <h4 className="font-bold text-xl text-gray-900">Faculty</h4>
-                        <p className="text-sm text-gray-400 font-medium mt-1">Manage Teachers</p>
-                    </button>
-
-                    <button onClick={() => navigate('/hod/batches')} className="group p-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-[80px] -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                        </div>
-                        <h4 className="font-bold text-xl text-gray-900">Batches</h4>
-                        <p className="text-sm text-gray-400 font-medium mt-1">Sessions & Classes</p>
-                    </button>
-
-                    <button onClick={() => navigate('/hod/assignments')} className="group p-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-teal-50 rounded-bl-[80px] -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-teal-500/20 group-hover:scale-110 transition-transform">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                        </div>
-                        <h4 className="font-bold text-xl text-gray-900">Assignments</h4>
-                        <p className="text-sm text-gray-400 font-medium mt-1">Allocate Subjects</p>
-                    </button>
-
-                    <button onClick={() => navigate('/hod/subjects')} className="group p-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-violet-50 rounded-bl-[80px] -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-violet-500/20 group-hover:scale-110 transition-transform">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                        </div>
-                        <h4 className="font-bold text-xl text-gray-900">Curriculum</h4>
-                        <p className="text-sm text-gray-400 font-medium mt-1">Manage Subjects</p>
-                    </button>
-
                 </div>
-            </motion.div>
+                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-white/5 blur-[100px]" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-red-500/10 blur-[80px]" />
+            </div>
 
-        </motion.div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {loading ? (
+                    [1, 2, 3, 4].map(i => <div key={i} className="h-44 rounded-[2.5rem] bg-white animate-pulse border border-gray-50 shadow-sm" />)
+                ) : (
+                    <>
+                        <MetricCard 
+                            title="Total Teachers" value={stats.teachers} colorClass={cardStyles.emerald} path="/hod/teachers"
+                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 1 1-8 0 4 4 0 018 0" /></svg>}
+                        />
+                        <MetricCard 
+                            title="Active Batches" value={stats.totalBatches} colorClass={cardStyles.blue} path="/hod/batches"
+                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2" /></svg>}
+                        />
+                        <MetricCard 
+                            title="Pending Approvals" value={stats.pendingApprovals} colorClass={cardStyles.orange} path="/hod/approvals"
+                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-6 9l2 2 4-4" /></svg>}
+                        />
+                        <MetricCard 
+                            title="Event Requests" value={stats.eventRequests} colorClass={cardStyles.red} path="/hod/event-approvals"
+                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                        />
+                    </>
+                )}
+            </div>
+
+            {/* Action Modules */}
+            <div className="space-y-8">
+                <div className="flex items-center gap-3 px-2">
+                    <div className="w-2 h-8 bg-emerald-500 rounded-full" />
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Quick Actions</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {[
+                        { title: 'Teachers', desc: 'Manage Staff', path: '/hod/teachers', color: 'emerald', icon: <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857" /> },
+                        { title: 'Batches', desc: 'Manage Sessions', path: '/hod/batches', color: 'blue', icon: <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /> },
+                        { title: 'Assignments', desc: 'Teacher-Subject Mapping', path: '/hod/assignments', color: 'orange', icon: <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2" /> },
+                        { title: 'Subjects', desc: 'Subject Catalog', path: '/hod/subjects', color: 'red', icon: <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" /> }
+                    ].map((item, i) => (
+                        <motion.button
+                            whileHover={{ y: -5, scale: 1.02 }}
+                            key={i}
+                            onClick={() => navigate(item.path)}
+                            className="bg-white p-8 rounded-[2.5rem] border border-gray-50 shadow-sm hover:shadow-xl transition-all duration-300 flex items-center gap-5 text-left group"
+                        >
+                            <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 text-${item.color}-600 flex items-center justify-center shrink-0 group-hover:rotate-6 transition-transform shadow-sm`}>
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>{item.icon}</svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-black text-gray-900 group-hover:text-emerald-600 transition-colors uppercase text-sm tracking-tight truncate">{item.title}</h3>
+                                <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{item.desc}</p>
+                            </div>
+                        </motion.button>
+                    ))}
+                </div>
+            </div>
+        </div>
     );
 }

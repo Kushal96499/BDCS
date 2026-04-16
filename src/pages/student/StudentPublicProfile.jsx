@@ -297,7 +297,7 @@ export default function StudentPublicProfile() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+                        className="fixed inset-0 z-[9999] bg-gray-900/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4"
                         onClick={() => setSelectedProject(null)}
                     >
                         <motion.div
@@ -378,7 +378,7 @@ export default function StudentPublicProfile() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[999] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[9999] bg-gray-900/90 backdrop-blur-xl flex items-center justify-center p-4"
                         onClick={() => setLightbox(false)}
                     >
                         <motion.div

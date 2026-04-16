@@ -12,6 +12,7 @@ import StudentLayout from './layouts/StudentLayout';
 // Auth
 import Login from './pages/Login';
 import Landing from './pages/Landing';
+import SessionManager from './components/SessionManager';
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const RoleSelectionPage = lazy(() => import('./pages/RoleSelectionPage'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
@@ -91,6 +92,7 @@ const LoadingScreen = () => (
 export default function App() {
     return (
         <Suspense fallback={<LoadingScreen />}>
+            <SessionManager />
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={<Landing />} />

@@ -25,10 +25,7 @@ export default function PrincipalCouncil() {
             // (In a large app, we might paginate, but council is small < 100 students total mostly)
             const q = query(
                 collection(db, 'users'),
-                where('councilRole', '!=', null)
-                // Index might be needed: councilRole ASC or similar. 
-                // Ideally: where('councilRole', 'in', ['president', 'member'])
-                // But != null works if we only store 'president'/'member'.
+                where('councilRole', 'in', ['president', 'member'])
             );
 
             // To be safe with indexes, let's just fetch all councilRole != null if possible, 
@@ -62,8 +59,8 @@ export default function PrincipalCouncil() {
     return (
         <div className="p-8 space-y-8 pb-20">
             <header>
-                <h1 className="text-3xl font-black text-gray-900 tracking-tight">Student Council Overview</h1>
-                <p className="text-gray-500 font-medium mt-1">Manage and view valid council bodies across all departments.</p>
+                <h1 className="text-3xl font-black text-gray-900 tracking-tight">Council Members</h1>
+                <p className="text-gray-500 font-bold mt-1">View student representatives across all departments.</p>
             </header>
 
             {loading ? (
@@ -160,7 +157,7 @@ export default function PrincipalCouncil() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        className="fixed inset-0 bg-gray-900/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4"
                         onClick={() => setSelectedDeptId(null)}
                     >
                         <motion.div

@@ -12,7 +12,9 @@ import { logStatusChange, logDelete, logAudit } from '../../../utils/auditLogger
 import DataTable from '../../../components/admin/DataTable';
 import StatusBadge from '../../../components/admin/StatusBadge';
 import ConfirmDialog from '../../../components/admin/ConfirmDialog';
+import Button from '../../../components/Button';
 import CampusForm from './CampusForm';
+import { motion } from 'framer-motion';
 
 export default function CampusList() {
     const { user } = useAuth();
@@ -63,7 +65,12 @@ export default function CampusList() {
     };
 
     const handleStatusToggle = (campus) => {
-        setConfirmDialog({ isOpen: true, campus, action: 'toggle', message: `Are you sure you want to ${campus.status === 'active' ? 'disable' : 'enable'} ${campus.name}?` });
+        setConfirmDialog({ 
+            isOpen: true, 
+            campus, 
+            action: 'toggle', 
+            message: `Are you sure you want to ${campus.status === 'active' ? 'disable' : 'enable'} ${campus.name}?` 
+        });
     };
 
     const handleSafeDelete = async (campus) => {
@@ -71,7 +78,6 @@ export default function CampusList() {
 
         setLoading(true);
         try {
-            // Check Dependencies (Colleges)
             const collegesQ = query(collection(db, 'colleges'), where('campusId', '==', campus.id));
             const collegesSnap = await getDocs(collegesQ);
             const collegeCount = collegesSnap.size;
@@ -82,7 +88,7 @@ export default function CampusList() {
                     campus,
                     action: 'archive',
                     title: 'Cannot Hard Delete',
-                    message: `This campus has ${collegeCount} colleges linked to it. \n\nHard deletion is prevented. \n\nDo you want to ARCHIVE it instead?`
+                    message: `This campus has ${collegeCount} colleges linked to it. Hard deletion is prevented. Do you want to ARCHIVE it instead?`
                 });
             } else {
                 setConfirmDialog({
@@ -90,7 +96,7 @@ export default function CampusList() {
                     campus,
                     action: 'delete',
                     title: 'Permanent Delete',
-                    message: `Are you sure you want to PERMANENTLY DELETE ${campus.name}? \n\nThis action cannot be undone.`
+                    message: `Are you sure you want to PERMANENTLY DELETE ${campus.name}? This action cannot be undone.`
                 });
             }
         } catch (error) {
@@ -143,11 +149,12 @@ export default function CampusList() {
         {
             header: 'Code',
             field: 'code',
-            render: (row) => <span className="font-mono font-semibold text-gray-900">{row.code}</span>
+            render: (row) => <span className="font-mono font-bold text-[#E31E24] tracking-wider">{row.code}</span>
         },
         {
-            header: 'Name',
-            field: 'name'
+            header: 'Campus Name',
+            field: 'name',
+            render: (row) => <span className="font-semibold text-gray-900">{row.name}</span>
         },
         {
             header: 'Status',
@@ -155,56 +162,50 @@ export default function CampusList() {
             render: (row) => <StatusBadge status={row.status} />
         },
         {
-            header: 'Created',
+            header: 'Established',
             field: 'createdAt',
-            render: (row) => row.createdAt?.toDate().toLocaleDateString() || 'N/A'
+            render: (row) => <span className="text-gray-400 font-semibold uppercase text-[10px] tracking-widest">{row.createdAt?.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) || 'N/A'}</span>
         }
     ];
 
     return (
-        <div className="space-y-4">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Campus Management</h2>
-                    <p className="text-sm text-gray-600">Manage campus locations and facilities</p>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Campus Repository</h2>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Manage institutional locations</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    {/* Safe Mode Toggle */}
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-                        <span className="text-xs font-medium text-gray-600">Safe Mode</span>
+                
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-xl border border-gray-100 shadow-sm">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Safe Mode</span>
                         <button
                             onClick={() => setSafeMode(!safeMode)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${safeMode ? 'bg-green-500' : 'bg-red-500'}`}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 ${safeMode ? 'bg-emerald-500' : 'bg-red-500'}`}
                         >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${safeMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                            <motion.span animate={{ x: safeMode ? 20 : 4 }} className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm" />
                         </button>
-                        <span className={`text-xs font-bold ${safeMode ? 'text-green-600' : 'text-red-600'}`}>
-                            {safeMode ? 'ON' : 'OFF'}
-                        </span>
                     </div>
 
-                    <button
-                        onClick={handleAdd}
-                        className="bg-biyani-red text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center gap-2"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Campus
-                    </button>
+                    <Button variant="primary" onClick={handleAdd}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth={3}/></svg>
+                        <span>Add Campus</span>
+                    </Button>
                 </div>
             </div>
 
             {/* Warning Banner */}
             {!safeMode && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                    <p className="text-sm text-red-700"><strong>Delete Mode Active:</strong> You can now permanently delete campuses.</p>
-                </div>
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="bg-red-50 border border-red-100 p-3 rounded-2xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <p className="text-xs font-bold text-red-600">Delete Mode Active: Destructive actions authorized.</p>
+                </motion.div>
             )}
 
-            {/* Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="animate-premium-slide">
                 <DataTable
                     columns={columns}
                     data={campuses}
@@ -216,24 +217,21 @@ export default function CampusList() {
                 />
             </div>
 
-            {/* Form Modal */}
-            {showForm && (
-                <CampusForm
-                    campus={editingCampus}
-                    onClose={handleFormClose}
-                    onSuccess={handleFormSuccess}
-                />
-            )}
+            <CampusForm
+                isOpen={showForm}
+                campus={editingCampus}
+                onClose={handleFormClose}
+                onSuccess={handleFormSuccess}
+            />
 
-            {/* Confirm Dialog */}
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onClose={() => setConfirmDialog({ isOpen: false, campus: null, action: null })}
                 onConfirm={executeAction}
-                title={confirmDialog.title || "Confirm Action"}
+                title={confirmDialog.title || "Validate Action"}
                 message={confirmDialog.message}
                 variant={confirmDialog.action === 'delete' ? 'danger' : 'warning'}
             />
-        </div>
+        </motion.div>
     );
 }

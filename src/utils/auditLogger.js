@@ -41,8 +41,12 @@ export function getEntityLabel(collection, data) {
             return data.name || data.campusName || 'Unknown Campus';
         case 'courses':
             return data.name || data.courseName || 'Unknown Course';
+        case 'batches':
+            return data.name || data.batchName || 'Unknown Batch';
+        case 'subjects':
+            return data.name || data.subjectName || 'Unknown Subject';
         default:
-            return data.name || 'Unknown';
+            return data.name || data.label || 'Unknown';
     }
 }
 

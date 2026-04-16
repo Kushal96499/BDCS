@@ -9,8 +9,9 @@ import { db } from '../../../config/firebase';
 import { useAuth } from '../../../hooks/useAuth';
 import FormModal from '../../../components/admin/FormModal';
 import Input from '../../../components/Input';
+import Select from '../../../components/admin/Select';
 import { toast } from '../../../components/admin/Toast';
-import { logCreate, logUpdate } from '../../../utils/auditLogger';
+import { logStatusChange, logCreate, logUpdate } from '../../../utils/auditLogger';
 import { sanitizeInput } from '../../../utils/validators';
 
 export default function SubjectForm({ isOpen, onClose, onSuccess, initialData }) {
@@ -38,7 +39,6 @@ export default function SubjectForm({ isOpen, onClose, onSuccess, initialData })
                 type: initialData.type || 'theory'
             });
         } else if (user.role === 'hod') {
-            // HOD defaults
             setFormData(prev => ({
                 ...prev,
                 departmentId: user.departmentId,
@@ -51,57 +51,43 @@ export default function SubjectForm({ isOpen, onClose, onSuccess, initialData })
 
     const fetchMetadata = async () => {
         try {
-            // If admin, fetch all departments
             if (user.role === 'admin') {
                 const deptSnap = await getDocs(query(collection(db, 'departments'), where('status', '==', 'active')));
-                setDepartments(deptSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setDepartments(deptSnap.docs.map(d => ({ 
+                    value: d.id, 
+                    label: d.data().name 
+                })));
             }
 
-            // Fetch courses for the selected department
-            let courseQuery;
-            const deptIdToCheck = user.role === 'hod' ? user.departmentId : formData.departmentId;
-
-            if (deptIdToCheck) {
-                // In real app, courses might be linked to department. 
-                // For now, we fetch all active courses and we could filter if needed
-                courseQuery = query(collection(db, 'courses'), where('status', '==', 'active'));
-                const courseSnap = await getDocs(courseQuery);
-                setCourses(courseSnap.docs.map(c => ({ id: c.id, ...c.data() })));
-            }
+            const courseQuery = query(collection(db, 'courses'), where('status', '==', 'active'));
+            const courseSnap = await getDocs(courseQuery);
+            setCourses(courseSnap.docs.map(c => ({ 
+                value: c.id, 
+                label: `${c.data().name} (${c.data().code})` 
+            })));
         } catch (error) {
             console.error('Error fetching metadata:', error);
         }
     };
 
-    // Re-fetch courses when department changes (if admin)
-    useEffect(() => {
-        if (user.role === 'admin' && formData.departmentId) {
-            // Logic to filter courses by department would go here if schema supported it directly
-            // currently courses are collection-level
-        }
-    }, [formData.departmentId]);
-
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleDepartmentChange = (e) => {
         const deptId = e.target.value;
-        const dept = departments.find(d => d.id === deptId);
+        const dept = departments.find(d => d.value === deptId);
         setFormData(prev => ({
             ...prev,
             departmentId: deptId,
-            departmentName: dept?.name || ''
+            departmentName: dept?.label || ''
         }));
     };
 
     const handleSubmit = async () => {
         if (!formData.name || !formData.code || !formData.courseId) {
-            toast.error('Please fill all required fields');
+            toast.error('All required fields must be completed');
             return;
         }
 
@@ -126,7 +112,7 @@ export default function SubjectForm({ isOpen, onClose, onSuccess, initialData })
                     updatedBy: user.uid
                 });
                 await logUpdate('subjects', initialData.id, initialData, subjectData, user);
-                toast.success('Subject updated');
+                toast.success('Subject updated successfully');
             } else {
                 const docRef = await addDoc(collection(db, 'subjects'), {
                     ...subjectData,
@@ -134,12 +120,12 @@ export default function SubjectForm({ isOpen, onClose, onSuccess, initialData })
                     createdBy: user.uid
                 });
                 await logCreate('subjects', docRef.id, subjectData, user);
-                toast.success('Subject created');
+                toast.success('Curriculum entry created');
             }
             onSuccess();
         } catch (error) {
             console.error('Error saving subject:', error);
-            toast.error('Failed to save subject');
+            toast.error('Failed to save subject details');
         } finally {
             setLoading(false);
         }
@@ -150,75 +136,87 @@ export default function SubjectForm({ isOpen, onClose, onSuccess, initialData })
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}
-            title={initialData ? 'Edit Subject' : 'Add Subject'}
+            title={initialData ? 'Edit Subject Details' : 'Initialize New Subject'}
+            submitText={initialData ? 'Update Record' : 'Create Entry'}
             loading={loading}
+            size="lg"
         >
-            <div className="space-y-4">
+            <div className="space-y-6 py-2">
                 {user.role === 'admin' && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                        <select
-                            value={formData.departmentId}
-                            onChange={handleDepartmentChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        >
-                            <option value="">Select Department</option>
-                            {departments.map(d => (
-                                <option key={d.id} value={d.id}>{d.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <Select
+                        label="Academic Department"
+                        name="departmentId"
+                        value={formData.departmentId}
+                        options={departments}
+                        onChange={handleDepartmentChange}
+                        placeholder="Select Department"
+                        required
+                    />
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                    <Input label="Subject Name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Data Structures" required />
-                    <Input label="Subject Code" name="code" value={formData.code} onChange={handleChange} placeholder="e.g. BCA-201" required />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <Input 
+                        label="Subject Title" 
+                        name="name" 
+                        value={formData.name} 
+                        onChange={handleChange} 
+                        placeholder="e.g. Data Structures & Algorithms" 
+                        required 
+                        autoComplete="off"
+                    />
+                    <Input 
+                        label="Subject Code" 
+                        name="code" 
+                        value={formData.code} 
+                        onChange={handleChange} 
+                        placeholder="e.g. BCA-201" 
+                        required 
+                        autoComplete="off"
+                    />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
-                        <select
-                            name="courseId"
-                            value={formData.courseId}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        >
-                            <option value="">Select Course</option>
-                            {courses.map(c => (
-                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                        <select
-                            name="semester"
-                            value={formData.semester}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        >
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                                <option key={s} value={s}>Semester {s}</option>
-                            ))}
-                        </select>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <Select
+                        label="Associated Degree Course"
+                        name="courseId"
+                        value={formData.courseId}
+                        options={courses}
+                        onChange={handleChange}
+                        placeholder="Select Degree Course"
+                        required
+                    />
+                    <Select
+                        label="Academic Semester"
+                        name="semester"
+                        value={formData.semester}
+                        options={[1, 2, 3, 4, 5, 6, 7, 8].map(s => ({ value: s, label: `Semester ${s}` }))}
+                        onChange={handleChange}
+                        required
+                    />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                        <select
-                            name="type"
-                            value={formData.type}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        >
-                            <option value="theory">Theory</option>
-                            <option value="lab">Lab/Practical</option>
-                        </select>
-                    </div>
-                    <Input label="Credits" name="credits" type="number" value={formData.credits} onChange={handleChange} min="1" max="10" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <Select
+                        label="Curriculum Type"
+                        name="type"
+                        value={formData.type}
+                        options={[
+                            { value: 'theory', label: 'Theory / Lecture' },
+                            { value: 'lab', label: 'Laboratory / Practical' }
+                        ]}
+                        onChange={handleChange}
+                        required
+                    />
+                    <Input 
+                        label="Credit Value" 
+                        name="credits" 
+                        type="number" 
+                        value={formData.credits} 
+                        onChange={handleChange} 
+                        min="1" 
+                        max="10" 
+                        required
+                    />
                 </div>
             </div>
         </FormModal>

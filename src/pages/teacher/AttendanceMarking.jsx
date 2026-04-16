@@ -4,6 +4,8 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import PremiumSelect from '../../components/common/PremiumSelect';
 
 export default function AttendanceMarking() {
     const { user } = useAuth();
@@ -11,14 +13,17 @@ export default function AttendanceMarking() {
     const [classes, setClasses] = useState([]);
     const [selectedClass, setSelectedClass] = useState(null);
 
-    // Session State - FULL DAY LOGIC (No Period)
+    // Session State - FULL DAY LOGIC
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [session, setSession] = useState(null); // Existing session if found
+    const [session, setSession] = useState(null); 
     const [students, setStudents] = useState([]);
     const [attendanceMap, setAttendanceMap] = useState({}); // { studentId: 'P' | 'A' }
     const [recordIdMap, setRecordIdMap] = useState({}); // { studentId: docId }
     const [submitting, setSubmitting] = useState(false);
-    const [requestStatus, setRequestStatus] = useState(null); // 'PENDING' | 'APPROVED' | 'REJECTED' | null
+    const [requestStatus, setRequestStatus] = useState(null); 
+
+    const isToday = date === format(new Date(), 'yyyy-MM-dd');
+    const isEditable = isToday && (session?.status !== 'LOCKED');
 
     useEffect(() => {
         if (user) fetchMyClasses();
@@ -26,18 +31,14 @@ export default function AttendanceMarking() {
 
     const fetchMyClasses = async () => {
         try {
-            // Get assignments where teacherId == me
-            // Teacher might have multiple subjects for SAME batch. We need UNIQUE batches.
             const q = query(collection(db, 'class_assignments'), where('teacherId', '==', user.uid));
             const snap = await getDocs(q);
             const assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            // Deduplicate by Course + Sem + Section
             const uniqueBatches = [];
             const seen = new Set();
 
             assignments.forEach(a => {
-                const section = a.section || '';
                 const batchId = a.batchId || a.id;
                 const key = `${batchId}`;
                 if (!seen.has(key)) {
@@ -47,7 +48,7 @@ export default function AttendanceMarking() {
                         courseId: a.courseId,
                         courseName: a.courseName || a.batchName || 'Batch',
                         semester: a.semester,
-                        section: section,
+                        section: a.section || '',
                         departmentId: a.departmentId
                     });
                 }
@@ -61,7 +62,6 @@ export default function AttendanceMarking() {
         }
     };
 
-    // When Class/Date changes, check for existing session or load students
     useEffect(() => {
         if (selectedClass && date) {
             loadSessionData();
@@ -76,12 +76,10 @@ export default function AttendanceMarking() {
         setRequestStatus(null);
 
         try {
-            // 1. Check if session exists (Batch + Date) - ONE per day per batch
-            // NO Subject Check
             const sessionQuery = query(
                 collection(db, 'attendance_sessions'),
                 where('courseId', '==', selectedClass.courseId || ''),
-                where('semester', '==', selectedClass.semester), // semester is usually string or number in db
+                where('semester', '==', selectedClass.semester),
                 where('section', '==', selectedClass.section || ''),
                 where('date', '==', date)
             );
@@ -89,43 +87,31 @@ export default function AttendanceMarking() {
             const sessionSnap = await getDocs(sessionQuery);
 
             if (!sessionSnap.empty) {
-                // SESSION EXISTS - Load it
                 const sessionDoc = sessionSnap.docs[0];
                 setSession({ id: sessionDoc.id, ...sessionDoc.data() });
 
-                // Load records
                 const recordsQuery = query(collection(db, 'attendance_records'), where('sessionId', '==', sessionDoc.id));
                 const recordsSnap = await getDocs(recordsQuery);
-                const records = recordsSnap.docs.map(d => d.data());
+                const records = recordsSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
 
-                // Map records to state
                 const initialMap = {};
-                const recordIds = {}; // New: Store Record IDs to prevent duplicates
+                const recordIds = {};
 
-                // Reconstruct student list from records to ensure consistency
                 const studentList = records.map(r => ({
                     id: r.studentId,
                     name: r.studentName,
-                    enrollmentNumber: r.enrollmentNumber
+                    rollNumber: r.rollNumber || r.enrollmentNumber || 'N/A'
                 }));
 
                 records.forEach(r => {
                     initialMap[r.studentId] = r.status === 'PRESENT' ? 'P' : 'A';
-                    recordIds[r.studentId] = r.recordId; // Store Firestore Doc ID if available, or we might need to fetch it differently if not in data()
-                });
-
-                // NOTE: recordsSnap.docs.map(d => d.data()) only gives data. needed d.id
-                const mappedRecords = recordsSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
-                mappedRecords.forEach(r => {
                     recordIds[r.studentId] = r.docId;
                 });
 
                 setStudents(studentList);
                 setAttendanceMap(initialMap);
-                setRecordIdMap(recordIds); // Need to add this state
-
+                setRecordIdMap(recordIds);
             } else {
-                // NEW SESSION - Fetch Students for this Batch
                 const studentsQuery = query(
                     collection(db, 'users'),
                     where('role', '==', 'student'),
@@ -134,13 +120,16 @@ export default function AttendanceMarking() {
                 );
 
                 const studentSnap = await getDocs(studentsQuery);
-                const studentList = studentSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() }))
-                    .filter(s => s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR');
+                const studentList = studentSnap.docs.map(d => {
+                    const data = d.data();
+                    return {
+                        id: d.id,
+                        name: data.name,
+                        rollNumber: data.rollNumber || data.enrollmentNumber || 'N/A'
+                    };
+                }).filter(s => s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR');
 
                 setStudents(studentList);
-
-                // Default Absent
                 const initialMap = {};
                 studentList.forEach(s => initialMap[s.id] = 'A');
                 setAttendanceMap(initialMap);
@@ -148,29 +137,16 @@ export default function AttendanceMarking() {
             }
         } catch (error) {
             console.error('Attendance Loading Error:', error);
-            const errorMsg = error.code === 'failed-precondition'
-                ? 'Database index required. Please contact admin.'
-                : 'Failed to load session data';
-            toast.error(errorMsg);
+            toast.error('Failed to load session data');
         } finally {
             setLoading(false);
         }
     };
 
-    // Real-time Unlock Request Listener & Spam Protection
     const [requestCount, setRequestCount] = useState(0);
 
     useEffect(() => {
         if (!selectedClass || !date) return;
-
-        // Import onSnapshot dynamically if not at top, but better at top. 
-        // Assuming I'll fix imports later or user has them. 
-        // Wait, replace_file_content can't see top. I'll use require for now or assume imports.
-        // Actually, let's just use the existing imports if possible, or add onSnapshot to the top import in a separate step if needed.
-        // For now I will use require inside useEffect to be safe or just assume it is added. 
-        // I will add onSnapshot to the import in a separate step to be clean.
-
-
 
         const q = query(
             collection(db, 'attendance_unlock_requests'),
@@ -181,19 +157,15 @@ export default function AttendanceMarking() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const requests = snapshot.docs.map(d => d.data());
             setRequestCount(requests.length);
-
-            // Find latest request
             const latest = requests.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis())[0];
 
             if (latest) {
-                // Check for status change for Toast
                 if (latest.status !== requestStatus) {
                     if (latest.status === 'APPROVED' && requestStatus === 'PENDING') {
-                        toast.success('Unlock Request APPROVED! You can now edit attendance.');
-                        // Reload session to reflect UNLOCKED status in UI (since session update triggers re-render but we need to be sure)
+                        toast.success('Unlock Request APPROVED!');
                         loadSessionData();
                     } else if (latest.status === 'REJECTED' && requestStatus === 'PENDING') {
-                        toast.error('Unlock Request REJECTED by Principal.');
+                        toast.error('Unlock Request REJECTED.');
                     }
                 }
                 setRequestStatus(latest.status);
@@ -203,18 +175,18 @@ export default function AttendanceMarking() {
         });
 
         return () => unsubscribe();
-    }, [selectedClass, date, requestStatus]); // requestStatus dependency to compare change
+    }, [selectedClass, date, requestStatus]);
 
-    const toggleStatus = (studentId) => {
-        if (session?.status === 'LOCKED') return;
+    const toggleAttendance = (studentId, status) => {
+        if (!isEditable) return;
         setAttendanceMap(prev => ({
             ...prev,
-            [studentId]: prev[studentId] === 'P' ? 'A' : 'P'
+            [studentId]: status === 'PRESENT' ? 'P' : 'A'
         }));
     };
 
     const markAll = (status) => {
-        if (session?.status === 'LOCKED') return;
+        if (!isEditable) return;
         const newMap = {};
         students.forEach(s => newMap[s.id] = status);
         setAttendanceMap(newMap);
@@ -236,24 +208,20 @@ export default function AttendanceMarking() {
             const stats = calculateStats();
             const batch = writeBatch(db);
 
-            // 1. Create/Update Session Header (Batch-wise)
             let sessionRef;
             if (session?.id) {
-                // Update Existing Session
                 sessionRef = doc(db, 'attendance_sessions', session.id);
                 batch.update(sessionRef, {
-                    // Update stats
                     totalStudents: stats.total,
                     presentCount: stats.present,
-                    lockedAt: serverTimestamp(), // Re-lock time
+                    lockedAt: serverTimestamp(),
                     status: 'LOCKED',
-                    teacherId: user.uid, // Ensure current teacher is marked as locker
+                    teacherId: user.uid,
                     teacherName: user.name
                 });
             } else {
-                // Create New Session
                 sessionRef = doc(collection(db, 'attendance_sessions'));
-                const sessionData = {
+                batch.set(sessionRef, {
                     date,
                     type: 'FULL_DAY',
                     startTime: serverTimestamp(),
@@ -267,31 +235,26 @@ export default function AttendanceMarking() {
                     presentCount: stats.present,
                     createdAt: serverTimestamp(),
                     lockedAt: serverTimestamp()
-                };
-                batch.set(sessionRef, sessionData);
+                });
             }
 
-            // 2. Create/Update Records
             students.forEach(student => {
                 const existingRecordId = recordIdMap[student.id];
                 const status = attendanceMap[student.id] === 'P' ? 'PRESENT' : 'ABSENT';
 
                 if (existingRecordId) {
-                    // UPDATE Existing Record
-                    const recordRef = doc(db, 'attendance_records', existingRecordId);
-                    batch.update(recordRef, {
+                    batch.update(doc(db, 'attendance_records', existingRecordId), {
                         status: status,
                         markedBy: user.uid,
                         timestamp: serverTimestamp()
                     });
                 } else {
-                    // CREATE New Record
                     const recordRef = doc(collection(db, 'attendance_records'));
                     batch.set(recordRef, {
                         sessionId: sessionRef.id,
                         studentId: student.id,
                         studentName: student.name,
-                        enrollmentNumber: student.enrollmentNumber,
+                        rollNumber: student.rollNumber,
                         date,
                         courseId: selectedClass.courseId,
                         semester: selectedClass.semester,
@@ -303,10 +266,8 @@ export default function AttendanceMarking() {
             });
 
             await batch.commit();
-
-            toast.success('Daily Attendance Locked Successfully');
+            toast.success('Attendance Locked Successfully');
             loadSessionData();
-
         } catch (error) {
             console.error('Error submitting:', error);
             toast.error('Failed to submit attendance');
@@ -317,28 +278,21 @@ export default function AttendanceMarking() {
 
     const handleRequestEdit = async () => {
         if (!session || !selectedClass) return;
-
         try {
             await addDoc(collection(db, 'attendance_unlock_requests'), {
-                type: 'UNLOCK_ATTENDANCE', // For future filtering
+                type: 'UNLOCK_ATTENDANCE',
                 sessionId: session.id,
                 batchId: selectedClass.id,
                 batchName: selectedClass.courseName || 'Batch',
                 date: date,
-
-                // Teacher Info
                 teacherId: user.uid,
                 teacherName: user.name,
-
-                // Principal Filtering
                 campusId: user.campusId,
                 collegeId: user.collegeId,
                 departmentId: user.departmentId,
-
                 status: 'PENDING',
                 createdAt: serverTimestamp()
             });
-
             setRequestStatus('PENDING');
             toast.success('Unlock request sent to Principal');
         } catch (error) {
@@ -347,171 +301,234 @@ export default function AttendanceMarking() {
         }
     };
 
-    if (!user) return null;
-
-    const stats = calculateStats();
+    const statsData = calculateStats();
 
     return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900">Batch Attendance</h2>
-                <p className="text-sm text-gray-600">Mark batch-wise full day attendance</p>
+        <div className="space-y-8 pb-12">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Attendance Ledger</h2>
+                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mt-1 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                        Live Batch Sync • Faculty Control
+                    </p>
+                </div>
+                
+                <AnimatePresence>
+                    {isToday && (!session || session.status !== 'LOCKED') && students.length > 0 && (
+                        <motion.button
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            className="bg-[#E31E24] text-white px-8 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-red-700 font-black uppercase tracking-widest text-xs flex items-center gap-3 active:scale-95 transition-all border border-white/20"
+                        >
+                            {submitting ? (
+                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    Execute Daily Lock
+                                </>
+                            )}
+                        </motion.button>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* Selectors */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch</label>
-                    <select
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        value={selectedClass ? JSON.stringify(selectedClass) : ''}
-                        onChange={e => {
-                            const val = e.target.value;
-                            setSelectedClass(val ? JSON.parse(val) : null);
-                        }}
-                    >
-                        <option value="">-- Choose Batch --</option>
-                        {classes.map(c => (
-                            <option key={`${c.courseId}_${c.semester}_${c.section}`} value={JSON.stringify(c)}>
-                                {c.courseName} Sem {c.semester} ({c.section})
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input
-                        type="date"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        value={date}
-                        onChange={e => setDate(e.target.value)}
-                        max={format(new Date(), 'yyyy-MM-dd')}
-                    />
+            {/* Config Hub */}
+            <div className="bg-white/70 backdrop-blur-xl p-8 rounded-[2.5rem] border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-8">
+                <PremiumSelect 
+                    label="Batch Authority"
+                    placeholder="Identify Target Batch"
+                    value={selectedClass ? JSON.stringify(selectedClass) : ''}
+                    onChange={e => {
+                        const val = e.target.value;
+                        setSelectedClass(val ? JSON.parse(val) : null);
+                    }}
+                    options={classes.map(c => ({
+                        label: `${c.courseName} S${c.semester}${c.section ? ` - ${c.section}` : ''}`,
+                        value: JSON.stringify(c)
+                    }))}
+                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" /></svg>}
+                />
+
+                <div className="flex flex-col gap-2">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Temporal Marker</label>
+                    <div className="relative group">
+                        <input
+                            type="date"
+                            className="w-full px-6 py-4 bg-white border border-gray-100 rounded-2xl text-sm font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-violet-50 focus:border-violet-300 hover:bg-gray-50/50 cursor-pointer"
+                            value={date}
+                            onChange={e => setDate(e.target.value)}
+                            max={format(new Date(), 'yyyy-MM-dd')}
+                        />
+                    </div>
                 </div>
             </div>
 
             {selectedClass ? (
-                <div className="space-y-4">
-                    {/* Header & Stats */}
-                    <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="flex items-center gap-4">
-                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${session?.status === 'LOCKED' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                }`}>
-                                {session?.status === 'LOCKED' ? `LOCKED` : 'OPEN'}
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                >
+                    {/* Status Ribbon */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-violet-50/50 backdrop-blur-md p-6 rounded-[2rem] border border-violet-100 gap-6">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${
+                                session?.status === 'LOCKED' ? 'bg-red-500 text-white border-red-400' : isToday ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-gray-200 text-gray-600 border-gray-300'
+                            }`}>
+                                {session?.status === 'LOCKED' ? `LOCKED` : isToday ? 'OPEN' : 'READ-ONLY'}
                             </div>
-                            {!session && <span className="text-gray-500 text-sm">New Record</span>}
+                            
+                            {isEditable && (
+                                <div className="flex items-center gap-2 p-1 bg-white rounded-xl border border-violet-100">
+                                    <button 
+                                        onClick={() => markAll('P')}
+                                        className="text-[9px] font-black text-emerald-600 px-4 py-2 hover:bg-emerald-50 rounded-lg transition-colors uppercase tracking-widest"
+                                    >
+                                        Mass Present
+                                    </button>
+                                    <div className="w-px h-4 bg-violet-100" />
+                                    <button 
+                                        onClick={() => markAll('A')}
+                                        className="text-[9px] font-black text-red-600 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors uppercase tracking-widest"
+                                    >
+                                        Mass Absent
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        <div className="text-right">
-                            <span className="text-sm text-gray-600 block">Present: {stats.present} / {stats.total}</span>
-                            <span className="text-xl font-bold text-gray-900">{stats.percent}%</span>
+
+                        <div className="flex items-center gap-6">
+                            <div className="text-right">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Density</p>
+                                <p className="text-xl font-black text-gray-900 tracking-tighter">{statsData.present} <span className="text-gray-300">/</span> {statsData.total}</p>
+                            </div>
+                            <div className="w-px h-10 bg-violet-100" />
+                            <div className="text-right">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Yield</p>
+                                <p className="text-3xl font-black text-violet-600 tracking-tighter">{statsData.percent}%</p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Quick Actions (Open Only) */}
-                    {(!session || session.status !== 'LOCKED') && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => markAll('P')}
-                                className="text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded hover:bg-blue-100"
-                            >
-                                Mark All Present
-                            </button>
-                            <button
-                                onClick={() => markAll('A')}
-                                className="text-sm bg-red-50 text-red-700 px-3 py-1 rounded hover:bg-red-100"
-                            >
-                                Mark All Absent
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Grid */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Student List Grid */}
+                    <div className="bg-white/50 rounded-[2.5rem] border border-gray-100 overflow-hidden min-h-[400px]">
                         {students.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">
-                                {loading ? 'Loading...' : 'No students found for this batch configuration.'}
+                            <div className="flex flex-col items-center justify-center py-24 text-center">
+                                <div className="w-20 h-20 bg-gray-50 text-gray-300 rounded-[1.5rem] flex items-center justify-center mb-4">
+                                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                        <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-black text-gray-900">No Roster Isolated</h3>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-tight max-w-xs mt-2">Verify batch configuration or enrollment status in faculty portal.</p>
                             </div>
                         ) : (
-                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {students.map(student => (
-                                    <div
-                                        key={student.id}
-                                        className={`p-4 rounded-xl border transition-all ${attendanceMap[student.id] === 'A'
-                                            ? 'bg-red-50 border-red-200'
-                                            : 'bg-white border-gray-100 hover:border-gray-300'
+                            <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {students.map((student, idx) => {
+                                    const isPresent = attendanceMap[student.id] === 'P';
+                                    return (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: idx * 0.02 }}
+                                            key={student.id}
+                                            className={`relative group p-6 rounded-[2rem] border transition-all duration-300 overflow-hidden ${
+                                                isPresent ? 'bg-white border-gray-100 shadow-sm' : 'bg-red-50 border-red-100 shadow-sm shadow-red-100'
                                             }`}
-                                    >
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm">
-                                                    {student.name.charAt(0)}
+                                        >
+                                            <div className="relative z-10 flex flex-col gap-5">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm transition-colors duration-500 ${
+                                                        isPresent ? 'bg-violet-50 text-violet-600' : 'bg-red-500 text-white'
+                                                    }`}>
+                                                        {student.name.charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-sm font-black text-gray-900 truncate tracking-tight">{student.name}</h4>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60 truncate">{student.rollNumber}</p>
+                                                    </div>
                                                 </div>
-                                                <div className="overflow-hidden">
-                                                    <p className="font-bold text-gray-900 truncate" title={student.name}>{student.name}</p>
-                                                    <p className="text-xs text-gray-500">{student.enrollmentNumber}</p>
+
+                                                <div className="flex items-center gap-2 p-1.5 bg-gray-50/50 rounded-2xl border border-gray-100 group-hover:bg-white transition-colors">
+                                                    <button
+                                                        onClick={() => toggleAttendance(student.id, 'PRESENT')}
+                                                        disabled={!isEditable}
+                                                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                            isPresent ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'
+                                                        } ${!isEditable ? 'cursor-not-allowed' : ''}`}
+                                                    >
+                                                        Present
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleAttendance(student.id, 'ABSENT')}
+                                                        disabled={!isEditable}
+                                                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                            !isPresent ? 'bg-red-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'
+                                                        } ${!isEditable ? 'cursor-not-allowed' : ''}`}
+                                                    >
+                                                        Absent
+                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => toggleStatus(student.id)}
-                                            disabled={session?.status === 'LOCKED'}
-                                            className={`w-full py-2 rounded-lg font-bold text-sm transition-all ${attendanceMap[student.id] === 'P'
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-red-500 text-white shadow-md hover:bg-red-600'
-                                                } ${session?.status === 'LOCKED' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        >
-                                            {attendanceMap[student.id] === 'P' ? 'PRESENT' : 'ABSENT'}
-                                        </button>
-                                    </div>
-                                ))}
+                                            
+                                            <div className={`absolute -right-2 -bottom-2 w-16 h-16 rounded-full blur-2xl transition-opacity duration-700 ${isPresent ? 'bg-violet-500/10' : 'bg-red-500/20'}`} />
+                                        </motion.div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
 
-                    {/* Submit Action */}
-                    {(!session || session.status !== 'LOCKED') && students.length > 0 && (
-                        <div className="fixed bottom-6 right-6 md:sticky md:bottom-0 md:bg-white md:p-4 md:border-t flex justify-end z-10">
-                            <button
-                                onClick={handleSubmit}
-                                disabled={submitting}
-                                className="bg-biyani-red text-white px-8 py-3 rounded-xl shadow-lg hover:bg-red-700 font-bold flex items-center gap-2"
-                            >
-                                {submitting ? 'Locking...' : '🔒 Lock Day Attendance'}
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Locked Message */}
+                    {/* Locked Actions Overlay */}
                     {session?.status === 'LOCKED' && (
-                        <div className="bg-gray-100 p-4 rounded-lg text-center text-gray-600 flex flex-col md:flex-row items-center justify-center gap-4">
-                            <p>🔒 Attendance for {format(new Date(date), 'dd MMM yyyy')} is locked.</p>
+                        <div className="bg-gray-900/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-gray-200/50 flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-xl">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-gray-900 text-lg tracking-tight leading-none mb-1">Session Vault Protected</h4>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Attendance locked on {format(new Date(date), 'dd MMM yyyy')}</p>
+                                </div>
+                            </div>
 
                             {requestStatus === 'PENDING' ? (
-                                <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-bold border border-yellow-200 flex items-center gap-2">
-                                    <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Unlock Request Pending
-                                </span>
+                                <div className="px-8 py-4 bg-amber-50 text-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-amber-200 flex items-center gap-3 shadow-lg shadow-amber-100">
+                                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                                    Awaiting Presidential Approval
+                                </div>
                             ) : (
                                 <button
                                     onClick={handleRequestEdit}
-                                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    className="px-8 py-4 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-gray-900 hover:bg-gray-900 hover:text-white transition-all shadow-xl group flex items-center gap-3 active:scale-95"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    <svg className="w-4 h-4 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                        <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
-                                    Request Admin Unlock
+                                    Request Vault Unlock
                                 </button>
                             )}
                         </div>
                     )}
-
-                </div>
+                </motion.div>
             ) : (
-                <div className="bg-gray-50 rounded-lg p-10 text-center border-2 border-dashed border-gray-200">
-                    <p className="text-gray-500">Please select a batch to mark attendance</p>
+                <div className="bg-gray-50/50 rounded-[3rem] p-24 text-center border-4 border-dashed border-gray-100">
+                    <div className="w-20 h-20 bg-white rounded-3xl mx-auto flex items-center justify-center shadow-sm text-gray-300 mb-6">
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    </div>
+                    <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Identify batch authorization to initiate marking</p>
                 </div>
             )}
         </div>

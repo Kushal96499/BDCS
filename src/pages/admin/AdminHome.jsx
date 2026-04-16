@@ -1,12 +1,14 @@
 // ============================================
-// BDCS - Admin Home Dashboard
-// Main admin dashboard with statistics and quick actions
+// BDCS - Premium Admin Home Dashboard
+// Integrated, Responsive & Animated
 // ============================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getCountFromServer, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import Button from '../../components/Button';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminHome() {
     const navigate = useNavigate();
@@ -69,7 +71,6 @@ export default function AdminHome() {
             );
             const campusesData = campusesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Check each campus for colleges
             const campusesWithoutColleges = [];
             for (const campus of campusesData) {
                 const collegeCount = await getCountFromServer(
@@ -109,310 +110,228 @@ export default function AdminHome() {
 
     const modules = [
         {
-            title: 'Campus Management',
-            description: 'Manage campus locations and facilities',
+            title: 'Campuses',
+            description: 'Locations & Facilities',
             count: stats.campuses,
             path: '/admin/campuses',
-            icon: (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-            ),
-            color: 'bg-blue-500'
+            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50'
         },
         {
-            title: 'College Management',
-            description: 'Manage colleges under campuses',
+            title: 'Colleges',
+            description: 'Managed Colleges',
             count: stats.colleges,
             path: '/admin/colleges',
-            icon: (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-            ),
-            color: 'bg-green-500'
+            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50'
         },
         {
-            title: 'Course Management',
-            description: 'Manage academic courses and programs',
+            title: 'Courses',
+            description: 'Courses Offered',
             count: stats.courses,
             path: '/admin/courses',
-            icon: (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            ),
-            color: 'bg-purple-500'
+            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            color: 'text-violet-600',
+            bg: 'bg-violet-50'
         },
         {
-            title: 'Department Management',
-            description: 'Manage departments and HOD assignments',
+            title: 'Departments',
+            description: 'Subject Groups',
             count: stats.departments,
             path: '/admin/departments',
-            icon: (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-            ),
-            color: 'bg-orange-500'
+            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50'
         }
     ];
 
-    return (
-        <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to BDCS Admin Panel</h1>
-                <p className="text-gray-600">
-                    Manage the institutional structure of Biyani Digital Campus System
-                </p>
-            </div>
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
 
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1 }
+    };
+
+    return (
+        <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="space-y-10"
+        >
+            {/* ── HERO BANNER ────────────────────────────────────── */}
+            <motion.div 
+                variants={itemVariants}
+                className="relative overflow-hidden rounded-[2.5rem] bg-gray-900 p-8 sm:p-12 text-white shadow-2xl"
+            >
+                <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 blur-[100px] -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 blur-[80px] -ml-20 -mb-20" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
+                    <div className="max-w-xl">
+                        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest border border-white/5 mb-6">
+                            Admin Dashboard
+                        </div>
+                        <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight mb-4">
+                            Welcome, Admin
+                        </h1>
+                        <p className="text-gray-400 text-sm sm:text-lg font-medium leading-relaxed mb-8">
+                            Manage the Biyani Digital Campus System with real-time data and system insights.
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                            <Button variant="primary" onClick={() => navigate('/admin/users')}>
+                                Add New Staff
+                            </Button>
+                            <Button variant="secondary" onClick={() => navigate('/admin/audit-logs')} className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+                                View Logs
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="hidden lg:flex items-center justify-center pr-10">
+                         <div className="w-32 h-32 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center animate-pulse">
+                            <img src="/assets/biyani-logo.png" alt="BDCS" className="w-20 h-20 object-contain opacity-50 contrast-125" />
+                         </div>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* ── STATISTICS CARS ────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {modules.map((module, index) => (
-                    <button
+                    <motion.button
+                        variants={itemVariants}
                         key={index}
                         onClick={() => navigate(module.path)}
-                        className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow text-left"
+                        className="group bg-white p-7 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 text-left relative overflow-hidden"
                     >
-                        <div className="flex items-start justify-between mb-4">
-                            <div className={`${module.color} text-white p-3 rounded-lg`}>
-                                {module.icon}
-                            </div>
-                            {loading ? (
-                                <div className="animate-pulse h-8 w-16 bg-gray-200 rounded"></div>
-                            ) : (
-                                <div className="text-right">
-                                    <p className="text-3xl font-bold text-gray-900">{module.count}</p>
-                                    <p className="text-xs text-gray-500">Active</p>
-                                </div>
-                            )}
+                        <div className={`absolute top-0 right-0 w-24 h-24 ${module.bg} opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -mr-8 -mt-8`} />
+                        <div className={`w-12 h-12 ${module.bg} ${module.color} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                            <div className="w-6 h-6">{module.icon}</div>
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{module.title}</h3>
-                        <p className="text-sm text-gray-600">{module.description}</p>
-                    </button>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{module.title}</p>
+                        {loading ? (
+                            <div className="h-8 w-16 bg-gray-50 rounded-xl animate-pulse" />
+                        ) : (
+                            <h3 className="text-3xl font-black text-gray-900 tracking-tight">{module.count}</h3>
+                        )}
+                        <p className="text-[11px] font-bold text-gray-400 mt-2">{module.description}</p>
+                    </motion.button>
                 ))}
             </div>
 
-            {/* Quick Actions */}
-            <div className="mt-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button
-                        onClick={() => navigate('/admin/users')}
-                        className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                    >
-                        <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="font-medium text-gray-900">Add User</p>
-                            <p className="text-xs text-gray-500">Create new staff or student</p>
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => navigate('/admin/courses')}
-                        className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                    >
-                        <div className="bg-purple-100 text-purple-600 p-2 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="font-medium text-gray-900">Add Course</p>
-                            <p className="text-xs text-gray-500">Create new academic program</p>
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => navigate('/admin/departments')}
-                        className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                    >
-                        <div className="bg-orange-100 text-orange-600 p-2 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="font-medium text-gray-900">Add Department</p>
-                            <p className="text-xs text-gray-500">Create new department</p>
-                        </div>
-                    </button>
+            {/* ── SYSTEM ALERTS ────────────────────────────────── */}
+            <motion.div variants={itemVariants} className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                        <span className="w-2 h-6 bg-[#E31E24] rounded-full" />
+                        System Alerts
+                    </h2>
+                    <Button variant="ghost" onClick={fetchGovernanceAlerts} disabled={alertsLoading} className="text-xs">
+                        Refresh
+                    </Button>
                 </div>
-            </div>
 
-            {/* Governance Alerts Section */}
-            <div className="mt-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Governance Alerts</h2>
-                <p className="text-sm text-gray-600 mb-4">Critical issues requiring immediate attention</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {alertsLoading ? (
+                         Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="h-48 bg-gray-50 rounded-[2rem] animate-pulse" />
+                         ))
+                    ) : (
+                        <>
+                            {/* HOD Missing Alert */}
+                            <AlertCard 
+                                count={alerts.departmentsWithoutHOD.length}
+                                title="Missing HODs"
+                                label="Action Required"
+                                icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 11-8 0 4 4 0 018 0" /></svg>}
+                                color="red"
+                                items={alerts.departmentsWithoutHOD}
+                                onClick={() => navigate('/admin/departments')}
+                            />
+                            
+                            {/* Empty Campus Alert */}
+                            <AlertCard 
+                                count={alerts.campusesWithoutColleges.length}
+                                title="Empty Campuses"
+                                label="No Colleges"
+                                icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16" /></svg>}
+                                color="orange"
+                                items={alerts.campusesWithoutColleges}
+                                onClick={() => navigate('/admin/colleges')}
+                            />
 
-                {alertsLoading ? (
-                    <div className="flex justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-biyani-red"></div>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Alert 1: Departments without HOD */}
-                        <div className={`rounded-lg border ${alerts.departmentsWithoutHOD.length > 0
-                                ? 'border-red-300 bg-red-50'
-                                : 'border-green-300 bg-green-50'
-                            } p-4`}>
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${alerts.departmentsWithoutHOD.length > 0
-                                        ? 'bg-red-100 text-red-600'
-                                        : 'bg-green-100 text-green-600'
-                                    }`}>
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className="font-semibold text-gray-900">Departments without HOD</h3>
-                                        {alerts.departmentsWithoutHOD.length > 0 && (
-                                            <span className="px-2 py-1 text-xs font-bold bg-red-600 text-white rounded-full">
-                                                {alerts.departmentsWithoutHOD.length}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-gray-600 mb-2">
-                                        {alerts.departmentsWithoutHOD.length === 0
-                                            ? 'All departments have assigned HODs'
-                                            : 'Some departments need HOD assignment'
-                                        }
-                                    </p>
-                                    {alerts.departmentsWithoutHOD.length > 0 && (
-                                        <>
-                                            <div className="space-y-1 mb-3 max-h-32 overflow-y-auto">
-                                                {alerts.departmentsWithoutHOD.slice(0, 3).map(dept => (
-                                                    <div key={dept.id} className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200">
-                                                        <span className="font-medium">{dept.name}</span>
-                                                        <span className="text-gray-500"> • {dept.collegeName}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <button
-                                                onClick={() => navigate('/admin/departments')}
-                                                className="text-sm text-red-600 hover:text-red-800 font-medium"
-                                            >
-                                                Assign HODs →
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                            {/* Successors Alert */}
+                            <AlertCard 
+                                count={alerts.relievedWithoutSuccessor.length}
+                                title="Empty Roles"
+                                label="Replacement Needed"
+                                icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                                color="yellow"
+                                items={alerts.relievedWithoutSuccessor}
+                                onClick={() => navigate('/admin/users?status=relieved')}
+                            />
+                        </>
+                    )}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
 
-                        {/* Alert 2: Campuses without Colleges */}
-                        <div className={`rounded-lg border ${alerts.campusesWithoutColleges.length > 0
-                                ? 'border-orange-300 bg-orange-50'
-                                : 'border-green-300 bg-green-50'
-                            } p-4`}>
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${alerts.campusesWithoutColleges.length > 0
-                                        ? 'bg-orange-100 text-orange-600'
-                                        : 'bg-green-100 text-green-600'
-                                    }`}>
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className="font-semibold text-gray-900">Campuses without Colleges</h3>
-                                        {alerts.campusesWithoutColleges.length > 0 && (
-                                            <span className="px-2 py-1 text-xs font-bold bg-orange-600 text-white rounded-full">
-                                                {alerts.campusesWithoutColleges.length}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-gray-600 mb-2">
-                                        {alerts.campusesWithoutColleges.length === 0
-                                            ? 'All campuses have colleges'
-                                            : 'Some campuses need colleges'
-                                        }
-                                    </p>
-                                    {alerts.campusesWithoutColleges.length > 0 && (
-                                        <>
-                                            <div className="space-y-1 mb-3 max-h-32 overflow-y-auto">
-                                                {alerts.campusesWithoutColleges.slice(0, 3).map(campus => (
-                                                    <div key={campus.id} className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200">
-                                                        <span className="font-medium">{campus.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <button
-                                                onClick={() => navigate('/admin/colleges')}
-                                                className="text-sm text-orange-600 hover:text-orange-800 font-medium"
-                                            >
-                                                Add Colleges →
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+function AlertCard({ count, title, label, icon, color, items, onClick }) {
+    const isError = count > 0;
+    const colorMap = {
+        red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100' },
+        orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
+        yellow: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
+        green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' }
+    };
+    const c = isError ? colorMap[color] : colorMap.green;
 
-                        {/* Alert 3: Relieved Users Pending Successor */}
-                        <div className={`rounded-lg border ${alerts.relievedWithoutSuccessor.length > 0
-                                ? 'border-yellow-300 bg-yellow-50'
-                                : 'border-green-300 bg-green-50'
-                            } p-4`}>
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${alerts.relievedWithoutSuccessor.length > 0
-                                        ? 'bg-yellow-100 text-yellow-600'
-                                        : 'bg-green-100 text-green-600'
-                                    }`}>
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className="font-semibold text-gray-900">Pending Successors</h3>
-                                        {alerts.relievedWithoutSuccessor.length > 0 && (
-                                            <span className="px-2 py-1 text-xs font-bold bg-yellow-600 text-white rounded-full">
-                                                {alerts.relievedWithoutSuccessor.length}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-gray-600 mb-2">
-                                        {alerts.relievedWithoutSuccessor.length === 0
-                                            ? 'All transitions handled'
-                                            : 'Relieved users need successors'
-                                        }
-                                    </p>
-                                    {alerts.relievedWithoutSuccessor.length > 0 && (
-                                        <>
-                                            <div className="space-y-1 mb-3 max-h-32 overflow-y-auto">
-                                                {alerts.relievedWithoutSuccessor.slice(0, 3).map(user => (
-                                                    <div key={user.id} className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200">
-                                                        <span className="font-medium">{user.name}</span>
-                                                        <span className="text-gray-500"> • {user.role}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <button
-                                                onClick={() => navigate('/admin/users?status=relieved')}
-                                                className="text-sm text-yellow-600 hover:text-yellow-800 font-medium"
-                                            >
-                                                Assign Successors →
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    return (
+        <div className={`p-8 rounded-[2.5rem] bg-white border ${c.border} shadow-sm transition-all duration-300`}>
+            <div className="flex items-start justify-between mb-6">
+                <div className={`w-14 h-14 ${c.bg} ${c.text} rounded-2xl flex items-center justify-center`}>
+                    <div className="w-7 h-7">{isError ? icon : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M5 13l4 4L19 7" /></svg>}</div>
+                </div>
+                {isError && (
+                    <span className={`px-3 py-1 rounded-full ${c.bg} ${c.text} text-[10px] font-black uppercase tracking-widest`}>
+                        {count} Issues
+                    </span>
                 )}
             </div>
 
+            <h3 className="text-xl font-black text-gray-900 tracking-tight mb-1">{isError ? title : 'All Secure'}</h3>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">{isError ? label : 'No Action Required'}</p>
 
+            {isError ? (
+                <div className="space-y-6">
+                    <div className="space-y-2 max-h-32 overflow-y-auto pr-2 no-scrollbar">
+                        {items.slice(0, 3).map((item, i) => (
+                            <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                <p className="text-xs font-bold text-gray-800 truncate">{item.name}</p>
+                                <p className="text-[10px] font-bold text-gray-400 truncate">{item.collegeName || item.role || 'Unassigned'}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <Button variant="primary" onClick={onClick} className="w-full py-2.5 text-xs">
+                        Resolve Now
+                    </Button>
+                </div>
+            ) : (
+                <div className="py-10 text-center">
+                    <p className="text-sm font-bold text-gray-400">Everything looks great!</p>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,9 +1,10 @@
 // ============================================
 // BIYANI DIGITAL CAMPUS SYSTEM (BDCS)
-// Reusable Button Component
+// Premium Reusable Button Component
 // ============================================
 
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 
 export default function Button({
     children,
@@ -14,26 +15,23 @@ export default function Button({
     className,
     ...props
 }) {
+    const variants = {
+        primary: 'bg-gradient-to-br from-[#E31E24] to-[#C6181D] text-white shadow-[0_4px_15px_rgba(227,30,36,0.25)] hover:shadow-[0_8px_25px_rgba(227,30,36,0.35)]',
+        secondary: 'bg-white text-gray-900 border border-gray-100 shadow-sm hover:bg-gray-50 hover:border-gray-200',
+        outline: 'bg-transparent text-[#E31E24] border-2 border-[#E31E24]/20 hover:border-[#E31E24] hover:bg-red-50',
+        ghost: 'bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-900',
+        danger: 'bg-red-50 text-red-600 hover:bg-red-100'
+    };
+
     const buttonClass = clsx(
-        'relative overflow-hidden transition-all duration-300 transform active:scale-95 font-medium rounded-lg shadow-md',
-        {
-            // Primary: Rich Red Gradient
-            'bg-gradient-to-r from-biyani-red to-biyani-red-dark text-white hover:shadow-lg hover:shadow-red-500/30': variant === 'primary' && !disabled,
-
-            // Secondary: Glass/White
-            'bg-white text-gray-800 border border-gray-200 hover:bg-gray-50 hover:shadow-md hover:border-gray-300': variant === 'secondary' && !disabled,
-
-            // Outline: Red Border
-            'bg-transparent text-biyani-red border-2 border-biyani-red hover:bg-red-50': variant === 'outline' && !disabled,
-
-            // Disabled state
-            'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border-gray-200': disabled
-        },
+        'relative inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm tracking-tight transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
+        variants[variant],
         className
     );
 
     return (
-        <button
+        <motion.button
+            whileTap={{ scale: 0.96 }}
             type={type}
             className={buttonClass}
             disabled={disabled}
@@ -41,6 +39,6 @@ export default function Button({
             {...props}
         >
             {children}
-        </button>
+        </motion.button>
     );
 }

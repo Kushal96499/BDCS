@@ -35,6 +35,25 @@ export function useAuth() {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             try {
                 if (firebaseUser) {
+                    // Check for 2-hour session timeout
+                    const loginTime = sessionStorage.getItem('bdcs_loginTime');
+                    const now = Date.now();
+                    const TWO_HOURS = 2 * 60 * 60 * 1000;
+                    
+                    if (loginTime && (now - parseInt(loginTime, 10) > TWO_HOURS)) {
+                        console.log('useAuth: Session expired (2 hours), logging out.');
+                        await auth.signOut();
+                        sessionStorage.removeItem('bdcs_loginTime');
+                        sessionStorage.removeItem('bdcs_activeRole');
+                        setUser(null);
+                        setLoading(false);
+                        return;
+                    } else if (!loginTime) {
+                        // If no loginTime is set but user is authenticated, it might be a refreshed tab
+                        // or an existing session. Let's set it now to start the 2-hour timer.
+                        sessionStorage.setItem('bdcs_loginTime', Date.now().toString());
+                    }
+
                     // Fetch user data from Firestore
                     console.log('useAuth: Fetching doc for UID:', firebaseUser.uid);
                     const userDocRef = doc(db, 'users', firebaseUser.uid);

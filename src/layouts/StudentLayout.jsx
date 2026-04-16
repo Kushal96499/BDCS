@@ -91,11 +91,23 @@ export default function StudentLayout() {
     const isBacklog = isBacklogStudent(user);
 
     const [scrolled, setScrolled] = useState(false);
+    const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+    
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        setMobileDrawerOpen(false);
+    }, [location.pathname]);
+
+    const handleNavigate = (path, restricted = false) => {
+        if (restricted) return;
+        setMobileDrawerOpen(false);
+        navigate(path);
+    };
 
     const isActive = (path) => {
         if (path === '/student') return location.pathname === '/student';
@@ -131,7 +143,7 @@ export default function StudentLayout() {
                             return (
                                 <button
                                     key={item.path}
-                                    onClick={() => !restricted && navigate(item.path)}
+                                    onClick={() => handleNavigate(item.path, restricted)}
                                     className={`relative w-14 h-14 rounded-[1.3rem] flex items-center justify-center transition-all duration-300 group
                                         ${restricted ? 'text-gray-200 cursor-not-allowed opacity-40' :
                                         active ? 'bg-gradient-to-br from-[#E31E24] to-red-600 text-white shadow-lg shadow-red-200/50 scale-105' :
@@ -155,7 +167,7 @@ export default function StudentLayout() {
                     {/* Bottom Logout */}
                     <button
                         onClick={() => auth.signOut().then(() => navigate('/login'))}
-                        className="mt-4 w-12 h-12 rounded-[1.2rem] flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95 group"
+                        className="mt-auto pt-4 w-12 h-12 rounded-[1.2rem] flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95 group shrink-0"
                     >
                         <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" />
@@ -165,18 +177,23 @@ export default function StudentLayout() {
             </aside>
 
             {/* ── MOBILE TOP BAR ──────────────────────────────────── */}
-            <header className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-2xl border-b border-gray-100 shadow-sm py-3' : 'bg-transparent py-4'}`}>
+            <header className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-2xl border-b border-gray-100 shadow-sm py-2' : 'bg-transparent py-3'}`}>
                 <div className="px-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center p-1 border border-gray-50">
+                        <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center p-1.5 border border-gray-100">
                             <img src="/assets/biyani-logo.png" alt="Logo" className="w-full h-full object-contain" />
                         </div>
-                        <h2 className="text-[12px] font-black text-gray-900 uppercase tracking-widest">{currentPage}</h2>
+                        <h2 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">{currentPage}</h2>
                     </div>
 
-                    <button onClick={() => navigate('/student/profile')} className="w-9 h-9 rounded-[0.8rem] overflow-hidden border-2 border-white shadow-md bg-gray-50 flex items-center justify-center text-[#E31E24] font-black text-xs active:scale-90 transition-transform shrink-0">
-                        {user?.photoURL ? <img src={user.photoURL} alt="" className="w-full h-full object-cover" /> : user?.name?.[0] || 'S'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => navigate('/student/profile')}
+                            className="w-9 h-9 rounded-xl overflow-hidden border border-white shadow-md bg-gray-100 flex items-center justify-center text-[#E31E24] font-black text-xs shrink-0 ring-1 ring-gray-100 active:scale-90 transition-transform"
+                        >
+                            {user?.photoURL ? <img src={user.photoURL} alt="" className="w-full h-full object-cover" /> : user?.name?.[0] || 'S'}
+                        </button>
+                    </div>
                 </div>
             </header>
 
@@ -191,8 +208,8 @@ export default function StudentLayout() {
                 </div>
 
                 {/* Content Container */}
-                <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-20 md:pb-10`}>
-                    <AnimatePresence mode="popLayout">
+                <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-36 md:pb-10`}>
+                    <AnimatePresence mode="wait">
                         <motion.div
                             key={location.pathname}
                             initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
@@ -207,9 +224,9 @@ export default function StudentLayout() {
 
             </main>
 
-            {/* ── MOBILE BOTTOM DOCK ──────────────────────────────── */}
-            <div className="md:hidden fixed bottom-6 left-0 right-0 z-50 px-4 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-3xl border border-white/50 shadow-[0_20px_40px_rgba(0,0,0,0.08)] rounded-[2rem] px-2 py-2 flex items-center justify-around pointer-events-auto">
+            {/* ── MOBILE BOTTOM NAV (FLOATING DOCK) ──────────────────────────────── */}
+            <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[400px]">
+                <div className="bg-white/90 backdrop-blur-3xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl px-2 py-2.5 flex items-center justify-around pointer-events-auto">
                     {mobileMenuItems.map((item) => {
                         const active = isActive(item.path);
                         const restricted = isBacklog && RESTRICTED_ITEMS.includes(item.name);
@@ -217,87 +234,74 @@ export default function StudentLayout() {
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => !restricted && navigate(item.path)}
-                                className="relative flex flex-col items-center justify-center w-[60px] h-[60px] cursor-pointer"
+                                onClick={() => handleNavigate(item.path, restricted)}
+                                className="relative flex flex-col items-center justify-center min-w-[50px] transition-all py-1"
                             >
-                                <div className={`absolute inset-0 rounded-[1.5rem] transition-all duration-300 ${active ? 'bg-red-50/80 scale-100' : 'scale-0'}`} />
-
                                 <div className={`relative z-10 transition-all duration-300
-                                    ${restricted ? 'text-gray-300 opacity-40' :
-                                    active ? 'text-[#E31E24] -translate-y-1' : 'text-gray-400 hover:text-gray-600'}
+                                    ${active ? 'text-[#E31E24] scale-110' : 
+                                      restricted ? 'text-gray-200 opacity-40' : 'text-gray-400 hover:text-gray-600'}
                                 `}>
-                                    <div className="w-[22px] h-[22px] mx-auto transition-transform duration-300 active:scale-90">{item.icon}</div>
+                                    <div className="w-[20px] h-[20px] mx-auto active:scale-90">{item.icon}</div>
+                                    <span className={`text-[7px] font-black uppercase tracking-widest mt-1 transition-all absolute left-1/2 -translate-x-1/2 whitespace-nowrap ${active ? 'opacity-100' : 'opacity-0'}`}>{item.name.split(' ')[0]}</span>
                                 </div>
 
-                                {/* Active Dot */}
-                                <div className={`absolute bottom-2.5 w-1 h-1 rounded-full bg-[#E31E24] transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`} />
+                                {active && (
+                                    <motion.div layoutId="active-bar-student" className="absolute -bottom-1 w-1 h-1 bg-[#E31E24] rounded-full" />
+                                )}
                             </button>
                         );
                     })}
 
-                    {/* Hamburger menu for remaining items */}
-                    <MobileMenuDrawer items={NAV_ITEMS} isActive={isActive} isBacklog={isBacklog} navigate={navigate} />
+                    {/* Menu trigger */}
+                    <button
+                        onClick={() => setMobileDrawerOpen(true)}
+                        className="relative flex flex-col items-center justify-center min-w-[50px] text-gray-400 hover:text-gray-600 active:scale-95 transition-transform"
+                    >
+                        <div className="w-[20px] h-[20px] mx-auto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                            </svg>
+                        </div>
+                        <span className="text-[7px] font-black uppercase tracking-widest mt-1">More</span>
+                    </button>
                 </div>
             </div>
 
-            <ToastContainer />
-        </div>
-    );
-}
-
-// ── COMPONENT: MOBILE MENU DRAWER ──
-function MobileMenuDrawer({ items, isActive, isBacklog, navigate }) {
-    const [open, setOpen] = useState(false);
-    const hiddenItems = items.filter(i => !i.showInMobileDock);
-
-    useEffect(() => {
-        setOpen(false);
-    }, [window.location.pathname]);
-
-    return (
-        <>
-            <button
-                onClick={() => setOpen(true)}
-                className="relative flex flex-col items-center justify-center w-[60px] h-[60px] text-gray-400 hover:text-gray-600 active:scale-95 transition-transform"
-            >
-                <div className="w-[22px] h-[22px] mx-auto">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="3" y1="12" x2="21" y2="12" />
-                        <line x1="3" y1="6" x2="21" y2="6" />
-                        <line x1="3" y1="18" x2="21" y2="18" />
-                    </svg>
-                </div>
-            </button>
-
+            {/* ── MOBILE MENU DRAWER (Lifted outside backdrop-blur to fix fixed positioning) ── */}
             <AnimatePresence>
-                {open && (
-                    <>
+                {mobileDrawerOpen && (
+                    <div className="md:hidden">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60]"
-                            onClick={() => setOpen(false)}
+                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100]"
+                            onClick={() => setMobileDrawerOpen(false)}
                         />
                         <motion.div
                             initial={{ y: '100%', opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: '100%', opacity: 0 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] z-[70] p-6 pb-12 shadow-[0_-20px_40px_rgba(0,0,0,0.1)] pointer-events-auto"
+                            drag="y"
+                            dragConstraints={{ top: 0 }}
+                            dragElastic={0.05}
+                            onDragEnd={(e, { offset, velocity }) => {
+                                if (offset.y > 100 || velocity.y > 500) {
+                                    setMobileDrawerOpen(false);
+                                }
+                            }}
+                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] z-[110] p-6 pb-12 shadow-[0_-20px_40px_rgba(0,0,0,0.1)] pointer-events-auto"
                         >
                             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
                             <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4 px-2">More Options</h3>
                             <div className="grid grid-cols-2 gap-3">
-                                {hiddenItems.map(item => {
+                                {NAV_ITEMS.filter(i => !i.showInMobileDock).map(item => {
                                     const restricted = isBacklog && RESTRICTED_ITEMS.includes(item.name);
                                     return (
                                         <button
                                             key={item.path}
-                                            onClick={() => {
-                                                if (!restricted) navigate(item.path);
-                                                setOpen(false);
-                                            }}
+                                            onClick={() => handleNavigate(item.path, restricted)}
                                             className={`flex items-center gap-3 p-4 rounded-2xl border ${restricted ? 'border-gray-100 bg-gray-50/50 opacity-50' : 'border-gray-100 bg-white active:bg-gray-50'} transition-colors`}
                                         >
                                             <div className="text-[#E31E24] w-5 h-5">{item.icon}</div>
@@ -316,9 +320,17 @@ function MobileMenuDrawer({ items, isActive, isBacklog, navigate }) {
                                 </button>
                             </div>
                         </motion.div>
-                    </>
+                    </div>
                 )}
             </AnimatePresence>
-        </>
+
+            <ToastContainer />
+        </div>
     );
 }
+
+// ── COMPONENT: MOBILE MENU DRAWER ──
+function MobileMenuDrawer() {
+    return null; // Deprecated, state lifted to parent
+}
+
