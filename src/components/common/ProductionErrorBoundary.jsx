@@ -25,7 +25,7 @@ class ProductionErrorBoundary extends React.Component {
         if (this.state.hasError) {
             return (
                 <div className="min-h-screen bg-[#FDFCFB] flex items-center justify-center p-6 font-sans">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="max-w-md w-full text-center space-y-8"

@@ -82,7 +82,7 @@ export default function AdminLayout() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-    
+
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
@@ -180,7 +180,7 @@ export default function AdminLayout() {
                             <div className="flex items-center gap-2 mb-1.5">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
                                 <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.15em] leading-none">
-                                    Shield Active
+                                    Note:-
                                 </p>
                             </div>
                             <p className="text-[9px] font-bold text-red-600/70 leading-relaxed uppercase tracking-tight">
@@ -288,12 +288,12 @@ export default function AdminLayout() {
                             >
                                 <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
                                     <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Navigation Hub</h3>
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             toggleMobileDrawer(false);
-                                        }} 
+                                        }}
                                         className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-900 transition-all shadow-sm active:scale-95 relative z-[2200] touch-manipulation pointer-events-auto"
                                     >
                                         <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
