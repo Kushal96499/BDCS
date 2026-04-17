@@ -150,22 +150,22 @@ export default function Login() {
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-200/30 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-biyani-red/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
-            {/* Back to Home Link */}
+            {/* Back to Home Link - More responsive positioning */}
             <button
                 onClick={() => navigate('/')}
-                className="absolute top-8 left-8 text-gray-600 hover:text-biyani-red flex items-center gap-2 font-medium transition-colors z-20 group"
+                className="absolute top-4 left-4 sm:top-8 sm:left-8 text-gray-600 hover:text-biyani-red flex items-center gap-2 font-medium transition-colors z-30 group scale-90 sm:scale-100"
                 type="button"
             >
-                <div className="p-2 bg-white/50 backdrop-blur-sm rounded-full group-hover:bg-white transition-all shadow-sm">
-                    <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <div className="p-2 bg-white/80 backdrop-blur-sm rounded-full group-hover:bg-white transition-all shadow-md">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                     </svg>
                 </div>
-                <span className="opacity-70 group-hover:opacity-100 transition-opacity">Back to Home</span>
+                <span className="hidden sm:inline opacity-70 group-hover:opacity-100 transition-opacity whitespace-nowrap">Back to Home</span>
             </button>
 
             {/* Glass Login Card */}
-            <div className="w-full max-w-[450px] relative z-10 glass-panel rounded-3xl p-8 md:p-12 animate-fade-in shadow-2xl border-white/40">
+            <div className="w-full max-w-[450px] relative z-20 glass-panel rounded-[2.5rem] p-6 sm:p-10 md:p-12 animate-fade-in shadow-2xl border-white/40 mx-4 sm:mx-0">
                 {/* Header */}
                 <div className="text-center mb-10">
                     <div className="flex justify-center mb-6 relative">
@@ -173,10 +173,10 @@ export default function Login() {
                         <img
                             src="/assets/biyani-logo.png"
                             alt="Biyani Group of Colleges"
-                            className="w-28 h-28 object-contain relative z-10 drop-shadow-lg transform hover:scale-105 transition-transform duration-500"
+                            className="w-20 h-20 sm:w-28 sm:h-28 object-contain relative z-10 drop-shadow-lg transform hover:scale-105 transition-transform duration-500"
                         />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 tracking-tight">
                         Welcome Back
                     </h1>
                     <p className="text-gray-500 text-sm font-medium">

@@ -16,6 +16,8 @@ import SessionManager from './components/SessionManager';
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const RoleSelectionPage = lazy(() => import('./pages/RoleSelectionPage'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
@@ -97,6 +99,8 @@ export default function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={<Landing />} />
                 <Route path="/select-role" element={<RoleSelectionPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
 
                 {/* Admin Routes */}
                 <Route path="/admin" element={
