@@ -5,6 +5,7 @@ import { db } from '../../config/firebase';
 import { toast } from '../admin/Toast';
 import { getSemesterYear, getTotalBacklogCount } from '../../services/batchPromotionService';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 const ACADEMIC_STATUS_CONFIG = {
     ACTIVE: { label: 'Active', emoji: '✅', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
@@ -18,6 +19,7 @@ const ACADEMIC_STATUS_CONFIG = {
 const DEFAULT_STATUS = { label: 'Active', emoji: '✅', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
 
 export default function BatchStudentListModal({ isOpen, onClose, batch }) {
+    useScrollLock(isOpen);
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -131,7 +133,7 @@ export default function BatchStudentListModal({ isOpen, onClose, batch }) {
                         </div>
 
                         {/* Table */}
-                        <div className="flex-1 overflow-y-auto no-scrollbar p-0">
+                        <div className="flex-1 overflow-y-auto p-0 overscroll-contain custom-scrollbar">
                             <table className="w-full text-left text-sm border-separate border-spacing-0">
                                 <thead className="bg-white sticky top-0 z-10">
                                     <tr>

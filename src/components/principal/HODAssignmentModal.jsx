@@ -12,8 +12,10 @@ import { assignHOD, changeHOD } from '../../services/principalService';
 import { toast } from '../../components/admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../Button';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 export default function HODAssignmentModal({ department, currentUser, onClose, onSuccess }) {
+    useScrollLock(true);
     const [users, setUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState('');
     const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -76,7 +78,7 @@ export default function HODAssignmentModal({ department, currentUser, onClose, o
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto no-scrollbar p-8 bg-gray-50/30 space-y-8">
+                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 bg-gray-50/30 space-y-8 overscroll-contain custom-scrollbar">
                         {/* Current Status Alert */}
                         {department.currentHOD && (
                             <div className="bg-amber-50 rounded-2xl border border-amber-100 p-5 flex items-start gap-4 shadow-sm">
@@ -91,7 +93,7 @@ export default function HODAssignmentModal({ department, currentUser, onClose, o
                         {/* Eligible Candidates */}
                         <div className="space-y-4">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Eligible Candidates</h3>
-                            <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar border-y border-gray-100 py-4">
+                            <div className="space-y-2 max-h-60 overflow-y-auto border-y border-gray-100 py-4 custom-scrollbar">
                                 {loading ? [1,2,3].map(i=><div key={i} className="h-16 animate-pulse bg-gray-100 rounded-2xl" />) : 
                                     users.map(u => <CandidateItem key={u.id} user={u} isSelected={selectedUserId === u.id} onSelect={() => setSelectedUserId(u.id)} isSelf={u.id === currentUser.uid} />)}
                             </div>

@@ -8,8 +8,10 @@ import { db } from '../config/firebase';
 import { toast } from 'react-hot-toast';
 import { profileUpdateSchema } from '../schemas/userSchemas';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function UserProfileModal({ isOpen, onClose }) {
+    useScrollLock(isOpen);
     const { user, refreshUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [avatarFile, setAvatarFile] = useState(null);
@@ -121,7 +123,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
                         </div>
 
                         {/* Body */}
-                        <form onSubmit={handleSubmit(onSubmit)} className="p-8 overflow-y-auto space-y-8 no-scrollbar">
+                        <form onSubmit={handleSubmit(onSubmit)} className="p-8 overflow-y-auto space-y-8 custom-scrollbar overscroll-contain">
                             {/* Avatar & Basic Info */}
                             <div className="bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100 flex items-center gap-6">
                                 <div className="relative group shrink-0">

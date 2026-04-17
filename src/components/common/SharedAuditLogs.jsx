@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from './Select';
 import Button from '../Button';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 const toPastTense = (verb) => {
     if (!verb) return '';
@@ -40,6 +41,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLog, setSelectedLog] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    useScrollLock(isModalOpen);
     
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -360,7 +362,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
                                 </button>
                             </div>
 
-                            <div className="p-12 overflow-y-auto no-scrollbar space-y-12">
+                            <div className="p-12 overflow-y-auto space-y-12 custom-scrollbar overscroll-contain">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                                     <DataPoint label="Protocol Classification" value={selectedLog.action?.toUpperCase()} isAction color={getActionColor(selectedLog.action)} />
                                     <DataPoint label="Isolation Timestamp" value={format(selectedLog.timestamp?.toDate ? selectedLog.timestamp.toDate() : new Date(selectedLog.timestamp), 'PPP pp')} />

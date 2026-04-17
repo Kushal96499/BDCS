@@ -8,6 +8,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import Button from '../Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 export default function FormModal({
     isOpen,
@@ -19,6 +20,8 @@ export default function FormModal({
     loading = false,
     size = 'md' // sm, md, lg, xl
 }) {
+    useScrollLock(isOpen);
+
     const sizeClasses = {
         sm: 'max-w-md',
         md: 'max-w-lg',
@@ -87,7 +90,7 @@ export default function FormModal({
 
                         {/* Body */}
                         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-                            <div className="px-8 py-6 overflow-y-auto no-scrollbar flex-1 pb-10">
+                            <div className="px-8 py-6 overflow-y-auto flex-1 pb-10 custom-scrollbar overscroll-contain">
                                 {children}
                             </div>
 

@@ -11,8 +11,10 @@ import { toast } from '../../components/admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumSelect from '../../components/common/PremiumSelect';
 import Input from '../../components/Input';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
+    useScrollLock(true);
     const [loading, setLoading] = useState(false);
     const [batches, setBatches] = useState([]);
     const [subjects, setSubjects] = useState([]);
@@ -117,14 +119,14 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 sm:p-6 overflow-y-auto no-scrollbar pt-12 md:pt-24">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/60 backdrop-blur-xl" onClick={onClose} />
             <motion.div 
                 initial={{ scale: 0.98, opacity: 0, y: 10 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.98, opacity: 0, y: 10 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="relative bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-none overflow-hidden flex flex-col border border-gray-100"
+                className="relative bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-100"
             >
                 {/* Header */}
                 <div className="bg-gray-900 px-8 py-5 shrink-0 relative overflow-hidden ring-1 ring-white/10">

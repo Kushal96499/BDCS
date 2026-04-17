@@ -7,6 +7,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../Button';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 export default function ConfirmDialog({
     isOpen,
@@ -19,6 +20,8 @@ export default function ConfirmDialog({
     variant = 'danger',
     loading = false
 }) {
+    useScrollLock(isOpen);
+
     const handleBackdropClick = (e) => {
         if (e.target === e.currentTarget) {
             onClose();

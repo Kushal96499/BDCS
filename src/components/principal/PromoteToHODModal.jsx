@@ -12,8 +12,10 @@ import { promoteTeacherToHOD } from '../../services/promotionService';
 import { toast } from '../admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../Button';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 export default function PromoteToHODModal({ teacher, currentUser, onClose, onSuccess }) {
+    useScrollLock(true);
     const [departments, setDepartments] = useState([]);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
     const [loading, setLoading] = useState(true);
@@ -90,10 +92,10 @@ export default function PromoteToHODModal({ teacher, currentUser, onClose, onSuc
                     </div>
 
                     {/* Body */}
-                    <form onSubmit={handlePromote} className="p-8 pb-4 flex-1 overflow-y-auto no-scrollbar">
+                    <form onSubmit={handlePromote} className="p-8 pb-4 flex-1 overflow-y-auto overscroll-contain custom-scrollbar">
                         <div className="space-y-4">
                             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assign Domain Jurisdiction</h4>
-                            <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar pr-1">
+                            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                                 {loading ? [1,2,3].map(i=><div key={i} className="h-16 animate-pulse bg-gray-100 rounded-2xl" />) : 
                                     departments.map(dept => <DeptItem key={dept.id} dept={dept} isSelected={selectedDepartmentId === dept.id} onSelect={() => setSelectedDepartmentId(dept.id)} />)}
                             </div>

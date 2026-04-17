@@ -13,6 +13,7 @@ import {
 } from '../../services/batchPromotionService';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../Button';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 const STATUS_CONFIG = {
     PROMOTED: {
@@ -51,6 +52,7 @@ const STATUS_CONFIG = {
 };
 
 export default function PromoteBatchModal({ isOpen, onClose, batch, onSuccess }) {
+    useScrollLock(isOpen);
     const { user } = useAuth();
     const [students, setStudents] = useState([]);
     const [subjects, setSubjects] = useState([]);
@@ -189,7 +191,7 @@ export default function PromoteBatchModal({ isOpen, onClose, batch, onSuccess })
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 overflow-y-auto no-scrollbar p-8 bg-white/50 space-y-8">
+                        <div className="flex-1 overflow-y-auto p-8 bg-white/50 space-y-8 custom-scrollbar overscroll-contain">
                              {/* Stats Dashboard */}
                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <StatCard label="Direct Pipeline" count={promotedCount} color="emerald" icon="✅" />
