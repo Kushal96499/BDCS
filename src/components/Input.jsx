@@ -73,7 +73,7 @@ const Input = forwardRef(({
 
                 {/* End Icon */}
                 {endIcon && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-gray-600 transition-colors pointer-events-none">
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-gray-600 transition-colors z-10">
                         {endIcon}
                     </div>
                 )}

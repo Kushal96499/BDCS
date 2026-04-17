@@ -139,115 +139,138 @@ export default function BulkStudentUpload({ onComplete }) {
         let secondaryAuth = null;
 
         try {
+            // 1. Fetch current students to determine next Roll Number
+            const studentsQ = query(collection(db, 'users'), where('batchId', '==', targetBatch.id), where('role', '==', 'student'));
+            const studentsSnap = await getDocs(studentsQ);
+            const existingStudents = studentsSnap.docs.map(d => d.data());
+            
+            // Determine Serial Start
+            let lastSerial = 0;
+            let rollPrefix = targetBatch.rollPrefix || targetBatch.name.split(' ')[0] || 'STU';
+            
+            existingStudents.forEach(s => {
+                if (s.rollNumber) {
+                    const match = s.rollNumber.match(/\d+$/);
+                    if (match) {
+                        const num = parseInt(match[0]);
+                        if (num > lastSerial) lastSerial = num;
+                    }
+                }
+            });
+
             secondaryApp = initializeApp(auth.app.options, `bulk-upload-${Date.now()}`);
             secondaryAuth = getAuth(secondaryApp);
-        } catch (err) {
-            console.error("Failed to init secondary app", err);
-            toast.error("System error: Could not initialize creator");
-            setProcessing(false);
-            return;
-        }
 
-        for (const row of preview) {
-            const validation = validateRow(row);
-            if (!validation.valid) {
-                errorList.push({
-                    row: row._rowIndex,
-                    name: row.name || 'Unknown',
-                    errors: validation.errors
-                });
-                continue;
-            }
+            let currentSerial = lastSerial;
 
-            try {
-                // Password = Last Exam Roll No
-                let password = row.enrollmentNumber.toString().trim();
-
-                // Validation fix: Firebase requires 6 chars
-                if (password.length < 6) {
-                    password = password.padStart(6, '0'); // Pad with zeros, e.g., '1' -> '000001'
+            for (const row of preview) {
+                const validation = validateRow(row);
+                if (!validation.valid) {
+                    errorList.push({
+                        row: row._rowIndex,
+                        name: row.name || 'Unknown',
+                        errors: validation.errors
+                    });
+                    continue;
                 }
 
-                // Create Firebase Auth account using SECONDARY Auth
-                const userCredential = await createUserWithEmailAndPassword(
-                    secondaryAuth,
-                    row.email,
-                    password
-                );
+                try {
+                    // Password = Last Exam Roll No
+                    let password = row.enrollmentNumber.toString().trim();
+                    if (password.length < 6) password = password.padStart(6, '0');
 
-                // Create Firestore document
-                const studentData = {
-                    name: row.name,
-                    email: row.email,
-                    phone: row.phone || '',
-                    role: 'student',
-                    primaryRole: 'student',
-                    roles: ['student'],
-                    currentActiveRole: 'student',
+                    // Generate Sequence Roll Number
+                    currentSerial++;
+                    const generatedRollNumber = `${rollPrefix}${currentSerial.toString().padStart(3, '0')}`;
 
-                    // New Fields
-                    fatherName: row.fatherName || '',
-                    motherName: row.motherName || '',
-                    enrollmentNumber: row.enrollmentNumber, // This is LAST EXAM ROLLNO
+                    // Create Firebase Auth account using SECONDARY Auth
+                    const userCredential = await createUserWithEmailAndPassword(
+                        secondaryAuth,
+                        row.email,
+                        password
+                    );
 
-                    status: 'active',
-                    batchId: targetBatch.id,
-                    batchName: targetBatch.name,
-                    departmentId: targetBatch.departmentId || currentUser.departmentId || '',
-                    courseId: targetBatch.courseId || '',
-                    currentSemester: targetBatch.currentSemester,
+                    // Create Firestore document with Enriched Metadata
+                    const studentData = {
+                        name: row.name,
+                        email: row.email,
+                        phone: row.phone || '',
+                        role: 'student',
+                        primaryRole: 'student',
+                        roles: ['student'],
+                        currentActiveRole: 'student',
 
-                    createdBy: currentUser.uid,
-                    createdByName: currentUser.name,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                    mustResetPassword: true, // User request: "fir vo reset kregaa"
+                        // Identification
+                        fatherName: row.fatherName || '',
+                        motherName: row.motherName || '',
+                        enrollmentNumber: row.enrollmentNumber, 
+                        rollNumber: generatedRollNumber, // AUTOMATED
 
-                    // Locked profile fields
-                    lockedProfile: {
-                        enrollmentNumber: row.enrollmentNumber,
-                        joiningDate: serverTimestamp(),
+                        status: 'active',
+                        batchId: targetBatch.id,
+                        batchName: targetBatch.name || targetBatch.courseName || '',
+                        
+                        // Critical Context Inheritance
+                        campusId: targetBatch.campusId || currentUser.campusId || '',
+                        campusName: targetBatch.campusName || currentUser.campusName || '',
+                        collegeId: targetBatch.collegeId || currentUser.collegeId || '',
+                        collegeName: targetBatch.collegeName || currentUser.collegeName || '',
+                        departmentId: targetBatch.departmentId || currentUser.departmentId || '',
+                        departmentName: targetBatch.departmentName || currentUser.departmentName || '',
+                        
+                        courseId: targetBatch.courseId || '',
+                        courseIds: targetBatch.courseIds || (targetBatch.courseId ? [targetBatch.courseId] : []),
+                        currentSemester: targetBatch.currentSemester || targetBatch.semester || 1,
+
                         createdBy: currentUser.uid,
-                        originalRole: 'student'
-                    },
+                        createdByName: currentUser.name,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        mustResetPassword: true,
 
-                    // Editable profile fields
-                    editableProfile: {
-                        photoURL: null,
-                        personalEmail: null,
-                        phone: row.phone || null,
-                        address: {},
-                        bio: '',
-                        skills: [],
-                        documents: []
-                    }
-                };
+                        lockedProfile: {
+                            enrollmentNumber: row.enrollmentNumber,
+                            rollNumber: generatedRollNumber,
+                            joiningDate: serverTimestamp(),
+                            createdBy: currentUser.uid,
+                            originalRole: 'student'
+                        },
 
-                await setDoc(doc(db, 'users', userCredential.user.uid), studentData);
+                        editableProfile: {
+                            photoURL: null,
+                            personalEmail: null,
+                            phone: row.phone || null,
+                            address: {},
+                            bio: '',
+                            skills: [],
+                            documents: []
+                        }
+                    };
 
-                // Log creation
-                await logCreate('users', userCredential.user.uid, studentData, currentUser, {
-                    label: studentData.name
-                });
+                    await setDoc(doc(db, 'users', userCredential.user.uid), studentData);
 
-                successList.push({
-                    name: row.name,
-                    email: row.email,
-                    password: password
-                });
+                    // Log creation
+                    await logCreate('users', userCredential.user.uid, studentData, currentUser, {
+                        label: studentData.name
+                    });
 
-            } catch (error) {
-                console.error('Error creating student:', row.name, error);
+                    successList.push({
+                        name: row.name,
+                        email: row.email,
+                        password: password,
+                        rollNumber: generatedRollNumber
+                    });
 
-                let errorMsg = error.message;
-                if (error.code === 'auth/email-already-in-use') errorMsg = "Email already exists";
-
-                errorList.push({
-                    row: row._rowIndex,
-                    name: row.name || 'Unknown',
-                    errors: [errorMsg]
-                });
+                } catch (error) {
+                    console.error('Error creating student:', row.name, error);
+                    let errorMsg = error.message;
+                    if (error.code === 'auth/email-already-in-use') errorMsg = "Email already exists";
+                    errorList.push({ row: row._rowIndex, name: row.name || 'Unknown', errors: [errorMsg] });
+                }
             }
+        } catch (err) {
+            console.error("Critical Bulk Upload Error", err);
+            toast.error("Process failed: " + err.message);
         }
 
         // Cleanup Secondary App

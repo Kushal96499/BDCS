@@ -100,7 +100,8 @@ export default function AttendanceMarking() {
                 const studentList = records.map(r => ({
                     id: r.studentId,
                     name: r.studentName,
-                    rollNumber: r.rollNumber || r.enrollmentNumber || 'N/A'
+                    rollNumber: r.rollNumber || r.enrollmentNumber || 'N/A',
+                    nocStatus: r.nocStatus || 'pending' // Attempt to get from record, though users collection is more authoritative
                 }));
 
                 records.forEach(r => {
@@ -125,13 +126,18 @@ export default function AttendanceMarking() {
                     return {
                         id: d.id,
                         name: data.name,
-                        rollNumber: data.rollNumber || data.enrollmentNumber || 'N/A'
+                        rollNumber: data.rollNumber || data.enrollmentNumber || '',
+                        nocStatus: data.nocStatus || 'pending'
                     };
-                }).filter(s => s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR');
+                }).filter(s => s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR')
+                .sort((a, b) => {
+                    if (a.rollNumber && b.rollNumber) return a.rollNumber.localeCompare(b.rollNumber);
+                    return a.name.localeCompare(b.name);
+                });
 
                 setStudents(studentList);
                 const initialMap = {};
-                studentList.forEach(s => initialMap[s.id] = 'A');
+                studentList.forEach(s => initialMap[s.id] = 'A'); // Default to Absent as per request
                 setAttendanceMap(initialMap);
                 setRecordIdMap({});
             }
@@ -177,11 +183,11 @@ export default function AttendanceMarking() {
         return () => unsubscribe();
     }, [selectedClass, date, requestStatus]);
 
-    const toggleAttendance = (studentId, status) => {
+    const toggleStatus = (studentId) => {
         if (!isEditable) return;
         setAttendanceMap(prev => ({
             ...prev,
-            [studentId]: status === 'PRESENT' ? 'P' : 'A'
+            [studentId]: prev[studentId] === 'P' ? 'A' : 'P'
         }));
     };
 
@@ -254,7 +260,7 @@ export default function AttendanceMarking() {
                         sessionId: sessionRef.id,
                         studentId: student.id,
                         studentName: student.name,
-                        rollNumber: student.rollNumber,
+                        rollNumber: student.rollNumber || '',
                         date,
                         courseId: selectedClass.courseId,
                         semester: selectedClass.semester,
@@ -416,9 +422,7 @@ export default function AttendanceMarking() {
                                 <p className="text-3xl font-black text-violet-600 tracking-tighter">{statsData.percent}%</p>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Student List Grid */}
+                    </div>                    {/* Tabular Attendance View */}
                     <div className="bg-white/50 rounded-[2.5rem] border border-gray-100 overflow-hidden min-h-[400px]">
                         {students.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -431,58 +435,72 @@ export default function AttendanceMarking() {
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-tight max-w-xs mt-2">Verify batch configuration or enrollment status in faculty portal.</p>
                             </div>
                         ) : (
-                            <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {students.map((student, idx) => {
-                                    const isPresent = attendanceMap[student.id] === 'P';
-                                    return (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            transition={{ delay: idx * 0.02 }}
-                                            key={student.id}
-                                            className={`relative group p-6 rounded-[2rem] border transition-all duration-300 overflow-hidden ${
-                                                isPresent ? 'bg-white border-gray-100 shadow-sm' : 'bg-red-50 border-red-100 shadow-sm shadow-red-100'
-                                            }`}
-                                        >
-                                            <div className="relative z-10 flex flex-col gap-5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm transition-colors duration-500 ${
-                                                        isPresent ? 'bg-violet-50 text-violet-600' : 'bg-red-500 text-white'
-                                                    }`}>
-                                                        {student.name.charAt(0)}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <h4 className="text-sm font-black text-gray-900 truncate tracking-tight">{student.name}</h4>
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60 truncate">{student.rollNumber}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-2 p-1.5 bg-gray-50/50 rounded-2xl border border-gray-100 group-hover:bg-white transition-colors">
-                                                    <button
-                                                        onClick={() => toggleAttendance(student.id, 'PRESENT')}
-                                                        disabled={!isEditable}
-                                                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                            isPresent ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'
-                                                        } ${!isEditable ? 'cursor-not-allowed' : ''}`}
+                            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
+                                <table className="min-w-full divide-y divide-gray-100 table-auto">
+                                    <thead>
+                                        <tr className="bg-gray-50/20">
+                                            <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details</th>
+                                            <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">NOC Status</th>
+                                            <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Attendance (A / P)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50 bg-white/30 backdrop-blur-sm">
+                                        <AnimatePresence mode="popLayout">
+                                            {students.map((student, idx) => {
+                                                const isPresent = attendanceMap[student.id] === 'P';
+                                                return (
+                                                    <motion.tr
+                                                        layout
+                                                        initial={{ opacity: 0, x: -10 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: idx * 0.01 }}
+                                                        key={student.id}
+                                                        className={`transition-colors group hover:bg-gray-50/50 ${!isPresent ? 'bg-red-50/20' : ''}`}
                                                     >
-                                                        Present
-                                                    </button>
-                                                    <button
-                                                        onClick={() => toggleAttendance(student.id, 'ABSENT')}
-                                                        disabled={!isEditable}
-                                                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                            !isPresent ? 'bg-red-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'
-                                                        } ${!isEditable ? 'cursor-not-allowed' : ''}`}
-                                                    >
-                                                        Absent
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className={`absolute -right-2 -bottom-2 w-16 h-16 rounded-full blur-2xl transition-opacity duration-700 ${isPresent ? 'bg-violet-500/10' : 'bg-red-500/20'}`} />
-                                        </motion.div>
-                                    );
-                                })}
+                                                        <td className="px-8 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] transition-colors ${
+                                                                    isPresent ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                                                }`}>
+                                                                    {student.name.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-sm font-black text-gray-900 tracking-tight">{student.name}</div>
+                                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{student.rollNumber}</div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-8 py-4 text-center whitespace-nowrap">
+                                                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                                student.nocStatus === 'cleared' 
+                                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                                                    : 'bg-orange-50 text-orange-600 border-orange-100'
+                                                            }`}>
+                                                                {student.nocStatus === 'cleared' ? 'CLEARED' : 'PENDING'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-8 py-4 text-right whitespace-nowrap">
+                                                            <button
+                                                                onClick={() => toggleStatus(student.id)}
+                                                                disabled={!isEditable}
+                                                                className={`
+                                                                    w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all 
+                                                                    active:scale-90 ml-auto shadow-sm border-2
+                                                                    ${isPresent 
+                                                                        ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-200' 
+                                                                        : 'bg-red-500 text-white border-red-400 shadow-red-200'}
+                                                                    ${!isEditable ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
+                                                                `}
+                                                            >
+                                                                {isPresent ? 'P' : 'A'}
+                                                            </button>
+                                                        </td>
+                                                    </motion.tr>
+                                                );
+                                            })}
+                                        </AnimatePresence>
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>

@@ -174,11 +174,11 @@ export default function StudentManagement() {
                 role: 'student',
                 phone: sanitizeInput(formData.phone) || null,
                 address: sanitizeInput(formData.address) || null,
-                rollNumber: formData.rollNumber,
-                enrollmentNumber: formData.enrollmentNumber,
-                currentSemester: formData.currentSemester,
-                academicYear: formData.academicYear,
-                courseIds: formData.courseIds,
+                rollNumber: formData.rollNumber || '',
+                enrollmentNumber: formData.enrollmentNumber || '',
+                currentSemester: formData.currentSemester || 1,
+                academicYear: formData.academicYear || '',
+                courseIds: formData.courseIds || [],
 
                 // Inherit scope from Teacher
                 campusId: user.campusId,
@@ -337,8 +337,6 @@ export default function StudentManagement() {
         {
             header: 'Enrollment No.',
             field: 'enrollmentNumber',
-            className: 'hidden md:table-cell',
-            headerClassName: 'hidden md:table-cell',
             render: (row) => <span className="font-mono text-sm text-gray-400">{row.enrollmentNumber}</span>
         },
         {
