@@ -63,46 +63,80 @@ export function getEntityLabel(collection, data) {
  * @returns {Promise<string>} - ID of the created audit log document
  */
 export async function logAudit(
-    collectionName,
-    documentId,
-    action,
-    beforeData,
-    afterData,
-    user,
-    entityMetadata = {}
+    arg1,
+    arg2,
+    arg3,
+    arg4,
+    arg5,
+    arg6,
+    arg7
 ) {
+    let collectionName, documentId, action, beforeData, afterData, user, entityMetadata;
+
+    // Detect Signature Type
+    // Legacy: (user, action, documentId, collectionName, entityLabel, extra, description)
+    // Modern: (collectionName, documentId, action, beforeData, afterData, user, entityMetadata)
+    if (arg1 && typeof arg1 === 'object' && arg1.uid) {
+        user = arg1;
+        action = arg2;
+        documentId = arg3;
+        collectionName = arg4;
+        beforeData = null;
+        afterData = null;
+        entityMetadata = {
+            label: arg5,
+            extra: arg6,
+            description: arg7
+        };
+    } else {
+        collectionName = arg1;
+        documentId = arg2;
+        action = arg3;
+        beforeData = arg4;
+        afterData = arg5;
+        user = arg6;
+        entityMetadata = arg7 || {};
+    }
+
     try {
+        // Fallback for missing user to prevent Firebase errors
+        if (!user || !user.uid) {
+            console.warn('[Audit] Missing user context for action:', action);
+            // If we're on the client, we might want to skip or use a system placeholder
+            // But for now, we'll just return to stay safe
+            return null;
+        }
+
         // Determine which data to use for entity label
         const entityData = afterData || beforeData || {};
 
         const auditLog = {
             // Core fields
-            collection: collectionName,
-            documentId: documentId,
-            action: action,
+            collection: collectionName || 'unknown',
+            documentId: documentId || 'unknown',
+            action: action || 'unknown',
             timestamp: serverTimestamp(),
 
-            // NEW: Entity metadata for human-readable display
-            entityType: collectionName,
+            // Entity metadata
+            entityType: collectionName || 'unknown',
             entityLabel: entityMetadata.label || getEntityLabel(collectionName, entityData),
             entityPath: entityMetadata.path || buildHierarchyPath(entityData),
 
-            // NEW: Enhanced performer details
+            // Performer details
             performedBy: user.uid,
-            performedByName: user.name || user.email,
-            performedByRole: user.role,
+            performedByName: user.name || user.displayName || user.email || 'System',
+            performedByRole: user.role || 'unknown',
             performerCollege: user.collegeName || user.college || user.collegeId || null,
             performerDept: user.departmentName || user.department || user.departmentId || null,
 
-            // NEW: Target details (for multi-entity actions like successor assignment)
-            targetLabel: entityMetadata.targetLabel || null,
-            targetRole: entityMetadata.targetRole || null,
-
+            // Additional fields
+            description: entityMetadata.description || null,
+            
             // Data changes
             before: beforeData || null,
             after: afterData || null,
 
-            // Additional metadata
+            // Metadata
             metadata: {
                 userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
                 ...entityMetadata.extra

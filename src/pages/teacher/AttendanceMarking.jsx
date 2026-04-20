@@ -3,7 +3,8 @@ import { collection, getDocs, query, where, addDoc, serverTimestamp, writeBatch,
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
-import { format } from 'date-fns';
+import { format, isSunday, startOfMonth, endOfMonth } from 'date-fns';
+import { exportMonthlyAttendanceToExcel } from '../../services/attendanceExportService';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumSelect from '../../components/common/PremiumSelect';
 import { logAudit } from '../../utils/auditLogger';
@@ -24,8 +25,11 @@ export default function AttendanceMarking() {
     const [submitting, setSubmitting] = useState(false);
     const [requestingUnlock, setRequestingUnlock] = useState(false);
     const [existingRequest, setExistingRequest] = useState(null);
+    const [exporting, setExporting] = useState(false);
+    const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
 
     const isToday = date === format(new Date(), 'yyyy-MM-dd');
+    const isSundaySelected = isSunday(new Date(date));
     
     // INSTITUTIONAL PHASE LOCK
     // Lock editing if the batch has been promoted beyond this subject's semester
@@ -166,15 +170,7 @@ export default function AttendanceMarking() {
                         recordIds[data.studentId] = r.id;
                     }
                 });
-            }
-
-            setStudents(roster);
-            setAttendanceMap({ ...initialMap });
-            setOriginalAttendanceMap({ ...initialMap });
-            setRecordIdMap(recordIds);
-
-            // 4. Check for existing unlock requests
-            if (sessionDoc) {
+                // 4. Check for existing unlock requests
                 const reqQuery = query(
                     collection(db, 'attendance_unlock_requests'),
                     where('sessionId', '==', sessionDoc.id),
@@ -185,6 +181,11 @@ export default function AttendanceMarking() {
                     setExistingRequest({ id: reqSnap.docs[0].id, ...reqSnap.docs[0].data() });
                 }
             }
+
+            setStudents(roster);
+            setAttendanceMap({ ...initialMap });
+            setOriginalAttendanceMap({ ...initialMap });
+            setRecordIdMap(recordIds);
         } catch (error) {
             console.error('Attendance Loading Error:', error);
             toast.error('Failed to load roster data');
@@ -354,6 +355,89 @@ export default function AttendanceMarking() {
         }
     };
 
+    const handleDeclareHoliday = async () => {
+        if (!window.confirm('Are you sure you want to declare this day as an Institutional Holiday? All students will be marked. Continuation will LOCK this day.')) return;
+        
+        setSubmitting(true);
+        try {
+            const batch = writeBatch(db);
+            const sessionRef = doc(collection(db, 'attendance_sessions'));
+            
+            // 1. Create Session
+            batch.set(sessionRef, {
+                date,
+                type: 'HOLIDAY',
+                batchId: selectedClass.id,
+                courseId: selectedClass.courseId || '',
+                semester: selectedClass.semester,
+                section: selectedClass.section || '',
+                teacherId: user.uid,
+                teacherName: user.name,
+                status: 'LOCKED',
+                totalStudents: students.length,
+                presentCount: 0,
+                createdAt: serverTimestamp(),
+                lockedAt: serverTimestamp()
+            });
+
+            // 2. Mark Records
+            students.forEach(student => {
+                const recordRef = doc(collection(db, 'attendance_records'));
+                batch.set(recordRef, {
+                    sessionId: sessionRef.id,
+                    studentId: student.id,
+                    studentName: student.name,
+                    rollNumber: student.rollNumber || '',
+                    date,
+                    courseId: selectedClass.courseId,
+                    semester: selectedClass.semester,
+                    status: 'HOLIDAY',
+                    markedBy: user.uid,
+                    timestamp: serverTimestamp()
+                });
+            });
+
+            await batch.commit();
+            await logAudit(user, 'DECLARE_HOLIDAY', sessionRef.id, 'ATTENDANCE', `${selectedClass.courseName}`, { date }, `Declared holiday for ${date}`);
+            toast.success('Holiday Declared Successfully');
+            loadSessionData();
+        } catch (error) {
+            console.error('Holiday Error:', error);
+            toast.error('Failed to declare holiday');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleExportExcel = async (exportMonth = new Date()) => {
+        if (!selectedClass) return;
+        setExporting(true);
+        try {
+            // Fetch all records for this month and batch
+            const start = format(startOfMonth(exportMonth), 'yyyy-MM-dd');
+            const end = format(endOfMonth(exportMonth), 'yyyy-MM-dd');
+            
+            const q = query(
+                collection(db, 'attendance_records'),
+                where('courseId', '==', selectedClass.courseId || ''),
+                where('semester', '==', selectedClass.semester),
+                where('date', '>=', start),
+                where('date', '<=', end)
+            );
+            
+            const snap = await getDocs(q);
+            const records = snap.docs.map(d => d.data());
+            
+            await exportMonthlyAttendanceToExcel(selectedClass, exportMonth, students, records);
+            toast.success('Report generated successfully');
+        } catch (error) {
+            console.error('Export Error:', error);
+            toast.error('Failed to generate Excel report');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const handleRequestUnlock = async () => {
         const reason = window.prompt('Please provide a reason for unlocking this attendance session:');
         if (!reason) return;
@@ -398,30 +482,53 @@ export default function AttendanceMarking() {
                     </p>
                 </div>
                 
-                <AnimatePresence>
-                    {isToday && (!session || session.status !== 'LOCKED') && students.length > 0 && (
-                        <motion.button
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className="bg-[#E31E24] text-white px-6 py-3 rounded-xl shadow-lg shadow-red-200/40 hover:bg-red-700 font-black uppercase tracking-widest text-[10px] flex items-center gap-2 active:scale-95 transition-all outline-none"
+                <AnimatePresence mode="wait">
+                    {students.length > 0 && isToday && session?.status !== 'LOCKED' && !isHistorical && (
+                        <motion.div
+                            key={`save-actions-${session?.id || 'new'}`}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="flex items-center gap-3"
                         >
-                            {submitting ? (
-                                <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                <>
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    Save Attendance & Lock
-                                </>
-                            )}
-                        </motion.button>
+                            <button
+                                onClick={handleDeclareHoliday}
+                                disabled={submitting}
+                                className="bg-amber-500 text-white px-4 py-3 rounded-xl shadow-lg shadow-amber-200/40 hover:bg-amber-600 font-black uppercase tracking-widest text-[9px] flex items-center gap-2 active:scale-95 transition-all outline-none"
+                            >
+                                🏝️ Holiday
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className="bg-[#E31E24] text-white px-6 py-3 rounded-xl shadow-lg shadow-red-200/40 hover:bg-red-700 font-black uppercase tracking-widest text-[10px] flex items-center gap-2 active:scale-95 transition-all outline-none"
+                            >
+                                {submitting ? (
+                                    <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        Save & Lock
+                                    </>
+                                )}
+                            </button>
+                        </motion.div>
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* Sunday / Holiday Legend Alert */}
+            {isSundaySelected && !session && (
+                <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3">
+                    <span className="text-xl">📅</span>
+                    <div>
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Sunday Detected</p>
+                        <p className="text-[9px] font-bold text-amber-600 uppercase">This day is identified as a weekend. You can still declare it as a holiday or mark attendance if needed.</p>
+                    </div>
+                </div>
+            )}
 
             {/* Config Hub */}
             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -464,9 +571,9 @@ export default function AttendanceMarking() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-violet-50/50 backdrop-blur-md p-6 rounded-[2rem] border border-violet-100 gap-6">
                         <div className="flex flex-wrap items-center gap-4">
                             <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                                session?.status === 'LOCKED' ? 'bg-red-500 text-white border-red-400' : isToday ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-gray-200 text-gray-600 border-gray-300'
+                                session?.status === 'LOCKED' ? (session.type === 'HOLIDAY' ? 'bg-amber-500 text-white border-amber-400' : 'bg-red-500 text-white border-red-400') : isToday ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-gray-200 text-gray-600 border-gray-300'
                             }`}>
-                                {session?.status === 'LOCKED' ? `LOCKED` : isToday ? 'OPEN' : 'READ-ONLY'}
+                                {session?.status === 'LOCKED' ? (session.type === 'HOLIDAY' ? 'HOLIDAY' : 'LOCKED') : isToday ? 'OPEN' : 'READ-ONLY'}
                             </div>
                             
                             {isEditable && (
@@ -585,26 +692,26 @@ export default function AttendanceMarking() {
                                                 const isPresent = attendanceMap[student.id] === 'P';
                                                 const isNoc = student.nocStatus === 'cleared' || student.nocStatus === 'approved';
                                                 return (
-                                                    <tr key={student.id} className={`transition-colors group hover:bg-gray-50/50 ${isNoc ? 'bg-violet-50/40' : !isPresent ? 'bg-red-50/20' : ''}`}>
-                                                        <td className="px-8 py-4 whitespace-nowrap border-r border-gray-50">
+                                                    <tr key={student.id} className={`transition-all group hover:bg-gray-50/50 ${isNoc ? 'bg-violet-50/40' : !isPresent ? 'bg-red-50/20' : ''}`}>
+                                                        <td className="px-8 py-3 whitespace-nowrap border-r border-gray-50">
                                                             <div className="flex items-center gap-4">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] transition-colors ${
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[9px] transition-colors ${
                                                                     isPresent ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                                                                 }`}>
                                                                     {idx + 1}
                                                                 </div>
                                                                 <div>
-                                                                    <div className="text-sm font-black text-gray-900 tracking-tight">{student.name}</div>
-                                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{student.rollNumber} / {student.attendancePercent}%</div>
+                                                                    <div className="text-[13px] font-black text-gray-900 tracking-tight">{student.name}</div>
+                                                                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{student.rollNumber} / {student.attendancePercent}%</div>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-4 whitespace-nowrap border-r border-gray-50">
-                                                            <div className="text-[11px] font-black text-gray-700 leading-tight uppercase tracking-tight">{student.fatherName}</div>
-                                                            <div className="text-[10px] font-bold text-gray-400 mt-1">({student.parentPhone || student.phone || 'N/A'})</div>
+                                                        <td className="px-8 py-3 whitespace-nowrap border-r border-gray-50">
+                                                            <div className="text-[10px] font-black text-gray-700 leading-tight uppercase tracking-tight">{student.fatherName}</div>
+                                                            <div className="text-[9px] font-bold text-gray-400 mt-0.5">({student.parentPhone || student.phone || 'N/A'})</div>
                                                         </td>
-                                                        <td className="px-8 py-4 text-center whitespace-nowrap border-r border-gray-50">
-                                                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                        <td className="px-8 py-3 text-center whitespace-nowrap border-r border-gray-50">
+                                                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
                                                                 student.nocStatus === 'cleared' 
                                                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                                                                     : 'bg-orange-50 text-orange-600 border-orange-100'
@@ -612,12 +719,12 @@ export default function AttendanceMarking() {
                                                                 {student.nocStatus === 'cleared' ? 'CLEARED' : 'PENDING'}
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-4 text-right whitespace-nowrap">
+                                                        <td className="px-8 py-3 text-right whitespace-nowrap">
                                                             <button
                                                                 onClick={() => !isNoc && toggleStatus(student.id)}
                                                                 disabled={!isEditable || isNoc}
                                                                 className={`
-                                                                    w-14 h-12 rounded-2xl flex items-center justify-center font-black text-sm transition-all 
+                                                                    w-12 h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all 
                                                                     ml-auto shadow-sm border-2
                                                                     ${isNoc
                                                                         ? 'bg-violet-600 text-white border-violet-400 shadow-violet-200'
@@ -671,6 +778,36 @@ export default function AttendanceMarking() {
                             </div>
                         </div>
                     )}
+                    {/* Reporting Hub */}
+                    <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] mt-12 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight leading-none mb-1">Monthly Command Registry</h3>
+                                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Generate comprehensive Institutional Reports (Excel)</p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[8px] font-black text-white/30 uppercase tracking-widest ml-1">Select Month</label>
+                                    <input
+                                        type="month"
+                                        value={exportMonth}
+                                        onChange={e => setExportMonth(e.target.value)}
+                                        max={format(new Date(), 'yyyy-MM')}
+                                        className="px-4 py-2.5 bg-white/10 border border-white/10 rounded-xl text-white text-[11px] font-bold outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => handleExportExcel(new Date(exportMonth + '-01'))}
+                                    disabled={exporting || !selectedClass}
+                                    className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 self-end"
+                                >
+                                    {exporting ? 'Processing...' : 'Download Matrix'}
+                                    {!exporting && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </motion.div>
             ) : (
                 <div className="bg-gray-50/50 rounded-[3rem] p-24 text-center border-4 border-dashed border-gray-100">

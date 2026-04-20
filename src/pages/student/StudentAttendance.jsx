@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSunday } from 'date-fns';
 
 const container = {
     hidden: { opacity: 0 },
@@ -81,8 +81,11 @@ export default function StudentAttendance() {
             filtered = allRecords.filter(r => String(r.semester) === String(selectedSemester));
         }
 
-        const total = filtered.length;
-        const present = filtered.filter(r => {
+        // Exclude HOLIDAY records from percentage calculations (Institutional standard)
+        const relevantRecords = filtered.filter(r => (r.status || r.attendanceStatus || '').toUpperCase() !== 'HOLIDAY');
+
+        const total = relevantRecords.length;
+        const present = relevantRecords.filter(r => {
             const status = (r.status || r.attendanceStatus || '').toUpperCase();
             return ['PRESENT', 'NOC', 'P'].includes(status);
         }).length;
@@ -92,7 +95,7 @@ export default function StudentAttendance() {
             present,
             percentage: total > 0 ? Math.round((present / total) * 100) : 0
         });
-        setRecords(filtered);
+        setRecords(filtered); // Keep HOLIDAY records for calendar display
     }, [selectedSemester, allRecords]);
 
     const monthStart = startOfMonth(selectedMonth);
@@ -149,13 +152,13 @@ export default function StudentAttendance() {
             {/* ── ATTENDANCE ANALYTICS HEADER ───────────────────────── */}
             <motion.div variants={item} className="aether-card p-6 md:p-14 flex flex-col md:flex-row items-center gap-10 md:gap-12 lg:gap-20 relative overflow-hidden">
                 {/* Visual Ring */}
-                <div className="relative w-40 h-40 md:w-48 md:h-48 flex-shrink-0">
+                <div className="relative w-32 h-32 md:w-36 md:h-36 flex-shrink-0">
                     <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="50%" cy="50%" r="42%" stroke="rgba(15,23,42,0.03)" strokeWidth="10" fill="none" />
+                        <circle cx="50%" cy="50%" r="42%" stroke="rgba(15,23,42,0.03)" strokeWidth="8" fill="none" />
                         <motion.circle
                             cx="50%" cy="50%" r="42%"
                             stroke={summary.percentage >= 75 ? "#10b981" : "#E31E24"}
-                            strokeWidth="10" fill="none"
+                            strokeWidth="8" fill="none"
                             strokeLinecap="round"
                             initial={{ strokeDasharray: "515 515", strokeDashoffset: 515 }}
                             animate={{ strokeDashoffset: 515 - (515 * summary.percentage) / 100 }}
@@ -163,8 +166,8 @@ export default function StudentAttendance() {
                         />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-4xl md:text-5xl font-heading text-slate-900 tracking-tighter tabular-nums">{summary.percentage}%</span>
-                        <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] mt-1 ${summary.percentage >= 75 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        <span className="text-3xl md:text-4xl font-heading text-slate-900 tracking-tighter tabular-nums">{summary.percentage}%</span>
+                        <span className={`text-[7px] md:text-[8px] font-bold uppercase tracking-[0.2em] mt-1 ${summary.percentage >= 75 ? 'text-emerald-500' : 'text-red-500'}`}>
                             {selectedSemester === 'all' ? 'Lifecycle' : `Sem ${selectedSemester}`}
                         </span>
                     </div>
@@ -173,12 +176,12 @@ export default function StudentAttendance() {
                 <div className="flex-1 space-y-8 text-center md:text-left">
                     <div>
                         <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                             <h1 className="text-4xl font-heading text-slate-900 tracking-tight leading-none">Attendance Analytics</h1>
-                             <span className="hidden md:block px-3 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-lg">
-                                {selectedSemester === 'all' ? 'Institutional Sync' : `Phase ${selectedSemester}`}
+                             <h1 className="text-3xl font-heading text-slate-900 tracking-tight leading-none">Attendance Analytics</h1>
+                             <span className="hidden md:block px-2 py-0.5 bg-slate-900 text-white text-[7px] font-black uppercase tracking-widest rounded-md">
+                                 {selectedSemester === 'all' ? 'Institutional Sync' : `Phase ${selectedSemester}`}
                              </span>
                         </div>
-                        <p className="text-slate-500 text-lg leading-relaxed max-w-lg">
+                        <p className="text-slate-500 text-base leading-relaxed max-w-lg">
                             {summary.percentage >= 75 
                                 ? `Your consistency in ${selectedSemester === 'all' ? 'all academic sectors' : `Semester ${selectedSemester}`} is exemplary.`
                                 : `Your current trajectory in ${selectedSemester === 'all' ? 'this lifecycle' : `Semester ${selectedSemester}`} falls below threshold.`}
@@ -203,68 +206,105 @@ export default function StudentAttendance() {
             </motion.div>
 
             {/* ── ACTIVITY CALENDAR ─────────────────────────────────── */}
-            <motion.div variants={item} className="aether-card p-10 md:p-14">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-12 gap-8">
-                    <div>
-                        <h3 className="text-2xl font-heading text-slate-900">Academic Sync Log</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Real-time Verified Entries</p>
+            <motion.div variants={item} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                {/* Calendar Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-5 border-b border-slate-50 gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-5 bg-[#E31E24] rounded-full" />
+                        <div>
+                            <h3 className="text-base font-black text-slate-900 tracking-tight">Attendance Calendar</h3>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Month-wise Verified Log</p>
+                        </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
                         <button 
                             onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() - 1))} 
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-slate-900 hover:shadow-sm transition-all"
-                        >←</button>
-                        <span className="px-4 font-bold text-[11px] uppercase tracking-widest text-slate-900 min-w-[120px] text-center">
-                            {format(selectedMonth, 'MMM yyyy')}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-slate-500 hover:text-slate-900 hover:shadow-sm transition-all text-xs font-black"
+                        >‹</button>
+                        <span className="px-3 font-black text-[11px] text-slate-900 min-w-[90px] text-center tracking-tight">
+                            {format(selectedMonth, 'MMMM yyyy')}
                         </span>
                         <button 
                             onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() + 1))} 
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-slate-900 hover:shadow-sm transition-all"
-                        >→</button>
+                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-slate-500 hover:text-slate-900 hover:shadow-sm transition-all text-xs font-black"
+                        >›</button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 md:gap-6">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                        <div key={d} className="text-center text-[8px] font-bold text-slate-300 uppercase tracking-widest pb-4">{d}</div>
-                    ))}
-
-                    {[...Array(monthStart.getDay())].map((_, i) => <div key={`p${i}`} />)}
-
-                    {daysInMonth.map(day => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const record = records.find(r => (r.date || r.dateStr) === dateStr);
-                        const isToday = isSameDay(day, new Date());
-                        
-                        let uiState = "bg-slate-50 border-slate-100 text-slate-300";
-                        if (record) {
-                            const st = (record.status || record.attendanceStatus);
-                            if (st === 'PRESENT') uiState = "bg-emerald-50 border-emerald-100 text-emerald-600 font-bold";
-                            else if (st === 'ABSENT') uiState = "bg-red-50 border-red-100 text-red-600 font-bold";
-                            else if (st === 'NOC') uiState = "bg-slate-900 border-slate-900 text-white font-bold";
-                        } else if (isToday) {
-                            uiState = "bg-white border-[#E31E24] text-[#E31E24] font-bold shadow-md shadow-red-50";
-                        }
-
-                        return (
-                            <div 
-                                key={dateStr}
-                                className={`aspect-square rounded-xl md:rounded-2xl border flex items-center justify-center relative cursor-default transition-all duration-300 ${uiState}`}
-                            >
-                                <span className="text-xs md:text-lg">{day.getDate()}</span>
-                                {isToday && <div className="absolute top-1 right-1 w-1 h-1 bg-[#E31E24] rounded-full animate-pulse md:w-1.5 md:h-1.5" />}
+                {/* Calendar Grid */}
+                <div className="p-5">
+                    {/* Day Headers */}
+                    <div className="grid grid-cols-7 mb-2">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
+                            <div key={d} className={`text-center py-2 text-[9px] font-black uppercase tracking-widest ${i === 0 ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                {d}
                             </div>
-                        );
-                    })}
+                        ))}
+                    </div>
+
+                    {/* Day Cells */}
+                    <div className="grid grid-cols-7 gap-1">
+                        {[...Array(monthStart.getDay())].map((_, i) => <div key={`p${i}`} />)}
+
+                        {daysInMonth.map(day => {
+                            const dateStr = format(day, 'yyyy-MM-dd');
+                            const record = records.find(r => (r.date || r.dateStr) === dateStr);
+                            const isToday = isSameDay(day, new Date());
+                            const isSun = isSunday(day);
+
+                            let cellStyle = 'bg-slate-50 border border-slate-100 text-slate-400';
+                            let subLabel = null;
+
+                            if (record) {
+                                const st = (record.status || record.attendanceStatus || '').toUpperCase();
+                                if (st === 'PRESENT' || st === 'P') {
+                                    cellStyle = 'bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm';
+                                    subLabel = <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest leading-none">P</span>;
+                                } else if (st === 'ABSENT' || st === 'A') {
+                                    cellStyle = 'bg-red-50 border border-red-200 text-red-600 shadow-sm';
+                                    subLabel = <span className="text-[7px] font-black text-red-400 uppercase tracking-widest leading-none">A</span>;
+                                } else if (st === 'NOC') {
+                                    cellStyle = 'bg-slate-900 border border-slate-800 text-white shadow-md';
+                                    subLabel = <span className="text-[7px] font-black text-white/60 uppercase tracking-widest leading-none">NOC</span>;
+                                } else if (st === 'HOLIDAY') {
+                                    if (isSun) {
+                                        cellStyle = 'bg-indigo-50/80 border border-indigo-200 text-indigo-700 shadow-sm';
+                                        subLabel = <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest leading-none">SUN</span>;
+                                    } else {
+                                        cellStyle = 'bg-amber-50 border border-amber-200 text-amber-700';
+                                        subLabel = <span className="text-[7px] font-black text-amber-500 uppercase tracking-[0.05em] leading-none">HOL</span>;
+                                    }
+                                }
+                            } else if (isSun) {
+                                cellStyle = 'bg-indigo-50/60 border border-dashed border-indigo-100 text-indigo-300';
+                                subLabel = <span className="text-[7px] font-bold text-indigo-300 leading-none">SUN</span>;
+                            } else if (isToday) {
+                                cellStyle = 'bg-white border-2 border-[#E31E24] text-[#E31E24] shadow-md shadow-red-50 ring-2 ring-red-50';
+                            }
+
+                            return (
+                                <div
+                                    key={dateStr}
+                                    className={`relative flex flex-col items-center justify-center rounded-xl transition-all duration-200 hover:scale-110 cursor-default ${cellStyle}`}
+                                    style={{ aspectRatio: '1', minHeight: '36px' }}
+                                >
+                                    <span className="text-[11px] md:text-[13px] font-black leading-none">{day.getDate()}</span>
+                                    {subLabel}
+                                    {isToday && <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[#E31E24] rounded-full animate-pulse" />}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                {/* Legend Overlay */}
-                <div className="mt-16 pt-10 border-t border-slate-50 flex flex-wrap justify-center gap-10">
+                {/* Legend */}
+                <div className="px-5 pb-5 pt-2 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-50">
                     <LegendItem label="Present" color="bg-emerald-500" />
                     <LegendItem label="Absent" color="bg-red-500" />
+                    <LegendItem label="Holiday" color="bg-amber-400" />
                     <LegendItem label="Duty / NOC" color="bg-slate-900" />
-                    <LegendItem label="No Activity" color="bg-slate-100" />
+                    <LegendItem label="Sunday" color="bg-indigo-300" dot />
+                    <LegendItem label="No Record" color="bg-slate-200" />
                 </div>
             </motion.div>
         </motion.div>
@@ -273,23 +313,23 @@ export default function StudentAttendance() {
 
 function MetricBadge({ label, value, color }) {
     const colors = {
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
         red: 'bg-red-50 text-red-600 border-red-100',
         slate: 'bg-slate-50 text-slate-600 border-slate-100'
     };
     return (
-        <div className={`px-5 py-3 rounded-2xl border flex items-center gap-4 ${colors[color]}`}>
-            <span className="text-xl font-heading">{value}</span>
-            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}</span>
+        <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 ${colors[color]}`}>
+            <span className="text-lg font-black tabular-nums">{value}</span>
+            <span className="text-[8px] font-black uppercase tracking-widest opacity-60">{label}</span>
         </div>
     );
 }
 
-function LegendItem({ label, color }) {
+function LegendItem({ label, color, dot }) {
     return (
-        <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${color} shadow-sm`} />
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+        <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${color} shadow-sm ${dot ? 'border border-dashed border-current opacity-70' : ''}`} />
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
         </div>
     );
 }
