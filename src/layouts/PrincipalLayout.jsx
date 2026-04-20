@@ -272,6 +272,18 @@ export default function PrincipalLayout() {
                                         );
                                     })}
                                 </nav>
+
+                                <div className="p-8 border-t border-gray-50 bg-gray-50/30">
+                                    <button
+                                        onClick={() => auth.signOut().then(() => navigate('/login'))}
+                                        className="w-full flex items-center justify-center gap-4 py-5 rounded-2xl bg-white border-2 border-red-50 text-red-600 transition-all font-black text-sm shadow-sm active:scale-95 group"
+                                    >
+                                        <svg className="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <span>Logout Securely</span>
+                                    </button>
+                                </div>
                             </motion.div>
                         </>
                     )}

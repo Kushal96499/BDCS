@@ -91,6 +91,22 @@ const LoadingScreen = () => (
 );
 
 export default function App() {
+    // RECOVERY: Handle "Failed to fetch module" errors (Chunk load failures)
+    // This happens when a new version is deployed on Vercel and old chunks are missing.
+    React.useEffect(() => {
+        const handleChunkError = (e) => {
+            const msg = e.message || '';
+            if (msg.includes('Failed to fetch dynamically imported module') || 
+                msg.includes('Importing a module script failed') ||
+                msg.includes('module script')) {
+                console.warn('BDCS: Chunk load failure detected. Reloading for latest version...');
+                window.location.reload();
+            }
+        };
+        window.addEventListener('error', handleChunkError);
+        return () => window.removeEventListener('error', handleChunkError);
+    }, []);
+
     return (
         <Suspense fallback={<LoadingScreen />}>
             <SessionManager />

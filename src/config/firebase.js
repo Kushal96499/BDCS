@@ -4,7 +4,7 @@
 // ============================================
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 export const firebaseConfig = {
@@ -23,7 +23,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Enforce Session persistence to restrict auth to current tab only
-setPersistence(auth, browserSessionPersistence)
+setPersistence(auth, browserLocalPersistence)
     .catch((error) => console.error("Error setting session persistence:", error));
 
 export const db = getFirestore(app);

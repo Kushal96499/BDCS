@@ -32,21 +32,12 @@ export default function SessionManager() {
         const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
         events.forEach(event => window.addEventListener(event, handleActivity));
 
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const timePassed = now - lastActivity;
-
-            if (timePassed >= TIMEOUT_DURATION) {
-                handleLogout();
-            } else if (timePassed >= TIMEOUT_DURATION - WARNING_THRESHOLD) {
-                // Optional: Show warning toast? 
-                // Maybe too annoying. We'll just stick to auto logout for now as requested.
-            }
-        }, 30000); // Check every 30 seconds
+        // DEACTIVATED: Inactivity timeout has been disabled per user request.
+        // Users will now stay logged in permanently until they manual logout.
+        const interval = null; 
 
         return () => {
             events.forEach(event => window.removeEventListener(event, handleActivity));
-            clearInterval(interval);
         };
     }, [isStaff, lastActivity, handleLogout]);
 
