@@ -239,7 +239,7 @@ export default function UserList() {
             </div>
 
             {/* Filters Section */}
-            <div className="bg-white/40 backdrop-blur-md rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className="relative z-30 bg-white/40 backdrop-blur-md rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div className="md:col-span-2">
                          <Input 

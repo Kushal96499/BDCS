@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { collection, query, where, orderBy, getDocs, limit, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit, doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { format } from 'date-fns';
@@ -19,49 +19,68 @@ import { logDelete } from '../../utils/auditLogger';
 import { validateUserDeletion } from '../../utils/userValidation';
 import RoleAssignmentPanel from './RoleAssignmentPanel';
 
-export default function UserDetailPanel({ user: targetUser, onClose, onUserDeleted, onUserUpdated }) {
+export default function UserDetailPanel({ user: targetUser, onClose, onUserDeleted, onUserUpdated, extraActions = [] }) {
     const { user: currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState('profile');
     const [auditLogs, setAuditLogs] = useState([]);
-    const [logsLoading, setLogsLoading] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [validatingDelete, setValidatingDelete] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
     const [showValidationDialog, setShowValidationDialog] = useState(false);
-    const [overrideMode, setOverrideMode] = useState(false);
+
+    // Edit State
+    const [isEditing, setIsEditing] = useState(false);
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [editData, setEditData] = useState({
+        name: targetUser?.name || '',
+        email: targetUser?.email || '',
+        phone: targetUser?.phone || targetUser?.phoneNumber || '',
+        employeeId: targetUser?.employeeId || ''
+    });
 
     useEffect(() => {
-        if (activeTab === 'audit' && targetUser?.id) {
-            fetchUserAuditLogs();
+        if (targetUser) {
+            setEditData({
+                name: targetUser.name || '',
+                email: targetUser.email || '',
+                phone: targetUser.phone || targetUser.phoneNumber || '',
+                employeeId: targetUser.employeeId || ''
+            });
         }
-    }, [activeTab, targetUser?.id]);
+    }, [targetUser]);
 
-    const fetchUserAuditLogs = async () => {
+    const handleUpdate = async () => {
         if (!targetUser?.id) return;
+        if (!editData.name || !editData.email) {
+            toast.error('Name and Email are required');
+            return;
+        }
+
         try {
-            setLogsLoading(true);
-            const subjectQuery = query(collection(db, 'auditLogs'), where('documentId', '==', targetUser.id), orderBy('timestamp', 'desc'), limit(20));
-            const performerQuery = query(collection(db, 'auditLogs'), where('performedBy', '==', targetUser.id), orderBy('timestamp', 'desc'), limit(20));
-            const [subjectSnapshot, performerSnapshot] = await Promise.all([getDocs(subjectQuery), getDocs(performerQuery)]);
-            const subjectLogs = subjectSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), logType: 'subject' }));
-            const performerLogs = performerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), logType: 'performer' }));
-            const allLogs = [...subjectLogs, ...performerLogs];
-            const uniqueLogs = Array.from(new Map(allLogs.map(log => [log.id, log])).values());
-            uniqueLogs.sort((a, b) => (b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp)) - (a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp)));
-            setAuditLogs(uniqueLogs.slice(0, 30));
+            setUpdateLoading(true);
+            const userRef = doc(db, 'users', targetUser.id);
+            await updateDoc(userRef, {
+                name: editData.name,
+                email: editData.email,
+                phone: editData.phone,
+                employeeId: editData.employeeId,
+                updatedAt: serverTimestamp(),
+                updatedBy: currentUser.uid
+            });
+
+            toast.success('Profile updated successfully');
+            setIsEditing(false);
+            onUserUpdated?.();
+            // We usually want to close and reload or update local state
         } catch (error) {
-            console.error('Error fetching audit logs:', error);
+            console.error('Update error:', error);
+            toast.error('Failed to update profile');
         } finally {
-            setLogsLoading(false);
+            setUpdateLoading(false);
         }
     };
 
     const handleForceDeleteClick = async () => {
-        if (overrideMode) {
-            setDeleteDialog(true);
-            return;
-        }
         setValidatingDelete(true);
         try {
             const result = await validateUserDeletion(targetUser);
@@ -93,155 +112,190 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
         }
     };
 
-    const tabs = [
-        { id: 'profile', label: 'Profile', icon: '👤' },
-        { id: 'role-assignments', label: 'Role Assignments', icon: '🎭' },
-        { id: 'role-history', label: 'Role History', icon: '📊' },
-        { id: 'status', label: 'Status Timeline', icon: '⏱️' },
-        { id: 'audit', label: 'Audit Logs', icon: '📋' }
-    ];
-
-    const getActionColor = (action) => {
-        if (action?.includes('delete') || action === 'disable') return 'text-red-600 bg-red-50';
-        if (action === 'relieve_user' || action === 'archive_user') return 'text-orange-600 bg-orange-50';
-        if (action?.includes('create') || action === 'enable') return 'text-green-600 bg-green-50';
-        return 'text-gray-600 bg-gray-50';
-    };
-
     if (typeof document === 'undefined') return null;
 
     return createPortal(
         <AnimatePresence mode="wait">
             {targetUser && (
-                <div className="fixed inset-0 z-[900] overflow-hidden">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     {/* Overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                        className="absolute inset-0 bg-gray-950/40 backdrop-blur-md"
                         onClick={onClose}
                     />
 
-                    {/* Slide-out Panel */}
+                    {/* Modal Panel */}
                     <motion.div
-                        initial={{ x: '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                        drag="x"
-                        dragConstraints={{ left: 0, right: 300 }}
-                        dragElastic={0.05}
-                        onDragEnd={(e, info) => {
-                            if (info.offset.x > 150) onClose();
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        transition={{
+                            type: 'spring',
+                            damping: 25,
+                            stiffness: 350,
+                            mass: 0.5
                         }}
-                        className="absolute right-0 top-0 h-full w-full md:w-2/3 lg:w-1/2 bg-white shadow-2xl flex flex-col focus:outline-none"
+                        className="relative w-full max-w-2xl bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl shadow-gray-900/15 flex flex-col overflow-hidden max-h-[94vh] md:max-h-[85vh] border border-gray-100/50"
                     >
                         {/* Header */}
-                        <div className="bg-gradient-to-br from-[#E31E24] to-red-800 text-white p-4 sm:p-8 shrink-0 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                            
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl font-black border border-white/20">
+                        <div className="bg-white p-5 sm:p-8 md:p-12 shrink-0 relative overflow-hidden border-b border-gray-50/50">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 relative z-10">
+                                <div className="flex items-center gap-4 sm:gap-8">
+                                    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-[1.2rem] sm:rounded-[2rem] bg-gray-900 text-white flex items-center justify-center text-2xl sm:text-4xl font-black shadow-2xl shadow-gray-300 shrink-0">
                                         {targetUser?.name?.charAt(0)?.toUpperCase()}
                                     </div>
-                                    <div className="min-w-0">
-                                        <h2 className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight">{targetUser?.name}</h2>
-                                        <p className="text-xs sm:text-sm text-red-100/60 truncate font-bold uppercase tracking-widest">{targetUser?.email}</p>
+                                    <div className="min-w-0 pr-4">
+                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                            <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-none tracking-tight truncate max-w-[220px] sm:max-w-md">{targetUser?.name}</h2>
+                                            <span className="px-2.5 py-1 bg-gray-900 text-white rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest h-fit">
+                                                {targetUser?.role || 'Staff'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-widest truncate max-w-[200px] sm:max-w-xs">{targetUser?.email}</p>
+                                            <span className={`w-2 h-2 rounded-full ring-4 ring-emerald-50 ${targetUser?.status === 'active' ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/10 rounded-xl border border-white/5">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${overrideMode ? 'text-yellow-400' : 'text-white/40'}`}>
-                                            {overrideMode ? 'Lethal Mode' : 'Secured'}
-                                        </span>
-                                        <button
-                                            onClick={() => setOverrideMode(!overrideMode)}
-                                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all focus:outline-none ${overrideMode ? 'bg-yellow-400' : 'bg-white/10'}`}
-                                        >
-                                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${overrideMode ? 'translate-x-5.5' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => setIsEditing(!isEditing)}
+                                        className={`px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl transition-all border active:scale-95 flex items-center gap-2 ${isEditing ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-gray-900 text-white border-gray-900 shadow-xl shadow-gray-900/10'}`}
+                                    >
+                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                            <path d={isEditing ? "M6 18L18 6M6 6l12 12" : "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"} strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap">{isEditing ? 'Cancel' : 'Edit Profile'}</span>
+                                    </button>
                                     <button
                                         onClick={onClose}
-                                        className="bg-white/10 hover:bg-white/20 p-2.5 rounded-2xl transition-all border border-white/10"
+                                        title="Close Panel"
+                                        className="p-3.5 sm:p-5 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-900 rounded-xl sm:rounded-2xl transition-all border border-gray-100 active:scale-90"
                                     >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3.5}><path d="M6 18L18 6M6 6l12 12" /></svg>
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Tabs */}
-                        <div className="border-b border-gray-50 bg-white sticky top-0 z-20 shrink-0">
-                            <div className="flex overflow-x-auto no-scrollbar px-4">
-                                {tabs.map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center gap-2.5 px-6 py-5 text-sm font-black whitespace-nowrap border-b-2 transition-all shrink-0 ${activeTab === tab.id
-                                            ? 'border-[#E31E24] text-[#E31E24] bg-red-50/30'
-                                            : 'border-transparent text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <span className="text-xl">{tab.icon}</span>
-                                        <span className="uppercase tracking-tighter">{tab.label}</span>
-                                    </button>
-                                ))}
                             </div>
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-8 bg-gray-50/30 space-y-6 pb-32 no-scrollbar">
-                            {activeTab === 'profile' && (
-                                <div className="space-y-6">
-                                    <div className="bg-white rounded-[2rem] border border-gray-100 p-8 shadow-sm">
-                                        <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">Core Identity</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                                            <DetailItem label="Full Legal Name" value={targetUser?.name} />
-                                            <DetailItem label="Primary Email" value={targetUser?.email} />
-                                            <DetailItem label="Operational Status" value={targetUser?.status} isStatus />
-                                            <DetailItem label="Employee Identity" value={targetUser?.employeeId || 'NOT ASSIGNED'} />
-                                        </div>
+                        <div className="flex-1 overflow-y-auto p-5 sm:p-8 md:p-12 pt-0 bg-white space-y-10 no-scrollbar">
+                            <div className="space-y-8">
+                                <div className="bg-slate-50/50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-gray-100 p-6 md:p-10 shadow-inner">
+                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3 ml-2">
+                                        <div className="w-2.5 h-6 bg-red-600 rounded-full" />
+                                        Identity Architecture
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        {isEditing ? (
+                                            <>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+                                                    <input
+                                                        className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:border-gray-900 transition-all"
+                                                        value={editData.name}
+                                                        onChange={e => setEditData({ ...editData, name: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                                                    <input
+                                                        className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:border-gray-900 transition-all"
+                                                        value={editData.email}
+                                                        onChange={e => setEditData({ ...editData, email: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</label>
+                                                    <input
+                                                        className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:border-gray-900 transition-all"
+                                                        value={editData.phone}
+                                                        onChange={e => setEditData({ ...editData, phone: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Faculty ID (EMP)</label>
+                                                    <input
+                                                        className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:border-gray-900 transition-all"
+                                                        value={editData.employeeId}
+                                                        placeholder="institutional id"
+                                                        onChange={e => setEditData({ ...editData, employeeId: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="flex items-end pb-1">
+                                                    <button
+                                                        onClick={handleUpdate}
+                                                        disabled={updateLoading}
+                                                        className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95"
+                                                    >
+                                                        {updateLoading ? 'Saving...' : 'Save Changes'}
+                                                    </button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <DetailItem label="Name" value={targetUser?.name} />
+                                                <DetailItem label="Email" value={targetUser?.email} />
+                                                <DetailItem label="Phone" value={targetUser?.phone || targetUser?.phoneNumber || 'N/A'} />
+                                                <DetailItem label="Faculty ID (EMP)" value={targetUser?.employeeId || 'NOT SET'} />
+                                                <DetailItem label="Account Status" value={targetUser?.status} isStatus />
+                                            </>
+                                        )}
                                     </div>
+                                </div>
 
-                                    <div className="bg-white rounded-[2rem] border border-gray-100 p-8 shadow-sm">
-                                        <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">Hierarchy Scope</h3>
-                                        <div className="space-y-4">
-                                            <ScopeItem icon="🏢" label="Campus" value={targetUser?.campusName} />
-                                            <ScopeItem icon="🎓" label="College" value={targetUser?.collegeName} />
-                                            <ScopeItem icon="🏛️" label="Department" value={targetUser?.departmentName} />
-                                        </div>
+                                <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-gray-100 p-6 md:p-10 shadow-sm">
+                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3 ml-2">
+                                        <div className="w-2.5 h-6 bg-[#E31E24] rounded-full" />
+                                        Institutional Scope
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <ScopeItem icon="🏫" label="Campus" value={targetUser?.campusName} />
+                                        <ScopeItem icon="🏢" label="College" value={targetUser?.collegeName} />
+                                        <ScopeItem icon="📂" label="Department" value={targetUser?.departmentName} />
                                     </div>
+                                </div>
 
-                                    <div className="p-8 rounded-[2.5rem] bg-red-50/50 border border-red-100 relative overflow-hidden group">
-                                        <div className="relative z-10">
-                                            <h3 className="text-lg font-black text-red-900 mb-2 flex items-center gap-2">Termination Protocol</h3>
-                                            <p className="text-xs font-bold text-red-600/70 mb-6 uppercase tracking-widest">Execute permanent data purge</p>
+                                {/* Custom Administrative Actions */}
+                                {extraActions.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {extraActions.map((action, idx) => (
                                             <button
-                                                onClick={handleForceDeleteClick}
-                                                disabled={validatingDelete}
-                                                className="px-8 py-4 bg-red-600 text-white text-xs font-black rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-200 disabled:opacity-50 uppercase tracking-widest"
+                                                key={idx}
+                                                onClick={action.onClick}
+                                                className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border ${action.variant === 'danger'
+                                                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white'
+                                                    : action.variant === 'warning'
+                                                        ? 'bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-600 hover:text-white'
+                                                        : 'bg-gray-900 text-white border-gray-900 hover:bg-[#E31E24]'
+                                                    }`}
                                             >
-                                                {validatingDelete ? 'Verifying...' : 'Initialize Purge'}
+                                                {action.label}
                                             </button>
-                                        </div>
+                                        ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {activeTab === 'role-assignments' && <RoleAssignmentPanel targetUser={targetUser} onUpdate={onUserUpdated} />}
-                            {activeTab === 'role-history' && <RoleHistory userId={targetUser?.id} />}
-                            {activeTab === 'status' && <StatusTimeline userId={targetUser?.id} />}
-                            {activeTab === 'audit' && (
-                                <div className="space-y-4">
-                                    {logsLoading ? <div className="animate-pulse flex flex-col gap-4">{[1,2,3].map(i=><div key={i} className="h-24 bg-white rounded-3xl" />)}</div> : 
-                                        auditLogs.map(log => <AuditLogItem key={log.id} log={log} getActionColor={getActionColor} />)}
+                                <div className="pt-6 border-t border-gray-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div className="flex flex-col text-slate-900">
+                                        <h4 className="text-xs font-black tracking-tight">Delete User</h4>
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Remove this account from the system</p>
+                                    </div>
+                                    <button
+                                        onClick={handleForceDeleteClick}
+                                        disabled={validatingDelete}
+                                        className="w-full sm:w-auto px-8 py-3.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white text-[10px] font-black rounded-2xl transition-all uppercase tracking-widest active:scale-95 border border-red-100 hover:border-red-600"
+                                    >
+                                        {validatingDelete ? 'Checking...' : 'Delete User'}
+                                    </button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </motion.div>
 
@@ -249,10 +303,10 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
                         isOpen={deleteDialog}
                         onClose={() => setDeleteDialog(false)}
                         onConfirm={handleForceDelete}
-                        title="IRREVERSIBLE PURGE"
-                        message={`Expunge ${targetUser?.name} and all associated metadata from the global directory? This action cannot be rescinded.`}
+                        title="DANGER: Permanent Deletion"
+                        message={`Confirm absolute deletion of account: ${targetUser?.name}. All records will be removed.`}
                         variant="danger"
-                        confirmText={deleteLoading ? "Purging..." : "Execute Purge"}
+                        confirmText={deleteLoading ? "Deleting..." : "Confirm Delete"}
                         loading={deleteLoading}
                     />
                 </div>
@@ -293,6 +347,6 @@ const AuditLogItem = ({ log, getActionColor }) => (
                 {format(log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp), 'MMM d, h:mm a')}
             </span>
         </div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-tight">Initiated By <span className="text-gray-900">{log.performedByName || 'Autonomous Process'}</span></p>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-tight">Updated By <span className="text-gray-900">{log.performedByName || 'System Update'}</span></p>
     </div>
 );

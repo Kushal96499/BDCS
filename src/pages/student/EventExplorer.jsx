@@ -293,105 +293,121 @@ function EventModal({ event, eventDate, onClose }) {
         >
             {/* Modal Card */}
             <motion.div
-                initial={{ scale: 0.92, opacity: 0, y: 20 }}
+                initial={{ scale: 0.9, opacity: 0, y: 40 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.92, opacity: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 40 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col"
+                className="bg-white rounded-[3rem] shadow-[0_32px_128px_rgba(0,0,0,0.18)] max-w-lg w-full overflow-hidden max-h-[92vh] flex flex-col border border-white"
             >
-                {/* Gradient Header */}
-                <div className={`shrink-0 h-52 bg-gradient-to-br ${gradient} p-8 flex flex-col justify-between relative overflow-hidden`}>
-                    <div className="absolute inset-0 bg-black/10" />
-                    <div className="absolute -top-10 -right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+                {/* Gradient Header with Glass Overlay */}
+                <div className={`shrink-0 h-64 bg-gradient-to-br ${gradient} p-10 flex flex-col justify-between relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-black/5" />
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-[80px] -mr-40 -mt-40" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-[60px] -ml-32 -mb-32" />
 
                     <div className="relative z-10 flex justify-between items-start">
-                        <div className="flex gap-2 flex-wrap">
-                            <span className="bg-black/20 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        <div className="flex gap-2.5 flex-wrap">
+                            <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
                                 {event.type || 'Event'}
                             </span>
                             {event.scope && (
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${SCOPE_COLORS[event.scope] || 'bg-white/20 text-white'}`}>
+                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm backdrop-blur-md border ${SCOPE_COLORS[event.scope] || 'bg-white/20 text-white border-white/30'}`}>
                                     {SCOPE_LABELS[event.scope]}
                                 </span>
                             )}
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center text-white transition-colors"
+                            className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-95 shadow-lg"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     </div>
 
-                    <div className="relative z-10">
-                        <h2 className="text-2xl font-black text-white leading-tight drop-shadow">{event.title}</h2>
+                    <div className="relative z-10 space-y-2">
+                         <span className="text-white/60 text-[10px] font-black uppercase tracking-[0.4em]">Campus Transmission</span>
+                        <h2 className="text-3xl md:text-4xl font-heading text-white leading-[1.1] drop-shadow-2xl">{event.title}</h2>
                     </div>
                 </div>
 
-                {/* Details */}
-                <div className="p-8 space-y-6 overflow-y-auto">
+                {/* Content Area */}
+                <div className="p-10 space-y-10 overflow-y-auto no-scrollbar">
 
-                    {/* Date / Venue row */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-2xl p-4">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">📅 Date</p>
-                            <p className="font-black text-gray-900">{format(eventDate, 'dd MMM yyyy')}</p>
-                            <p className="text-xs text-gray-500">{format(eventDate, 'EEEE')}</p>
+                    {/* Meta Row */}
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100/50 group hover:bg-white hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="text-lg">📅</span>
+                                </div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recorded Date</p>
+                            </div>
+                            <p className="font-heading text-xl text-slate-900">{format(eventDate, 'dd MMM')}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{format(eventDate, 'EEEE, yyyy')}</p>
                         </div>
-                        <div className="bg-gray-50 rounded-2xl p-4">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">📍 Venue</p>
-                            <p className="font-black text-gray-900 text-sm">{event.venue || 'TBA'}</p>
+                        
+                        <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100/50 group hover:bg-white hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="text-lg">📍</span>
+                                </div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Event Venue</p>
+                            </div>
+                            <p className="font-heading text-xl text-slate-900 truncate">{event.venue || 'TBA'}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Zone</p>
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">About This Event</p>
-                        <p className="text-gray-700 font-medium leading-relaxed text-sm">
-                            {event.description || 'No description provided.'}
+                    {/* About Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-4 bg-[#E31E24] rounded-full" />
+                            <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">About Transmission</h4>
+                        </div>
+                        <p className="text-slate-500 font-medium leading-[1.8] text-sm md:text-base selection:bg-red-50">
+                            {event.description || 'No description provided for this campus activity.'}
                         </p>
                     </div>
 
-                    {/* Organizer */}
-                    <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center font-black text-white">
-                            {event.organizerName?.[0] || '?'}
+                    {/* Entity Representative */}
+                    <div className="flex items-center gap-5 bg-gradient-to-br from-slate-50 to-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center font-black text-white text-xl shadow-xl transform rotate-3">
+                            {event.organizerName?.[0] || '?' }
                         </div>
-                        <div>
-                            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Organized By</p>
-                            <p className="font-black text-gray-900">{event.organizerName || 'Student Council'}</p>
-                            <p className="text-xs text-gray-500">{event.organizerRole || 'Student President'}</p>
+                        <div className="flex-1">
+                            <p className="text-[9px] font-black text-[#E31E24] uppercase tracking-[0.3em] mb-1">Authenticated Organizer</p>
+                            <p className="font-heading text-lg text-slate-900">{event.organizerName || 'Student Council'}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{event.organizerRole || 'Council Representative'}</p>
                         </div>
                     </div>
 
-                    {/* Google Form Registration Link (if provided) */}
-                    {event.registrationLink && (
-                        <a
-                            href={event.registrationLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-3 w-full py-4 bg-gray-900 text-white font-black rounded-2xl hover:bg-black hover:-translate-y-0.5 transition-all shadow-xl text-sm uppercase tracking-widest"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            Fill Registration Form
-                        </a>
-                    )}
-
-                    {/* No form needed */}
-                    {!event.registrationLink && (
-                        <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-2xl p-4">
-                            <span className="text-2xl">✅</span>
-                            <div>
-                                <p className="font-bold text-green-800 text-sm">No pre-registration required</p>
-                                <p className="text-xs text-green-600">Just show up on the event day!</p>
+                    {/* Action Interface */}
+                    <div className="pt-2">
+                        {event.registrationLink ? (
+                            <a
+                                href={event.registrationLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-4 w-full py-5 bg-slate-900 text-white font-black rounded-[2rem] hover:bg-black hover:-translate-y-1 transition-all shadow-[0_20px_40px_rgba(0,0,0,0.1)] text-xs uppercase tracking-[0.3em]"
+                            >
+                                <span>INITIALIZE REGISTRATION</span>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </a>
+                        ) : (
+                            <div className="flex items-center gap-4 bg-emerald-50/50 border border-emerald-100 rounded-[2rem] p-6">
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-emerald-50">✅</div>
+                                <div>
+                                    <p className="font-black text-emerald-900 text-xs uppercase tracking-widest">Public Access Segment</p>
+                                    <p className="text-[11px] font-bold text-emerald-600/80 uppercase tracking-tight mt-0.5">No pre-registration required for this sector.</p>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </motion.div>
         </motion.div>

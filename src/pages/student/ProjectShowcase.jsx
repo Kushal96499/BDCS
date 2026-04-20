@@ -23,6 +23,10 @@ export default function ProjectShowcase() {
     const { user, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'my'
     const [activeFilter, setActiveFilter] = useState('All');
+    const [campusFilter, setCampusFilter] = useState('All');
+    const [collegeFilter, setCollegeFilter] = useState('All');
+    const [deptFilter, setDeptFilter] = useState('All');
+    
     const [feedProjects, setFeedProjects] = useState([]);
     const [myProjects, setMyProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -166,6 +170,11 @@ export default function ProjectShowcase() {
                     studentName: user.name,
                     batchId: user.batchId,
                     departmentId: user.departmentId,
+                    departmentName: user.departmentName || '',
+                    collegeId: user.collegeId || '',
+                    collegeName: user.collegeName || '',
+                    campusId: user.campusId || '',
+                    campusName: user.campusName || '',
                     createdAt: serverTimestamp()
                 });
                 toast.success('Project published 🚀');
@@ -224,9 +233,16 @@ export default function ProjectShowcase() {
     };
 
     const projectsToShow = activeTab === 'my' ? myProjects : feedProjects;
-    const filteredProjects = activeFilter === 'All'
-        ? projectsToShow
-        : projectsToShow.filter(p => p.projectType === activeFilter.toLowerCase());
+    
+    // Multi-level filtering logic for Innovation Hub
+    const filteredProjects = projectsToShow.filter(p => {
+        const matchesCategory = activeFilter === 'All' || p.projectType === activeFilter.toLowerCase();
+        const matchesCampus = campusFilter === 'All' || p.campusName === campusFilter;
+        const matchesCollege = collegeFilter === 'All' || p.collegeName === collegeFilter;
+        const matchesDept = deptFilter === 'All' || p.departmentName === deptFilter;
+        
+        return matchesCategory && matchesCampus && matchesCollege && matchesDept;
+    });
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     const cardVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
@@ -244,8 +260,8 @@ export default function ProjectShowcase() {
                     <div className="flex flex-row items-center justify-between gap-2">
                         {/* Desktop Only Branding */}
                         <div className="space-y-0.5 hidden md:block">
-                            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Project Showcase</h1>
-                            <p className="text-gray-400 text-sm font-black uppercase tracking-widest italic opacity-70">Innovation Hub 🚀</p>
+                            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Innovation Hub</h1>
+                            <p className="text-gray-400 text-sm font-black uppercase tracking-widest italic opacity-70">Biyani Campus Network 🚀</p>
                         </div>
 
                         {/* Mobile Header: Just the tab switcher */}
@@ -276,22 +292,76 @@ export default function ProjectShowcase() {
                         </div>
                     </div>
 
-                    {/* Filter Dropdown */}
-                    <div className="relative w-full md:w-auto mt-2 md:mt-0">
-                        <select
-                            value={activeFilter}
-                            onChange={(e) => setActiveFilter(e.target.value)}
-                            className="appearance-none w-full md:w-56 bg-white border border-gray-100 text-gray-700 py-3 pl-5 pr-10 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
-                        >
-                            <option value="All">✨ All Projects</option>
-                            {PROJECT_TYPES.map(t => (
-                                <option key={t.id} value={t.id}>
-                                    {t.icon} {t.label}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                    {/* Advanced Institutional Filters - Responsive Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                        {/* Innovation Category */}
+                        <div className="relative">
+                            <select
+                                value={activeFilter}
+                                onChange={(e) => setActiveFilter(e.target.value)}
+                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+                            >
+                                <option value="All">✨ All Innovations</option>
+                                {PROJECT_TYPES.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.icon} {t.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                            </div>
+                        </div>
+
+                        {/* Campus Filter */}
+                        <div className="relative">
+                            <select
+                                value={campusFilter}
+                                onChange={(e) => setCampusFilter(e.target.value)}
+                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+                            >
+                                <option value="All">📍 All Campus</option>
+                                {[...new Set(projectsToShow.map(p => p.campusName).filter(Boolean))].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                            </div>
+                        </div>
+
+                        {/* College Filter */}
+                        <div className="relative">
+                            <select
+                                value={collegeFilter}
+                                onChange={(e) => setCollegeFilter(e.target.value)}
+                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+                            >
+                                <option value="All">🏛️ All Colleges</option>
+                                {[...new Set(projectsToShow.filter(p => campusFilter === 'All' || p.campusName === campusFilter).map(p => p.collegeName).filter(Boolean))].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                            </div>
+                        </div>
+
+                        {/* Department Filter */}
+                        <div className="relative">
+                            <select
+                                value={deptFilter}
+                                onChange={(e) => setDeptFilter(e.target.value)}
+                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
+                            >
+                                <option value="All">🏢 All Depts</option>
+                                {[...new Set(projectsToShow.filter(p => collegeFilter === 'All' || p.collegeName === collegeFilter).map(p => p.departmentName).filter(Boolean))].map(d => (
+                                    <option key={d} value={d}>{d}</option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -497,17 +567,24 @@ function ProjectCard({ project, isOwner, onView, onEdit, onDelete }) {
                 </div>
 
                 <div className="mt-auto flex items-center justify-between pt-3 md:pt-4 border-t border-gray-50">
-                    <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#E31E24]/5 flex items-center justify-center text-[9px] font-black text-[#E31E24]">
-                            {project.studentName?.[0]}
+                    <div className="flex flex-col gap-1.5 overflow-hidden">
+                        <div className="flex items-center gap-2">
+                             <div className="w-6 h-6 rounded-lg bg-[#E31E24]/5 flex items-center justify-center text-[9px] font-black text-[#E31E24] shrink-0">
+                                {project.studentName?.[0]}
+                            </div>
+                            <span className="text-[9px] md:text-[10px] font-black text-gray-900 uppercase tracking-tight truncate">{project.studentName}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[9px] md:text-[10px] font-black text-gray-900 uppercase tracking-tight">{project.studentName}</span>
-                            <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase">Sem {project.semester}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[7px] md:text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 truncate">
+                                🏛️ {project.collegeName || 'Institutional'}
+                            </span>
+                            <span className="text-[7px] md:text-[8px] font-bold text-[#E31E24]/60 uppercase tracking-widest truncate">
+                                Sem {project.semester}
+                            </span>
                         </div>
                     </div>
                     {project.externalLink && (
-                        <a href={project.externalLink} target="_blank" rel="noreferrer" className="text-biyani-red hover:bg-red-50 p-2 rounded-full transition-colors">
+                        <a href={project.externalLink} target="_blank" rel="noreferrer" className="text-biyani-red hover:bg-red-50 p-2 rounded-full transition-colors shrink-0">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                         </a>
                     )}
@@ -596,6 +673,16 @@ function ProjectDetailModal({ project, isOwner, onClose, onEdit, onDelete }) {
                         <span className="px-3 py-1.5 rounded-xl bg-gray-50 text-gray-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-gray-100 italic">
                             🔎 {project.visibility || 'Public'}
                         </span>
+                        {project.campusName && (
+                            <span className="px-3 py-1.5 rounded-xl bg-red-50 text-[#E31E24] text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-red-100 italic">
+                                📍 {project.campusName}
+                            </span>
+                        )}
+                        {project.departmentName && (
+                            <span className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-blue-100 italic">
+                                🏢 {project.departmentName}
+                            </span>
+                        )}
                     </div>
 
                     {/* Description */}

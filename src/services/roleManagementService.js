@@ -232,43 +232,6 @@ export async function getUserRoles(userId) {
     }
 }
 
-/**
- * Switch user's active role
- */
-export async function switchActiveRole(userId, targetRole) {
-    try {
-        // Get user data first to check legacy roles
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userRef);
-
-        if (!userDoc.exists()) {
-            throw new Error('User not found');
-        }
-
-        const userData = userDoc.data();
-
-        // Verify user has this role (Check assignments OR roles array for robustness)
-        const userRoles = await getUserRoles(userId);
-        const hasAssignment = userRoles.some(r => r.role === targetRole && r.status === 'active');
-        const hasLegacyRole = (userData.roles || [userData.role]).includes(targetRole);
-
-        if (!hasAssignment && !hasLegacyRole) {
-            throw new Error('User does not have this role');
-        }
-
-        // Update current active role
-        await updateDoc(userRef, {
-            currentActiveRole: targetRole,
-            updatedAt: serverTimestamp()
-        });
-
-        return { success: true };
-
-    } catch (error) {
-        console.error('Error switching role:', error);
-        throw error;
-    }
-}
 
 /**
  * Check if a role can assign another role

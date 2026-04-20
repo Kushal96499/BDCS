@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, addDoc, serverTimestamp, writeBatch, doc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumSelect from '../../components/common/PremiumSelect';
+import { logAudit } from '../../utils/auditLogger';
 
 export default function AttendanceMarking() {
     const { user } = useAuth();
@@ -18,12 +19,18 @@ export default function AttendanceMarking() {
     const [session, setSession] = useState(null); 
     const [students, setStudents] = useState([]);
     const [attendanceMap, setAttendanceMap] = useState({}); // { studentId: 'P' | 'A' }
-    const [recordIdMap, setRecordIdMap] = useState({}); // { studentId: docId }
+    const [recordIdMap, setRecordIdMap] = useState({});
+    const [originalAttendanceMap, setOriginalAttendanceMap] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const [requestStatus, setRequestStatus] = useState(null); 
+    const [requestingUnlock, setRequestingUnlock] = useState(false);
+    const [existingRequest, setExistingRequest] = useState(null);
 
     const isToday = date === format(new Date(), 'yyyy-MM-dd');
-    const isEditable = isToday && (session?.status !== 'LOCKED');
+    
+    // INSTITUTIONAL PHASE LOCK
+    // Lock editing if the batch has been promoted beyond this subject's semester
+    const isHistorical = selectedClass && (parseInt(selectedClass.semester) < parseInt(selectedClass.currentSemester || 0));
+    const isEditable = isToday && (session?.status !== 'LOCKED') && !isHistorical;
 
     useEffect(() => {
         if (user) fetchMyClasses();
@@ -31,33 +38,55 @@ export default function AttendanceMarking() {
 
     const fetchMyClasses = async () => {
         try {
-            const q = query(collection(db, 'class_assignments'), where('teacherId', '==', user.uid));
-            const snap = await getDocs(q);
-            const assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const batchMap = new Map();
 
-            const uniqueBatches = [];
-            const seen = new Set();
+            // 1. Fetch Subject Assignments
+            const assignmentsQ = query(collection(db, 'class_assignments'), where('teacherId', '==', user.uid));
+            const assignmentsSnap = await getDocs(assignmentsQ);
+            
+            // Fetch all active batches for this department to sync semesters
+            const activeBatchesSnap = await getDocs(query(collection(db, 'batches'), where('departmentId', '==', user.departmentId), where('status', '==', 'active')));
+            const activeBatchesMap = new Map(activeBatchesSnap.docs.map(d => [d.id, d.data()]));
 
-            assignments.forEach(a => {
-                const batchId = a.batchId || a.id;
-                const key = `${batchId}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueBatches.push({
-                        id: batchId,
-                        courseId: a.courseId,
-                        courseName: a.courseName || a.batchName || 'Batch',
-                        semester: a.semester,
-                        section: a.section || '',
-                        departmentId: a.departmentId
+            assignmentsSnap.forEach(d => {
+                const data = d.data();
+                const id = data.batchId;
+                const activeBatch = activeBatchesMap.get(id);
+                
+                // If it's an active batch, prioritize its CURRENT semester for today's attendance
+                const effectiveSemester = (activeBatch && activeBatch.currentSemester) ? activeBatch.currentSemester : data.semester;
+
+                batchMap.set(id, {
+                    id,
+                    courseId: data.courseId,
+                    courseName: data.courseName || data.batchName || 'Batch',
+                    semester: String(effectiveSemester),
+                    currentSemester: activeBatch?.currentSemester || data.semester,
+                    section: data.section || '',
+                    departmentId: data.departmentId
+                });
+            });
+
+            // 2. Fetch Class Teacher Batches (if not already found)
+            activeBatchesSnap.docs.forEach(d => {
+                if (d.data().classTeacherId === user.uid && !batchMap.has(d.id)) {
+                    const data = d.data();
+                    batchMap.set(d.id, {
+                        id: d.id,
+                        courseId: '', // General batch view
+                        courseName: data.name,
+                        semester: String(data.currentSemester),
+                        currentSemester: data.currentSemester,
+                        section: '',
+                        departmentId: data.departmentId
                     });
                 }
             });
 
-            setClasses(uniqueBatches);
+            setClasses(Array.from(batchMap.values()));
             setLoading(false);
         } catch (error) {
-            console.error('Error classes:', error);
+            console.error('Error fetching classes:', error);
             setLoading(false);
         }
     };
@@ -73,9 +102,39 @@ export default function AttendanceMarking() {
         setSession(null);
         setStudents([]);
         setAttendanceMap({});
-        setRequestStatus(null);
-
         try {
+            // 1. Fetch Fresh Roster
+            const studentsQuery = query(
+                collection(db, 'users'),
+                where('batchId', '==', selectedClass.id)
+            );
+
+            const studentSnap = await getDocs(studentsQuery);
+            const roster = studentSnap.docs.map(d => {
+                const data = d.data();
+                return {
+                    id: d.id,
+                    name: data.name,
+                    rollNumber: data.rollNumber || data.enrollmentNumber || '',
+                    nocStatus: data.nocStatus || 'pending',
+                    fatherName: data.fatherName || 'N/A',
+                    phone: data.phone || '',
+                    parentPhone: data.parentPhone || '',
+                    attendancePercent: data.attendanceStats?.overallPercentage || '0',
+                    totalSessions: data.attendanceStats?.totalSessions || 0,
+                    presentSessions: data.attendanceStats?.presentSessions || 0,
+                    status: data.status,
+                    role: data.role
+                };
+            }).filter(s => 
+                (s.role?.toLowerCase() === 'student' || s.role?.toLowerCase() === 'president 👑' || s.role?.toLowerCase() === 'representative') && 
+                (s.status?.toLowerCase() === 'active')
+            ).sort((a, b) => {
+                if (a.rollNumber && b.rollNumber) return a.rollNumber.localeCompare(b.rollNumber);
+                return a.name.localeCompare(b.name);
+            });
+
+            // 2. Fetch Session Data
             const sessionQuery = query(
                 collection(db, 'attendance_sessions'),
                 where('courseId', '==', selectedClass.courseId || ''),
@@ -85,103 +144,55 @@ export default function AttendanceMarking() {
             );
 
             const sessionSnap = await getDocs(sessionQuery);
+            const initialMap = {};
+            const recordIds = {};
+
+            // Initialize every student as Absent
+            roster.forEach(s => initialMap[s.id] = 'A');
 
             if (!sessionSnap.empty) {
                 const sessionDoc = sessionSnap.docs[0];
                 setSession({ id: sessionDoc.id, ...sessionDoc.data() });
 
+                // 3. Overlay Records
                 const recordsQuery = query(collection(db, 'attendance_records'), where('sessionId', '==', sessionDoc.id));
                 const recordsSnap = await getDocs(recordsQuery);
-                const records = recordsSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
-
-                const initialMap = {};
-                const recordIds = {};
-
-                const studentList = records.map(r => ({
-                    id: r.studentId,
-                    name: r.studentName,
-                    rollNumber: r.rollNumber || r.enrollmentNumber || 'N/A',
-                    nocStatus: r.nocStatus || 'pending' // Attempt to get from record, though users collection is more authoritative
-                }));
-
-                records.forEach(r => {
-                    initialMap[r.studentId] = r.status === 'PRESENT' ? 'P' : 'A';
-                    recordIds[r.studentId] = r.docId;
+                
+                recordsSnap.forEach(r => {
+                    const data = r.data();
+                    if (initialMap.hasOwnProperty(data.studentId)) {
+                        const s = data.status === 'PRESENT' ? 'P' : 'A';
+                        initialMap[data.studentId] = s;
+                        recordIds[data.studentId] = r.id;
+                    }
                 });
+            }
 
-                setStudents(studentList);
-                setAttendanceMap(initialMap);
-                setRecordIdMap(recordIds);
-            } else {
-                const studentsQuery = query(
-                    collection(db, 'users'),
-                    where('role', '==', 'student'),
-                    where('batchId', '==', selectedClass.id),
-                    where('status', '==', 'active')
+            setStudents(roster);
+            setAttendanceMap({ ...initialMap });
+            setOriginalAttendanceMap({ ...initialMap });
+            setRecordIdMap(recordIds);
+
+            // 4. Check for existing unlock requests
+            if (sessionDoc) {
+                const reqQuery = query(
+                    collection(db, 'attendance_unlock_requests'),
+                    where('sessionId', '==', sessionDoc.id),
+                    where('status', '==', 'PENDING')
                 );
-
-                const studentSnap = await getDocs(studentsQuery);
-                const studentList = studentSnap.docs.map(d => {
-                    const data = d.data();
-                    return {
-                        id: d.id,
-                        name: data.name,
-                        rollNumber: data.rollNumber || data.enrollmentNumber || '',
-                        nocStatus: data.nocStatus || 'pending'
-                    };
-                }).filter(s => s.academicStatus !== 'BACKLOG' && s.academicStatus !== 'REPEAT_YEAR')
-                .sort((a, b) => {
-                    if (a.rollNumber && b.rollNumber) return a.rollNumber.localeCompare(b.rollNumber);
-                    return a.name.localeCompare(b.name);
-                });
-
-                setStudents(studentList);
-                const initialMap = {};
-                studentList.forEach(s => initialMap[s.id] = 'A'); // Default to Absent as per request
-                setAttendanceMap(initialMap);
-                setRecordIdMap({});
+                const reqSnap = await getDocs(reqQuery);
+                if (!reqSnap.empty) {
+                    setExistingRequest({ id: reqSnap.docs[0].id, ...reqSnap.docs[0].data() });
+                }
             }
         } catch (error) {
             console.error('Attendance Loading Error:', error);
-            toast.error('Failed to load session data');
+            toast.error('Failed to load roster data');
         } finally {
             setLoading(false);
         }
     };
 
-    const [requestCount, setRequestCount] = useState(0);
-
-    useEffect(() => {
-        if (!selectedClass || !date) return;
-
-        const q = query(
-            collection(db, 'attendance_unlock_requests'),
-            where('batchId', '==', selectedClass.id),
-            where('date', '==', date)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const requests = snapshot.docs.map(d => d.data());
-            setRequestCount(requests.length);
-            const latest = requests.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis())[0];
-
-            if (latest) {
-                if (latest.status !== requestStatus) {
-                    if (latest.status === 'APPROVED' && requestStatus === 'PENDING') {
-                        toast.success('Unlock Request APPROVED!');
-                        loadSessionData();
-                    } else if (latest.status === 'REJECTED' && requestStatus === 'PENDING') {
-                        toast.error('Unlock Request REJECTED.');
-                    }
-                }
-                setRequestStatus(latest.status);
-            } else {
-                setRequestStatus(null);
-            }
-        });
-
-        return () => unsubscribe();
-    }, [selectedClass, date, requestStatus]);
 
     const toggleStatus = (studentId) => {
         if (!isEditable) return;
@@ -223,7 +234,10 @@ export default function AttendanceMarking() {
                     lockedAt: serverTimestamp(),
                     status: 'LOCKED',
                     teacherId: user.uid,
-                    teacherName: user.name
+                    teacherName: user.name,
+                    batchId: selectedClass.id, // Link to specific batch
+                    batchName: selectedClass.courseName || '', // Store readable name for fallback search
+                    courseName: selectedClass.courseName || ''
                 });
             } else {
                 sessionRef = doc(collection(db, 'attendance_sessions'));
@@ -231,6 +245,7 @@ export default function AttendanceMarking() {
                     date,
                     type: 'FULL_DAY',
                     startTime: serverTimestamp(),
+                    batchId: selectedClass.id, // Explicit link to batch
                     courseId: selectedClass.courseId || '',
                     semester: selectedClass.semester,
                     section: selectedClass.section || '',
@@ -239,6 +254,8 @@ export default function AttendanceMarking() {
                     status: 'LOCKED',
                     totalStudents: stats.total,
                     presentCount: stats.present,
+                    batchName: selectedClass.courseName || '', // Metadata for search resilience
+                    courseName: selectedClass.courseName || '',
                     createdAt: serverTimestamp(),
                     lockedAt: serverTimestamp()
                 });
@@ -246,11 +263,23 @@ export default function AttendanceMarking() {
 
             students.forEach(student => {
                 const existingRecordId = recordIdMap[student.id];
-                const status = attendanceMap[student.id] === 'P' ? 'PRESENT' : 'ABSENT';
+                
+                // Smart Status Detection
+                let currentMark;
+                if (student.nocStatus === 'cleared' || student.nocStatus === 'approved') {
+                    currentMark = 'NOC';
+                } else {
+                    currentMark = attendanceMap[student.id] === 'P' ? 'PRESENT' : 'ABSENT';
+                }
 
+                const originalMarkStr = originalAttendanceMap[student.id] ? (originalAttendanceMap[student.id] === 'P' ? 'PRESENT' : (originalAttendanceMap[student.id] === 'NOC' ? 'NOC' : 'ABSENT')) : null;
+                // If the original record was fetched from DB, it might already be 'NOC'
+                const originalMark = originalAttendanceMap[student.id] === 'NOC' ? 'NOC' : originalMarkStr;
+
+                // 1. Update Attendance Record
                 if (existingRecordId) {
                     batch.update(doc(db, 'attendance_records', existingRecordId), {
-                        status: status,
+                        status: currentMark,
                         markedBy: user.uid,
                         timestamp: serverTimestamp()
                     });
@@ -264,15 +293,58 @@ export default function AttendanceMarking() {
                         date,
                         courseId: selectedClass.courseId,
                         semester: selectedClass.semester,
-                        status: status,
+                        status: currentMark,
                         markedBy: user.uid,
                         timestamp: serverTimestamp()
                     });
                 }
+
+                // 2. Update Student User Stats
+                let newTotal = student.totalSessions || 0;
+                let newPresent = student.presentSessions || 0;
+
+                // Logic: Only increment TOTAL if this is the FIRST time we are LOCKING this day.
+                // If the session was already locked, we are just EDITING, so we only adjust Present count.
+                const isFinalizingFirstTime = !session?.status || session.status !== 'LOCKED';
+
+                if (isFinalizingFirstTime) {
+                    newTotal += 1;
+                    if (currentMark === 'PRESENT' || currentMark === 'NOC') newPresent += 1;
+                } else if (originalMark !== currentMark) {
+                    // It was already locked, but we changed a status
+                    const wasEffectivelyPresent = originalMark === 'PRESENT' || originalMark === 'NOC';
+                    const isEffectivelyPresent = currentMark === 'PRESENT' || currentMark === 'NOC';
+
+                    if (!wasEffectivelyPresent && isEffectivelyPresent) {
+                        newPresent += 1;
+                    } else if (wasEffectivelyPresent && !isEffectivelyPresent) {
+                        newPresent -= 1;
+                    }
+                }
+
+                // Defensive fix: If total is 0 but records exist, force 1 (Recovery)
+                if (newTotal === 0 && currentMark) newTotal = 1;
+
+                const newPercent = newTotal > 0 ? ((newPresent / newTotal) * 100).toFixed(2) : '0.00';
+
+                batch.update(doc(db, 'users', student.id), {
+                    'attendanceStats.totalSessions': newTotal,
+                    'attendanceStats.presentSessions': newPresent,
+                    'attendanceStats.overallPercentage': newPercent,
+                    'attendanceStats.lastUpdated': serverTimestamp()
+                });
             });
 
             await batch.commit();
-            toast.success('Attendance Locked Successfully');
+
+            // 4. Create Standardized Audit Log
+            await logAudit(user, 'MARK_ATTENDANCE', sessionRef.id, 'ATTENDANCE', `${selectedClass.courseName} (S${selectedClass.semester})`, {
+                date,
+                presentCount: stats.present,
+                totalStudents: stats.total
+            }, `Marked attendance for ${stats.total} students (${stats.present} Present)`);
+
+            toast.success('Attendance Finalized Successfully');
             loadSessionData();
         } catch (error) {
             console.error('Error submitting:', error);
@@ -282,41 +354,46 @@ export default function AttendanceMarking() {
         }
     };
 
-    const handleRequestEdit = async () => {
-        if (!session || !selectedClass) return;
+    const handleRequestUnlock = async () => {
+        const reason = window.prompt('Please provide a reason for unlocking this attendance session:');
+        if (!reason) return;
+
+        setRequestingUnlock(true);
         try {
             await addDoc(collection(db, 'attendance_unlock_requests'), {
-                type: 'UNLOCK_ATTENDANCE',
                 sessionId: session.id,
-                batchId: selectedClass.id,
-                batchName: selectedClass.courseName || 'Batch',
-                date: date,
                 teacherId: user.uid,
                 teacherName: user.name,
-                campusId: user.campusId,
-                collegeId: user.collegeId,
                 departmentId: user.departmentId,
+                batchId: selectedClass.id,
+                batchName: selectedClass.courseName,
+                date: date,
+                reason: reason,
                 status: 'PENDING',
                 createdAt: serverTimestamp()
             });
-            setRequestStatus('PENDING');
-            toast.success('Unlock request sent to Principal');
+
+            toast.success('Unlock request submitted to HOD');
+            loadSessionData();
         } catch (error) {
             console.error('Error requesting unlock:', error);
-            toast.error('Failed to send request');
+            toast.error('Failed to submit request');
+        } finally {
+            setRequestingUnlock(false);
         }
     };
+
 
     const statsData = calculateStats();
 
     return (
         <div className="space-y-8 pb-12">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Attendance Ledger</h2>
-                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Daily Attendance</h2>
+                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mt-0.5 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
                         Live Batch Sync • Faculty Control
                     </p>
                 </div>
@@ -324,21 +401,21 @@ export default function AttendanceMarking() {
                 <AnimatePresence>
                     {isToday && (!session || session.status !== 'LOCKED') && students.length > 0 && (
                         <motion.button
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
                             onClick={handleSubmit}
                             disabled={submitting}
-                            className="bg-[#E31E24] text-white px-8 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-red-700 font-black uppercase tracking-widest text-xs flex items-center gap-3 active:scale-95 transition-all border border-white/20"
+                            className="bg-[#E31E24] text-white px-6 py-3 rounded-xl shadow-lg shadow-red-200/40 hover:bg-red-700 font-black uppercase tracking-widest text-[10px] flex items-center gap-2 active:scale-95 transition-all outline-none"
                         >
                             {submitting ? (
-                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                                         <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
-                                    Execute Daily Lock
+                                    Save Attendance & Lock
                                 </>
                             )}
                         </motion.button>
@@ -347,10 +424,10 @@ export default function AttendanceMarking() {
             </div>
 
             {/* Config Hub */}
-            <div className="bg-white/70 backdrop-blur-xl p-8 rounded-[2.5rem] border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                 <PremiumSelect 
-                    label="Batch Authority"
-                    placeholder="Identify Target Batch"
+                    label="Select Your Class"
+                    placeholder="Select Class"
                     value={selectedClass ? JSON.stringify(selectedClass) : ''}
                     onChange={e => {
                         const val = e.target.value;
@@ -360,15 +437,15 @@ export default function AttendanceMarking() {
                         label: `${c.courseName} S${c.semester}${c.section ? ` - ${c.section}` : ''}`,
                         value: JSON.stringify(c)
                     }))}
-                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" /></svg>}
+                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" /></svg>}
                 />
 
                 <div className="flex flex-col gap-2">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Temporal Marker</label>
-                    <div className="relative group">
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Attendance Date</label>
+                    <div className="relative">
                         <input
                             type="date"
-                            className="w-full px-6 py-4 bg-white border border-gray-100 rounded-2xl text-sm font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-violet-50 focus:border-violet-300 hover:bg-gray-50/50 cursor-pointer"
+                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-100 rounded-xl text-xs font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-violet-50 focus:border-violet-200 hover:bg-gray-100/50 cursor-pointer"
                             value={date}
                             onChange={e => setDate(e.target.value)}
                             max={format(new Date(), 'yyyy-MM-dd')}
@@ -398,14 +475,14 @@ export default function AttendanceMarking() {
                                         onClick={() => markAll('P')}
                                         className="text-[9px] font-black text-emerald-600 px-4 py-2 hover:bg-emerald-50 rounded-lg transition-colors uppercase tracking-widest"
                                     >
-                                        Mass Present
+                                        Mark All Present
                                     </button>
                                     <div className="w-px h-4 bg-violet-100" />
                                     <button 
                                         onClick={() => markAll('A')}
                                         className="text-[9px] font-black text-red-600 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors uppercase tracking-widest"
                                     >
-                                        Mass Absent
+                                        Mark All Absent
                                     </button>
                                 </div>
                             )}
@@ -413,17 +490,18 @@ export default function AttendanceMarking() {
 
                         <div className="flex items-center gap-6">
                             <div className="text-right">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Density</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Students Present</p>
                                 <p className="text-xl font-black text-gray-900 tracking-tighter">{statsData.present} <span className="text-gray-300">/</span> {statsData.total}</p>
                             </div>
                             <div className="w-px h-10 bg-violet-100" />
                             <div className="text-right">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Yield</p>
-                                <p className="text-3xl font-black text-violet-600 tracking-tighter">{statsData.percent}%</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Percentage</p>
+                                <p className="text-xl font-black text-violet-600 tracking-tighter">{statsData.percent}%</p>
                             </div>
                         </div>
-                    </div>                    {/* Tabular Attendance View */}
-                    <div className="bg-white/50 rounded-[2.5rem] border border-gray-100 overflow-hidden min-h-[400px]">
+                    </div>
+                    {/* Tabular Attendance View */}
+                    <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] border border-gray-100 overflow-hidden min-h-[400px]">
                         {students.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-24 text-center">
                                 <div className="w-20 h-20 bg-gray-50 text-gray-300 rounded-[1.5rem] flex items-center justify-center mb-4">
@@ -431,46 +509,101 @@ export default function AttendanceMarking() {
                                         <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 </div>
-                                <h3 className="text-lg font-black text-gray-900">No Roster Isolated</h3>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-tight max-w-xs mt-2">Verify batch configuration or enrollment status in faculty portal.</p>
+                                <h3 className="text-lg font-black text-gray-900">No Students Found</h3>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-tight max-w-xs mt-2">Please select a class or check if students are enrolled in this batch.</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
-                                <table className="min-w-full divide-y divide-gray-100 table-auto">
-                                    <thead>
-                                        <tr className="bg-gray-50/20">
-                                            <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details</th>
-                                            <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">NOC Status</th>
-                                            <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Attendance (A / P)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50 bg-white/30 backdrop-blur-sm">
-                                        <AnimatePresence mode="popLayout">
+                            <>
+                                {/* Mobile Optimized Dense View */}
+                                <div className="block md:hidden">
+                                     {/* Mock Admin Header for Mobile Theme Consistency */}
+                                     <div className="bg-[#E31E24] p-3 text-center mb-1">
+                                         <div className="text-white text-[10px] font-black uppercase tracking-[0.2em]">Attendance Management System</div>
+                                     </div>
+
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 border-b border-gray-100">
+                                                <th className="p-3 text-[9px] font-black text-gray-400 uppercase tracking-tighter w-10 text-center">Sr.</th>
+                                                <th className="p-3 text-[9px] font-black text-gray-400 uppercase tracking-tighter">Student / %</th>
+                                                <th className="p-3 text-[9px] font-black text-gray-400 uppercase tracking-tighter">Father / Contact</th>
+                                                <th className="p-3 text-[9px] font-black text-gray-400 uppercase tracking-tighter text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
                                             {students.map((student, idx) => {
                                                 const isPresent = attendanceMap[student.id] === 'P';
+                                                const isNoc = student.nocStatus === 'cleared' || student.nocStatus === 'approved';
                                                 return (
-                                                    <motion.tr
-                                                        layout
-                                                        initial={{ opacity: 0, x: -10 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: idx * 0.01 }}
-                                                        key={student.id}
-                                                        className={`transition-colors group hover:bg-gray-50/50 ${!isPresent ? 'bg-red-50/20' : ''}`}
-                                                    >
-                                                        <td className="px-8 py-4 whitespace-nowrap">
+                                                    <tr key={student.id} className={`${isNoc ? 'bg-violet-50/50' : !isPresent ? 'bg-red-50/10' : ''}`}>
+                                                        <td className="p-3 text-[10px] font-black text-gray-400 text-center border-r border-gray-50">{idx + 1}</td>
+                                                        <td className="p-3 border-r border-gray-50">
+                                                            <div className="text-[11px] font-black text-gray-900 leading-tight uppercase tracking-tighter">{student.name}</div>
+                                                            <div className="text-[10px] font-bold text-gray-400 mt-1">{student.rollNumber} / {student.attendancePercent}%</div>
+                                                        </td>
+                                                        <td className="p-3 border-r border-gray-50">
+                                                            <div className="text-[10px] font-bold text-gray-700 leading-tight uppercase">{student.fatherName}</div>
+                                                            <div className="text-[9px] font-bold text-gray-400 mt-0.5">({student.parentPhone || student.phone || 'N/A'})</div>
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <button
+                                                                onClick={() => !isNoc && toggleStatus(student.id)}
+                                                                disabled={!isEditable || isNoc}
+                                                                className={`
+                                                                    w-10 h-10 rounded-lg flex items-center justify-center font-black text-[10px] transition-all
+                                                                    ${isNoc 
+                                                                        ? 'bg-violet-600 text-white shadow-sm shadow-violet-200'
+                                                                        : isPresent 
+                                                                            ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-200' 
+                                                                            : 'bg-red-500 text-white shadow-sm shadow-red-200'}
+                                                                    ${(!isEditable || isNoc) ? 'opacity-90 cursor-default' : 'active:scale-90'}
+                                                                `}
+                                                            >
+                                                                {isNoc ? 'NOC' : isPresent ? 'P' : 'A'}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Desktop Premium View */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-100">
+                                        <thead>
+                                            <tr className="bg-gray-50/20">
+                                                <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details / %</th>
+                                                <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Father Name / Contact</th>
+                                                <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">NOC Status</th>
+                                                <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Attendance (A / P)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50 bg-white/30 backdrop-blur-sm">
+                                            {students.map((student, idx) => {
+                                                const isPresent = attendanceMap[student.id] === 'P';
+                                                const isNoc = student.nocStatus === 'cleared' || student.nocStatus === 'approved';
+                                                return (
+                                                    <tr key={student.id} className={`transition-colors group hover:bg-gray-50/50 ${isNoc ? 'bg-violet-50/40' : !isPresent ? 'bg-red-50/20' : ''}`}>
+                                                        <td className="px-8 py-4 whitespace-nowrap border-r border-gray-50">
                                                             <div className="flex items-center gap-4">
                                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] transition-colors ${
                                                                     isPresent ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                                                                 }`}>
-                                                                    {student.name.charAt(0)}
+                                                                    {idx + 1}
                                                                 </div>
                                                                 <div>
                                                                     <div className="text-sm font-black text-gray-900 tracking-tight">{student.name}</div>
-                                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{student.rollNumber}</div>
+                                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{student.rollNumber} / {student.attendancePercent}%</div>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-4 text-center whitespace-nowrap">
+                                                        <td className="px-8 py-4 whitespace-nowrap border-r border-gray-50">
+                                                            <div className="text-[11px] font-black text-gray-700 leading-tight uppercase tracking-tight">{student.fatherName}</div>
+                                                            <div className="text-[10px] font-bold text-gray-400 mt-1">({student.parentPhone || student.phone || 'N/A'})</div>
+                                                        </td>
+                                                        <td className="px-8 py-4 text-center whitespace-nowrap border-r border-gray-50">
                                                             <div className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                                                                 student.nocStatus === 'cleared' 
                                                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
@@ -481,61 +614,61 @@ export default function AttendanceMarking() {
                                                         </td>
                                                         <td className="px-8 py-4 text-right whitespace-nowrap">
                                                             <button
-                                                                onClick={() => toggleStatus(student.id)}
-                                                                disabled={!isEditable}
+                                                                onClick={() => !isNoc && toggleStatus(student.id)}
+                                                                disabled={!isEditable || isNoc}
                                                                 className={`
-                                                                    w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all 
-                                                                    active:scale-90 ml-auto shadow-sm border-2
-                                                                    ${isPresent 
-                                                                        ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-200' 
-                                                                        : 'bg-red-500 text-white border-red-400 shadow-red-200'}
-                                                                    ${!isEditable ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
+                                                                    w-14 h-12 rounded-2xl flex items-center justify-center font-black text-sm transition-all 
+                                                                    ml-auto shadow-sm border-2
+                                                                    ${isNoc
+                                                                        ? 'bg-violet-600 text-white border-violet-400 shadow-violet-200'
+                                                                        : isPresent 
+                                                                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-200' 
+                                                                            : 'bg-red-500 text-white border-red-400 shadow-red-200'}
+                                                                    ${(!isEditable || isNoc) ? 'opacity-90 cursor-default grayscale-0' : 'hover:scale-105 active:scale-90'}
                                                                 `}
                                                             >
-                                                                {isPresent ? 'P' : 'A'}
+                                                                {isNoc ? 'NOC' : isPresent ? 'P' : 'A'}
                                                             </button>
                                                         </td>
-                                                    </motion.tr>
+                                                    </tr>
                                                 );
                                             })}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
                         )}
                     </div>
 
                     {/* Locked Actions Overlay */}
                     {session?.status === 'LOCKED' && (
-                        <div className="bg-gray-900/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-gray-200/50 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-xl">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 className="font-black text-gray-900 text-lg tracking-tight leading-none mb-1">Session Vault Protected</h4>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Attendance locked on {format(new Date(date), 'dd MMM yyyy')}</p>
-                                </div>
+                        <div className="bg-gray-900/5 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-gray-200/50 flex items-center gap-6 mb-12">
+                            <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-xl shrink-0">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                    <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-black text-gray-900 text-lg tracking-tight leading-none mb-1">Attendance Locked & Secure</h4>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Attendance locked on {format(new Date(date), 'dd MMM yyyy')}</p>
                             </div>
 
-                            {requestStatus === 'PENDING' ? (
-                                <div className="px-8 py-4 bg-amber-50 text-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-amber-200 flex items-center gap-3 shadow-lg shadow-amber-100">
-                                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
-                                    Awaiting Presidential Approval
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={handleRequestEdit}
-                                    className="px-8 py-4 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-gray-900 hover:bg-gray-900 hover:text-white transition-all shadow-xl group flex items-center gap-3 active:scale-95"
-                                >
-                                    <svg className="w-4 h-4 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                                        <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    Request Vault Unlock
-                                </button>
-                            )}
+                            <div className="flex items-center gap-3">
+                                {existingRequest ? (
+                                    <div className="px-5 py-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Request Pending HOD Approval</span>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleRequestUnlock}
+                                        disabled={requestingUnlock}
+                                        className="px-6 py-3 bg-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        Request Unlock
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
                 </motion.div>
@@ -546,9 +679,10 @@ export default function AttendanceMarking() {
                             <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </div>
-                    <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Identify batch authorization to initiate marking</p>
+                    <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Select a class from above to start taking attendance</p>
                 </div>
             )}
         </div>
     );
 }
+

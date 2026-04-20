@@ -74,6 +74,7 @@ export default function TestManagement() {
     const getStatusColor = (status) => {
         switch (status) {
             case 'draft': return 'bg-gray-100 text-gray-700';
+            case 'postponed': return 'bg-amber-100 text-amber-700';
             case 'scheduled': return 'bg-blue-100 text-blue-700';
             case 'completed': return 'bg-yellow-100 text-yellow-700';
             case 'published': return 'bg-green-100 text-green-700';
@@ -88,10 +89,10 @@ export default function TestManagement() {
     };
 
     const tabs = [
-        { value: 'all', label: 'All Tests', count: tests.length },
-        { value: 'draft', label: 'Drafts', count: tests.filter(t => t.status === 'draft').length },
+        { value: 'all', label: 'All', count: tests.length },
+        { value: 'draft', label: 'Draft', count: tests.filter(t => t.status === 'draft').length },
+        { value: 'postponed', label: 'Postponed', count: tests.filter(t => t.status === 'postponed').length },
         { value: 'scheduled', label: 'Scheduled', count: tests.filter(t => t.status === 'scheduled').length },
-        { value: 'completed', label: 'Completed', count: tests.filter(t => t.status === 'completed').length },
         { value: 'published', label: 'Published', count: tests.filter(t => t.status === 'published').length }
     ];
 
@@ -100,8 +101,8 @@ export default function TestManagement() {
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Test Management</h1>
-                    <p className="text-gray-600 mt-1">Create, manage, and publish continuous tests</p>
+                    <h1 className="text-3xl font-bold text-gray-900">My Tests</h1>
+                    <p className="text-gray-600 mt-1">Manage your unit tests and class results.</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
@@ -121,13 +122,13 @@ export default function TestManagement() {
                     <p className="text-3xl font-bold text-gray-900">{tests.length}</p>
                 </div>
                 <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500 mb-1">Pending Marks</p>
+                    <p className="text-sm font-medium text-gray-500 mb-1">Enter Marks</p>
                     <p className="text-3xl font-bold text-yellow-600">
                         {tests.filter(t => t.status === 'completed' && t.resultsMissing > 0).length}
                     </p>
                 </div>
                 <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500 mb-1">To Publish</p>
+                    <p className="text-sm font-medium text-gray-500 mb-1">Ready to Publish</p>
                     <p className="text-3xl font-bold text-blue-600">
                         {tests.filter(t => t.status === 'completed' && t.resultsMissing === 0).length}
                     </p>
@@ -241,7 +242,7 @@ export default function TestManagement() {
                             {test.status !== 'draft' && (
                                 <div className="mb-3">
                                     <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                        <span>Marks Entered</span>
+                                        <span>Sync Progress</span>
                                         <span>{test.resultsEntered}/{test.totalStudents}</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2">

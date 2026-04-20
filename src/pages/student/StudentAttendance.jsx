@@ -1,194 +1,295 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+
+const container = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+};
+
+const item = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 200 } }
+};
 
 export default function StudentAttendance() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
-    const [records, setRecords] = useState([]);
-    const [summary, setSummary] = useState({ total: 0, present: 0, percentage: 100 });
+    const [allRecords, setAllRecords] = useState([]); // Master set
+    const [records, setRecords] = useState([]); // Filtered set
+    const [summary, setSummary] = useState({ total: 0, present: 0, percentage: 0 });
+    const [overallSummary, setOverallSummary] = useState({ total: 0, present: 0, percentage: 0 });
     const [selectedMonth, setSelectedMonth] = useState(new Date());
-    const events = []; // placeholder — holiday/exam events can be wired from Firestore later
-
+    const [selectedSemester, setSelectedSemester] = useState('all');
+    const [availableSemesters, setAvailableSemesters] = useState([]);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user?.uid) return;
 
-        setLoading(true);
-        // Real-time listener
-        const q = query(collection(db, 'attendance_records'), where('studentId', '==', user.uid));
-
-
-
-        const unsubscribe = onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data(), dateStr: d.data().date }));
-            const currentSemData = data.filter(r => !user.currentSemester || r.semester == user.currentSemester);
-
-            // Deduplication Logic: Group by Date, kept LATEST updated record
-            // This handles the "1 Present, 1 Absent" bug by collapsing multiples into one authoritative state
+        const unsubscribe = onSnapshot(query(collection(db, 'attendance_records'), where('studentId', '==', user.uid)), (snap) => {
+            const data = snap.docs.map(d => ({ 
+                id: d.id, 
+                ...d.data(), 
+                dateStr: d.data().date,
+                semester: d.data().semester || '1' // Fallback for old records
+            }));
+            
+            // 1. DEDUPLICATION & MASTER SET
             const uniqueRecordsMap = {};
-
-            currentSemData.forEach(record => {
-                const existing = uniqueRecordsMap[record.dateStr];
-                // If no record for this date, or if this record is newer (by timestamp), overwrite
-                // Note: Firestore timestamp might be missing on immediate local write, so handle carefully
-                if (!existing) {
-                    uniqueRecordsMap[record.dateStr] = record;
-                } else {
-                    const existingTime = existing.timestamp?.toMillis ? existing.timestamp.toMillis() : 0;
-                    const newTime = record.timestamp?.toMillis ? record.timestamp.toMillis() : 0;
-                    if (newTime > existingTime) {
-                        uniqueRecordsMap[record.dateStr] = record;
-                    }
+            data.forEach(record => {
+                const dateKey = record.date || record.dateStr;
+                if (!dateKey) return;
+                // Keep the latest record for a date if duplicates exist
+                if (!uniqueRecordsMap[dateKey] || (record.timestamp?.toMillis?.() > uniqueRecordsMap[dateKey].timestamp?.toMillis?.())) {
+                    uniqueRecordsMap[dateKey] = record;
                 }
             });
 
-            const uniqueRecords = Object.values(uniqueRecordsMap);
+            const processedRecords = Object.values(uniqueRecordsMap).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            setAllRecords(processedRecords);
 
-            const total = uniqueRecords.length;
-            const present = uniqueRecords.filter(r => r.status === 'PRESENT').length;
-            const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+            // 2. DETECT SEMESTERS (Automatic based on Student Profile)
+            const currentSem = parseInt(user?.currentSemester || 1);
+            const sems = Array.from({ length: currentSem }, (_, i) => String(i + 1));
+            setAvailableSemesters(sems);
 
-            setSummary({ total, present, percentage });
-            setRecords(uniqueRecords.sort((a, b) => b.date.localeCompare(a.date)));
-            setLoading(false);
-        }, (error) => {
-            console.error('Attendance subscription error:', error);
+            // 3. CALCULATE OVERALL SUMMARY
+            const totalOverall = processedRecords.length;
+            const presentOverall = processedRecords.filter(r => {
+                const status = (r.status || r.attendanceStatus || '').toUpperCase();
+                return ['PRESENT', 'NOC', 'P'].includes(status);
+            }).length;
+            setOverallSummary({
+                total: totalOverall,
+                present: presentOverall,
+                percentage: totalOverall > 0 ? Math.round((presentOverall / totalOverall) * 100) : 0
+            });
+
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [user]);
+    }, [user?.uid]);
 
-    // Calendar Data
+    // Update filtered records and situational summary whenever selection changes
+    useEffect(() => {
+        let filtered = allRecords;
+        if (selectedSemester !== 'all') {
+            filtered = allRecords.filter(r => String(r.semester) === String(selectedSemester));
+        }
+
+        const total = filtered.length;
+        const present = filtered.filter(r => {
+            const status = (r.status || r.attendanceStatus || '').toUpperCase();
+            return ['PRESENT', 'NOC', 'P'].includes(status);
+        }).length;
+
+        setSummary({
+            total,
+            present,
+            percentage: total > 0 ? Math.round((present / total) * 100) : 0
+        });
+        setRecords(filtered);
+    }, [selectedSemester, allRecords]);
+
     const monthStart = startOfMonth(selectedMonth);
     const monthEnd = endOfMonth(selectedMonth);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    if (loading) return (
-        <div className="flex justify-center p-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biyani-red"></div>
-        </div>
-    );
+    if (loading) return <div className="p-12 animate-pulse space-y-8"><div className="h-64 bg-white rounded-[3rem] border border-slate-100" /></div>;
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="max-w-4xl mx-auto space-y-8 pb-32 font-sans"
-        >
-            {/* 1. ACADEMIC HEADER (Gradient Ring) */}
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col md:flex-row items-center gap-10">
-                {/* Background Decor */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-red-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-10 pb-32">
+            
+            {/* ── NOC SYSTEM ALERT ─────────────────────────────────── */}
+            {(user?.nocStatus === 'cleared' || user?.nocStatus === 'approved') && (
+                <motion.div variants={item} className="aether-card p-6 bg-slate-900 border-slate-900 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-xl">🛡️</div>
+                        <div>
+                            <p className="text-white font-bold tracking-tight">Official Duty Certification Active</p>
+                            <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.2em] mt-1">Verified Academic Clearance Logged</p>
+                        </div>
+                    </div>
+                    <span className="px-4 py-1.5 border border-white/10 rounded-full text-white/60 text-[9px] font-bold uppercase tracking-widest hidden sm:block">Operational Status</span>
+                </motion.div>
+            )}
 
-                {/* Gradient Ring Component */}
-                <div className="relative w-48 h-48 flex-shrink-0">
+            {/* ── SEMESTER CYCLE SELECTOR ──────────────────────────── */}
+            <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-[#E31E24] rounded-full" />
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Segment Analytics</h2>
+                </div>
+
+                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner max-w-full overflow-x-auto scrollbar-hide no-scrollbar">
+                    <div className="flex gap-1 min-w-max">
+                        <button
+                            onClick={() => setSelectedSemester('all')}
+                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedSemester === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            All Time
+                        </button>
+                        {availableSemesters.map(sem => (
+                            <button
+                                key={sem}
+                                onClick={() => setSelectedSemester(sem)}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedSemester === sem ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Sem {sem}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* ── ATTENDANCE ANALYTICS HEADER ───────────────────────── */}
+            <motion.div variants={item} className="aether-card p-6 md:p-14 flex flex-col md:flex-row items-center gap-10 md:gap-12 lg:gap-20 relative overflow-hidden">
+                {/* Visual Ring */}
+                <div className="relative w-40 h-40 md:w-48 md:h-48 flex-shrink-0">
                     <svg className="w-full h-full transform -rotate-90">
-                        {/* Track */}
-                        <circle cx="96" cy="96" r="80" stroke="#f3f4f6" strokeWidth="12" fill="none" />
-                        {/* Progress */}
-                        <defs>
-                            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#C62828" />
-                                <stop offset="100%" stopColor="#FF9800" />
-                            </linearGradient>
-                        </defs>
+                        <circle cx="50%" cy="50%" r="42%" stroke="rgba(15,23,42,0.03)" strokeWidth="10" fill="none" />
                         <motion.circle
-                            cx="96" cy="96" r="80"
-                            stroke="url(#ringGradient)"
-                            strokeWidth="12" fill="none"
-                            strokeDasharray="502"
-                            initial={{ strokeDashoffset: 502 }}
-                            animate={{ strokeDashoffset: 502 - (502 * summary.percentage) / 100 }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
+                            cx="50%" cy="50%" r="42%"
+                            stroke={summary.percentage >= 75 ? "#10b981" : "#E31E24"}
+                            strokeWidth="10" fill="none"
                             strokeLinecap="round"
+                            initial={{ strokeDasharray: "515 515", strokeDashoffset: 515 }}
+                            animate={{ strokeDashoffset: 515 - (515 * summary.percentage) / 100 }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
                         />
                     </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-5xl font-heading font-black text-gray-900 tracking-tight">{summary.percentage}%</span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest mt-1 ${summary.percentage >= 75 ? 'text-success-green' : 'text-red-500'}`}>
-                            {summary.percentage >= 75 ? 'Safe Zone' : 'Warning'}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-4xl md:text-5xl font-heading text-slate-900 tracking-tighter tabular-nums">{summary.percentage}%</span>
+                        <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] mt-1 ${summary.percentage >= 75 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {selectedSemester === 'all' ? 'Lifecycle' : `Sem ${selectedSemester}`}
                         </span>
                     </div>
                 </div>
 
-                <div className="flex-1 text-center md:text-left z-10">
-                    <h1 className="text-3xl font-heading font-bold text-gray-900 mb-2">My Attendance</h1>
-                    <p className="text-gray-500 font-medium mb-6 max-w-md">
-                        {summary.percentage >= 75
-                            ? "Excellent consistency! You're eligible for all upcoming exams."
-                            : "Your attendance is critically low. Please attend regular classes to avoid debarment."}
-                    </p>
+                <div className="flex-1 space-y-8 text-center md:text-left">
+                    <div>
+                        <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                             <h1 className="text-4xl font-heading text-slate-900 tracking-tight leading-none">Attendance Analytics</h1>
+                             <span className="hidden md:block px-3 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-lg">
+                                {selectedSemester === 'all' ? 'Institutional Sync' : `Phase ${selectedSemester}`}
+                             </span>
+                        </div>
+                        <p className="text-slate-500 text-lg leading-relaxed max-w-lg">
+                            {summary.percentage >= 75 
+                                ? `Your consistency in ${selectedSemester === 'all' ? 'all academic sectors' : `Semester ${selectedSemester}`} is exemplary.`
+                                : `Your current trajectory in ${selectedSemester === 'all' ? 'this lifecycle' : `Semester ${selectedSemester}`} falls below threshold.`}
+                        </p>
+                    </div>
 
-                    <div className="flex gap-4 justify-center md:justify-start">
-                        <div className="bg-green-50 px-6 py-3 rounded-2xl border border-green-100">
-                            <div className="text-2xl font-black text-green-600 mb-1">{summary.present}</div>
-                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Present</div>
-                        </div>
-                        <div className="bg-red-50 px-6 py-3 rounded-2xl border border-red-100">
-                            <div className="text-2xl font-black text-red-600 mb-1">{summary.total - summary.present}</div>
-                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Absent</div>
-                        </div>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                        <MetricBadge label="Present" value={summary.present} color="emerald" />
+                        <MetricBadge label="Absent" value={summary.total - summary.present} color="red" />
+                        <MetricBadge label="Total Sessions" value={summary.total} color="slate" />
+                        
+                        {selectedSemester !== 'all' && (
+                            <div className="ml-auto flex items-center gap-3 pl-6 border-l border-slate-100 hidden lg:flex">
+                                <div className="text-right">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Lifecycle Score</p>
+                                    <p className="text-sm font-black text-slate-900">{overallSummary.percentage}% Overall</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* 2. CALENDAR (Rounded Tiles) */}
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="font-heading font-bold text-xl text-gray-900">History Log</h3>
-                    <div className="flex bg-gray-50 p-1 rounded-xl">
-                        <button onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() - 1))} className="w-10 h-10 hover:bg-white hover:shadow rounded-lg text-gray-500 transition-all">←</button>
-                        <div className="px-4 flex items-center font-bold text-sm uppercase tracking-wide">{format(selectedMonth, 'MMMM yyyy')}</div>
-                        <button onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() + 1))} className="w-10 h-10 hover:bg-white hover:shadow rounded-lg text-gray-500 transition-all">→</button>
+            {/* ── ACTIVITY CALENDAR ─────────────────────────────────── */}
+            <motion.div variants={item} className="aether-card p-10 md:p-14">
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-12 gap-8">
+                    <div>
+                        <h3 className="text-2xl font-heading text-slate-900">Academic Sync Log</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Real-time Verified Entries</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                        <button 
+                            onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() - 1))} 
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-slate-900 hover:shadow-sm transition-all"
+                        >←</button>
+                        <span className="px-4 font-bold text-[11px] uppercase tracking-widest text-slate-900 min-w-[120px] text-center">
+                            {format(selectedMonth, 'MMM yyyy')}
+                        </span>
+                        <button 
+                            onClick={() => setSelectedMonth(p => new Date(p.getFullYear(), p.getMonth() + 1))} 
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-slate-900 hover:shadow-sm transition-all"
+                        >→</button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-3 md:gap-4">
+                <div className="grid grid-cols-7 gap-2 md:gap-6">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                        <div key={d} className="text-center text-[10px] font-black text-gray-300 uppercase py-2">{d}</div>
+                        <div key={d} className="text-center text-[8px] font-bold text-slate-300 uppercase tracking-widest pb-4">{d}</div>
                     ))}
 
-                    {[...Array(monthStart.getDay())].map((_, i) => <div key={`p${i}`}></div>)}
+                    {[...Array(monthStart.getDay())].map((_, i) => <div key={`p${i}`} />)}
 
                     {daysInMonth.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
-                        const record = records.find(r => r.date === dateStr);
-                        const event = events.find(e => e.date === dateStr);
+                        const record = records.find(r => (r.date || r.dateStr) === dateStr);
                         const isToday = isSameDay(day, new Date());
-
-                        let baseClass = "aspect-square rounded-2xl flex items-center justify-center font-bold text-sm transition-all relative";
-                        // Default
-                        let stateClass = "bg-gray-50 text-gray-400 hover:bg-gray-100";
-
-                        // Priority 1: Events (Holiday/Exam)
-                        if (event) {
-                            if (event.type === 'HOLIDAY') stateClass = "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200";
-                            if (event.type === 'EXAM') stateClass = "bg-purple-100 text-purple-800 ring-1 ring-purple-200";
-                        }
-                        // Priority 2: Attendance Record (only if no event, or if we want to show P/A status underneath? No, User said Exam days "naa present naa absent")
-                        else if (record) {
-                            if (record.status === 'PRESENT') stateClass = "bg-green-100 text-green-700 shadow-sm";
-                            if (record.status === 'ABSENT') stateClass = "bg-red-50 text-red-600 shadow-sm";
-                        }
-                        // Priority 3: Today generic highlight
-                        else if (isToday) {
-                            stateClass = "bg-white text-info-blue ring-2 ring-info-blue/20 ring-inset";
+                        
+                        let uiState = "bg-slate-50 border-slate-100 text-slate-300";
+                        if (record) {
+                            const st = (record.status || record.attendanceStatus);
+                            if (st === 'PRESENT') uiState = "bg-emerald-50 border-emerald-100 text-emerald-600 font-bold";
+                            else if (st === 'ABSENT') uiState = "bg-red-50 border-red-100 text-red-600 font-bold";
+                            else if (st === 'NOC') uiState = "bg-slate-900 border-slate-900 text-white font-bold";
+                        } else if (isToday) {
+                            uiState = "bg-white border-[#E31E24] text-[#E31E24] font-bold shadow-md shadow-red-50";
                         }
 
                         return (
-                            <motion.div whileHover={{ scale: 1.05 }} key={dateStr} className={`${baseClass} ${stateClass}`} title={event?.description || record?.status || ''}>
-                                {day.getDate()}
-                                {!record && !event && isToday && <div className="absolute w-1.5 h-1.5 bg-info-blue rounded-full bottom-2"></div>}
-                            </motion.div>
+                            <div 
+                                key={dateStr}
+                                className={`aspect-square rounded-xl md:rounded-2xl border flex items-center justify-center relative cursor-default transition-all duration-300 ${uiState}`}
+                            >
+                                <span className="text-xs md:text-lg">{day.getDate()}</span>
+                                {isToday && <div className="absolute top-1 right-1 w-1 h-1 bg-[#E31E24] rounded-full animate-pulse md:w-1.5 md:h-1.5" />}
+                            </div>
                         );
                     })}
                 </div>
-            </div>
+
+                {/* Legend Overlay */}
+                <div className="mt-16 pt-10 border-t border-slate-50 flex flex-wrap justify-center gap-10">
+                    <LegendItem label="Present" color="bg-emerald-500" />
+                    <LegendItem label="Absent" color="bg-red-500" />
+                    <LegendItem label="Duty / NOC" color="bg-slate-900" />
+                    <LegendItem label="No Activity" color="bg-slate-100" />
+                </div>
+            </motion.div>
         </motion.div>
+    );
+}
+
+function MetricBadge({ label, value, color }) {
+    const colors = {
+        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        red: 'bg-red-50 text-red-600 border-red-100',
+        slate: 'bg-slate-50 text-slate-600 border-slate-100'
+    };
+    return (
+        <div className={`px-5 py-3 rounded-2xl border flex items-center gap-4 ${colors[color]}`}>
+            <span className="text-xl font-heading">{value}</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}</span>
+        </div>
+    );
+}
+
+function LegendItem({ label, color }) {
+    return (
+        <div className="flex items-center gap-3">
+            <div className={`w-2.5 h-2.5 rounded-full ${color} shadow-sm`} />
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+        </div>
     );
 }

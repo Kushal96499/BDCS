@@ -116,7 +116,7 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                 const updateData = { ...sanitizedData, updatedAt: serverTimestamp(), updatedBy: user.uid };
                 await updateDoc(deptRef, updateData);
                 await logUpdate('departments', department.id, department, { ...department, ...updateData }, user, metadata);
-                toast.success('Department metadata synchronized');
+                toast.success('Department updated successfully');
             } else {
                 const newDept = {
                     ...sanitizedData,
@@ -129,7 +129,7 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                 };
                 const docRef = await addDoc(collection(db, 'departments'), newDept);
                 await logCreate('departments', docRef.id, newDept, user, metadata);
-                toast.success('Department establishment records saved');
+                toast.success('Department added successfully');
             }
 
             onSuccess();
@@ -146,15 +146,15 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
             isOpen={true} 
             onClose={onClose} 
             onSubmit={handleSubmit} 
-            title={department ? 'Modify Department Records' : 'Establish Academic Department'} 
-            submitText={department ? 'Update Structure' : 'Initialize Dept'} 
+            title={department ? 'Edit Department' : 'Add New Department'} 
+            submitText={department ? 'Save Changes' : 'Add Department'} 
             loading={loading} 
             size="lg"
         >
             <div className="space-y-6 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <Input 
-                        label="Department Designation" 
+                        label="Department Name" 
                         name="name" 
                         value={formData.name} 
                         onChange={handleChange} 
@@ -163,7 +163,7 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                         required 
                     />
                     <Input 
-                        label="Indexing Code" 
+                        label="Department Code" 
                         name="code" 
                         value={formData.code} 
                         onChange={handleChange} 
@@ -174,18 +174,18 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                 </div>
 
                 <Select
-                    label="Parent Institutional Authority"
+                    label="College"
                     name="collegeId"
                     value={formData.collegeId}
                     options={colleges}
                     onChange={handleChange}
                     error={errors.collegeId}
-                    placeholder="Select College Profile"
+                    placeholder="Select College"
                     required
                 />
 
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Curricular Scope (Optional)</label>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Assigned Courses (Optional)</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto no-scrollbar p-1">
                         {courses.length === 0 ? (
                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest col-span-2 text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-100 italic">No academic courses found</p>
@@ -223,12 +223,12 @@ export default function DepartmentForm({ department, onClose, onSuccess }) {
                 </div>
 
                 <Select
-                    label="Operational Mandate"
+                    label="Status"
                     name="status"
                     value={formData.status}
                     options={[
-                        { value: 'active', label: 'In Service' },
-                        { value: 'inactive', label: 'Suspended' }
+                        { value: 'active', label: 'Active' },
+                        { value: 'inactive', label: 'Inactive' }
                     ]}
                     onChange={handleChange}
                 />

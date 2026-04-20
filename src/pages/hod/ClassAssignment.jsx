@@ -27,6 +27,8 @@ export default function ClassAssignment() {
         subjectId: ''
     });
 
+    const [showAll, setShowAll] = useState(false);
+
     useEffect(() => {
         if (user?.departmentId) fetchInitialData();
     }, [user]);
@@ -80,6 +82,7 @@ export default function ClassAssignment() {
                 const snap = await getDocs(subjectsQ);
                 setAvailableSubjects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 setForm({ teacherId: '', subjectId: '' });
+                setShowAll(false); // Reset showAll when specific batch is selected
             } catch (error) {
                 console.error('Error fetching subjects:', error);
             }
@@ -129,14 +132,21 @@ export default function ClassAssignment() {
         }
     };
 
+    // Filter assignments based on selection
+    const filteredAssignments = selectedBatchId 
+        ? assignments.filter(a => a.batchId === selectedBatchId)
+        : assignments;
+
+    const listVisible = selectedBatchId || showAll;
+
     return (
         <div className="space-y-10 pb-12">
             {/* Header */}
             <div>
                 <h2 className="text-3xl font-black text-gray-900 tracking-tight">Academic Allocation</h2>
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                    Faculty Mapping • Resource Distribution
+                <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-widest mt-1 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse" />
+                    Faculty Assignment • Subject Mapping
                 </p>
             </div>
 
@@ -145,7 +155,7 @@ export default function ClassAssignment() {
                 <div className="bg-white rounded-[2.2rem] p-8 lg:p-10 space-y-8 shadow-inner border border-gray-50">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
                         <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phase 01: Cohort Selection</label>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Step 01: Select Batch</label>
                             <div className="relative group">
                                 <select
                                     className="w-full pl-6 pr-12 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-sm font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-emerald-50 focus:border-emerald-500 hover:bg-white cursor-pointer group-hover:shadow-lg appearance-none"
@@ -162,7 +172,7 @@ export default function ClassAssignment() {
                         </div>
 
                         <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phase 02: Subject Protocol</label>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Step 02: Select Subject</label>
                             <div className="relative group">
                                 <select
                                     className="w-full pl-6 pr-12 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-sm font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-emerald-50 focus:border-emerald-500 hover:bg-white cursor-pointer group-hover:shadow-lg appearance-none disabled:opacity-50"
@@ -180,7 +190,7 @@ export default function ClassAssignment() {
                         </div>
 
                         <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phase 03: Faculty Assignment</label>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Step 03: Assign Teacher</label>
                             <div className="flex gap-4">
                                 <div className="relative group flex-1">
                                     <select
@@ -209,83 +219,137 @@ export default function ClassAssignment() {
                 </div>
             </div>
 
-            {/* List Section */}
-            <div className="space-y-6">
-                <div className="flex items-center gap-3 px-2">
-                    <div className="w-2 h-8 bg-emerald-500 rounded-full" />
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">Active Allocations</h3>
+            {/* List Section - Table View */}
+            <div className="space-y-6 pb-20">
+                <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-3">
+                        <div className={`w-2 h-8 rounded-full transition-colors ${listVisible ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                            {selectedBatchId ? `${selectedBatchDetails?.name} Allocations` : 'Allocation Registry'}
+                        </h3>
+                    </div>
+                    {!selectedBatchId && (
+                        <button 
+                            onClick={() => setShowAll(!showAll)}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                showAll ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'
+                            }`}
+                        >
+                            {showAll ? 'Hide Registry' : 'Show Full Registry'}
+                        </button>
+                    )}
                 </div>
 
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[1, 2, 3].map(i => <div key={i} className="h-48 rounded-[2.5rem] bg-white animate-pulse border border-gray-50 shadow-sm" />)}
-                    </div>
-                ) : assignments.length === 0 ? (
-                    <div className="bg-gray-50/50 rounded-[3rem] p-24 text-center border-4 border-dashed border-gray-100">
-                        <div className="w-20 h-20 bg-white rounded-3xl mx-auto flex items-center justify-center shadow-sm text-gray-300 mb-6 font-black uppercase tracking-widest text-[10px]">Registry Empty</div>
-                        <h4 className="text-xl font-black text-gray-900 mb-2 tracking-tight transition-colors">No academic allocations found</h4>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest max-w-xs mx-auto leading-relaxed">System queue is optimized. Start allocating faculty above.</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <AnimatePresence mode="popLayout">
-                            {assignments.map((assign, idx) => (
-                                <motion.div
-                                    key={assign.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col hover:shadow-2xl hover:border-emerald-100 transition-all group relative overflow-hidden"
-                                >
-                                    <div className="relative z-10 flex flex-col h-full space-y-6">
-                                        <div className="flex justify-between items-start">
-                                            <div className="space-y-1">
-                                                <h4 className="text-lg font-black text-gray-900 tracking-tighter leading-none group-hover:text-emerald-500 transition-colors uppercase">{assign.subjectName}</h4>
-                                                <p className="text-[9px] font-black text-gray-400 tracking-widest uppercase">{assign.subjectCode}</p>
-                                            </div>
-                                            <div className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest border border-emerald-100">
-                                                Sem {assign.semester}
-                                            </div>
-                                        </div>
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-sm min-h-[400px] flex flex-col">
+                    {!listVisible ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-20 text-center bg-gray-50/10">
+                            <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-gray-100 border border-gray-50 mb-6 shadow-sm">
+                                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeWidth={2} /></svg>
+                            </div>
+                            <h4 className="text-xl font-black text-gray-900 mb-2 tracking-tight uppercase tracking-tighter">Systematic View Only</h4>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest max-w-sm leading-relaxed">
+                                Please select a specific batch above to view institutional mappings, or click "Show Full Registry" to view all active faculty allocations.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr className="bg-gray-50/50">
+                                        <th className="p-8 text-[9px] font-black text-gray-400 uppercase tracking-widest pl-10 whitespace-nowrap">Subject Details</th>
+                                        <th className="p-8 text-[9px] font-black text-gray-400 uppercase tracking-widest">Batch Account</th>
+                                        <th className="p-8 text-[9px] font-black text-gray-400 uppercase tracking-widest">Assigned Teacher</th>
+                                        <th className="p-8 text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Semester / Status</th>
+                                        <th className="p-8 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right pr-10">Operations</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {loading ? (
+                                        [1, 2, 3].map(i => (
+                                            <tr key={i} className="animate-pulse">
+                                                <td colSpan="5" className="p-10"><div className="h-10 bg-gray-50 rounded-2xl w-full" /></td>
+                                            </tr>
+                                        ))
+                                    ) : filteredAssignments.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="5" className="p-32 text-center">
+                                                <div className="w-16 h-16 bg-gray-50 rounded-3xl mx-auto flex items-center justify-center text-gray-300 mb-6 font-black uppercase tracking-widest text-[10px]">Registry Empty</div>
+                                                <h4 className="text-lg font-black text-gray-900 mb-1 tracking-tight">No allocations found</h4>
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">System ready for deployment.</p>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredAssignments.sort((a,b) => {
+                                        const batchA = batches.find(bx => bx.id === a.batchId);
+                                        const batchB = batches.find(bx => bx.id === b.batchId);
+                                        const isHistA = batchA && (parseInt(a.semester) < parseInt(batchA.currentSemester || 0));
+                                        const isHistB = batchB && (parseInt(b.semester) < parseInt(batchB.currentSemester || 0));
+                                        if (isHistA && !isHistB) return 1;
+                                        if (!isHistA && isHistB) return -1;
+                                        return 0;
+                                    }).map((assign) => {
+                                        const targetBatch = batches.find(b => b.id === assign.batchId);
+                                        const isHistorical = targetBatch && (parseInt(assign.semester) < parseInt(targetBatch.currentSemester || 0));
 
-                                        <div className="p-5 rounded-[1.5rem] bg-gray-50 border border-gray-100 group-hover:bg-emerald-50/30 transition-colors">
-                                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Cohort Signature</p>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:text-emerald-500 transition-colors">
-                                                    {assign.batchName?.charAt(0)}
-                                                </div>
-                                                <p className="font-black text-gray-900 text-sm tracking-tight uppercase">{assign.batchName}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-auto">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center font-black text-xs shadow-xl shadow-gray-200">
-                                                    {assign.teacherName?.[0]}
-                                                </div>
-                                                <div className="space-y-0.5">
-                                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Faculty lead</p>
-                                                    <p className="font-black text-gray-900 text-sm tracking-tighter uppercase leading-none">{assign.teacherName}</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => handleDelete(assign.id)}
-                                                data-tooltip="Revoke Allocation"
-                                                className="p-3 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-95"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full group-hover:scale-150 transition-transform duration-700" />
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                        return (
+                                            <tr key={assign.id} className={`transition-all group ${isHistorical ? 'bg-slate-50/30' : 'hover:bg-emerald-50/20'}`}>
+                                                <td className="p-8 pl-10 whitespace-nowrap">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:text-emerald-500 transition-colors shadow-sm uppercase">
+                                                            {assign.subjectCode?.substring(0, 3)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black text-gray-900 leading-tight uppercase tracking-tighter">{assign.subjectName}</p>
+                                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">{assign.subjectCode}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-8 whitespace-nowrap">
+                                                    <div className="flex flex-col">
+                                                        <p className="text-xs font-black text-gray-900 uppercase tracking-tight">{assign.batchName}</p>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Cohort Manifest</p>
+                                                    </div>
+                                                </td>
+                                                <td className="p-8 whitespace-nowrap">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-gray-200 uppercase">
+                                                            {assign.teacherName?.[0]}
+                                                        </div>
+                                                        <p className="text-xs font-black text-gray-900 uppercase tracking-tight">{assign.teacherName}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="p-8 text-center whitespace-nowrap">
+                                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                        isHistorical ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                    }`}>
+                                                        {isHistorical ? 'ARCHIVED' : `Semester ${assign.semester}`}
+                                                    </span>
+                                                </td>
+                                                <td className="p-8 text-right pr-10 whitespace-nowrap">
+                                                    {!isHistorical ? (
+                                                        <button
+                                                            onClick={() => handleDelete(assign.id)}
+                                                            className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-95 group/btn"
+                                                            title="Revoke Allocation"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                        </button>
+                                                    ) : (
+                                                        <div className="p-3 text-slate-200" title="Locked Record">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
         </div>
+    </div>
     );
 }

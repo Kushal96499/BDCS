@@ -91,8 +91,8 @@ export async function logAudit(
             performedBy: user.uid,
             performedByName: user.name || user.email,
             performedByRole: user.role,
-            performerCollege: user.collegeName || user.college || null,
-            performerDept: user.departmentName || user.department || null,
+            performerCollege: user.collegeName || user.college || user.collegeId || null,
+            performerDept: user.departmentName || user.department || user.departmentId || null,
 
             // NEW: Target details (for multi-entity actions like successor assignment)
             targetLabel: entityMetadata.targetLabel || null,

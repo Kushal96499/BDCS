@@ -57,16 +57,35 @@ export default function StudentManagement() {
         if (!user) return;
         try {
             setLoading(true);
-            const q = query(
-                collection(db, 'users'),
-                where('departmentId', '==', user.departmentId),
+
+            // Primary: query by departmentId (most specific)
+            const constraints = [
                 where('role', '==', 'student')
-            );
+            ];
+            if (user.departmentId) {
+                constraints.push(where('departmentId', '==', user.departmentId));
+            } else if (user.collegeId) {
+                constraints.push(where('collegeId', '==', user.collegeId));
+            }
+
+            const q = query(collection(db, 'users'), ...constraints);
             const snapshot = await getDocs(q);
-            setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const allStudents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // If no students found with departmentId AND teacher has collegeId — widen search
+            if (allStudents.length === 0 && user.collegeId && user.departmentId) {
+                const wideQ = query(
+                    collection(db, 'users'),
+                    where('role', '==', 'student'),
+                    where('collegeId', '==', user.collegeId)
+                );
+                const wideSnap = await getDocs(wideQ);
+                setStudents(wideSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            } else {
+                setStudents(allStudents);
+            }
         } catch (error) {
             console.error('Error fetching students:', error);
-            // toast.error('Failed to load students'); // Verify console first
         } finally {
             setLoading(false);
         }
@@ -81,8 +100,37 @@ export default function StudentManagement() {
         }
     };
 
-    const handleAdd = () => {
+    const handleAdd = async () => {
         setEditingStudent(null);
+        
+        // Auto-generate next Roll Number
+        let nextRollNumber = '';
+        try {
+            const q = query(
+                collection(db, 'users'),
+                where('departmentId', '==', user.departmentId),
+                where('role', '==', 'student')
+            );
+            const snap = await getDocs(q);
+            const existing = snap.docs.map(d => d.data().rollNumber).filter(r => r);
+            
+            let lastNum = 0;
+            let prefix = user.departmentName?.substring(0, 3).toUpperCase() || 'STU';
+            
+            existing.forEach(r => {
+                const match = r.match(/\d+$/);
+                if (match) {
+                    const num = parseInt(match[0]);
+                    if (num > lastNum) lastNum = num;
+                    const possiblePrefix = r.substring(0, r.length - match[0].length);
+                    if (possiblePrefix) prefix = possiblePrefix;
+                }
+            });
+            nextRollNumber = `${prefix}${(lastNum + 1).toString().padStart(3, '0')}`;
+        } catch (err) {
+            console.error("Error generating roll number:", err);
+        }
+
         setFormData({
             name: '',
             fatherName: '',
@@ -90,7 +138,7 @@ export default function StudentManagement() {
             email: '',
             phone: '',
             address: '',
-            rollNumber: '',
+            rollNumber: nextRollNumber,
             enrollmentNumber: '',
             currentSemester: 1,
             academicYear: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),

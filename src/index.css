@@ -1,263 +1,181 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
 
 /* Tailwind CSS Imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Premium Typography - Plus Jakarta Sans */
+/* ============================================================
+   AETHER MINIMAL DESIGN SYSTEM
+   Theme: Institutional Precision & Luxury Refinement
+   ============================================================ */
 
-/* Custom Animations */
-@keyframes slide-in {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.animate-slide-in {
-    animation: slide-in 0.3s ease-out;
-}
-
-/* Gen-Z Wave Hand Animation */
-@keyframes wave {
-    0% { transform: rotate(0deg); }
-    10% { transform: rotate(14deg); }
-    20% { transform: rotate(-8deg); }
-    30% { transform: rotate(14deg); }
-    40% { transform: rotate(-4deg); }
-    50% { transform: rotate(10deg); }
-    60% { transform: rotate(0deg); }
-    100% { transform: rotate(0deg); }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-}
-
-.animate-fade-in-delay-100 {
-    animation: fadeIn 0.5s ease-out 0.1s forwards;
-    opacity: 0;
-}
-
-.animate-fade-in-delay-200 {
-    animation: fadeIn 0.5s ease-out 0.2s forwards;
-    opacity: 0;
-}
-
-/* Institutional Branding - Premium Red & Neutrals */
 :root {
-    --biyani-red: #E31E24;
-    --biyani-red-dark: #C6181D;
-    --biyani-red-light: #FFEBEC;
-    --brand-accent: #FF3B30;
+    /* Core Institutional Palette */
+    --aether-white: #FFFFFF;
+    --aether-base: #F8F9FA;
+    --aether-slate: #0F172A;
+    --aether-slate-light: #64748B;
+    --aether-crimson: #E31E24;
+    --aether-crimson-soft: rgba(227, 30, 36, 0.05);
     
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.4);
-    --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    /* Material Depth (Satin Finish) */
+    --aether-border: rgba(15, 23, 42, 0.06);
+    --aether-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+    --aether-glass: rgba(255, 255, 255, 0.85);
 
-    --premium-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Typography Settings */
+    --display-font: 'Outfit', sans-serif;
+    --body-font: 'Plus Jakarta Sans', sans-serif;
 }
 
-/* Glassmorphism Utilities */
-.glass-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
+/* Base Reset - Professional Clarity */
+body {
+    background-color: var(--aether-base);
+    color: var(--aether-slate);
+    font-family: var(--body-font);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    letter-spacing: -0.015em;
 }
 
-.glass-input {
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+/* High-Craft Typography */
+.font-heading { 
+    font-family: var(--display-font); 
+    letter-spacing: -0.04em;
+    font-weight: 800;
+}
+
+/* Aether Glass Utilities */
+.aether-card {
+    background: var(--aether-white);
+    border: 1px solid var(--aether-border);
+    box-shadow: var(--aether-shadow);
+    border-radius: 2rem;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aether-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+/* Institutional Rail Navigation */
+.nav-rail {
+    background: var(--aether-white);
+    border-right: 1px solid var(--aether-border);
+    backdrop-filter: blur(20px);
+}
+
+/* Precise Dividers */
+.aether-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--aether-border), transparent);
+}
+
+/* Premium Button Action */
+.action-button {
+    background: var(--aether-slate);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 1rem;
+    font-weight: 700;
+    font-size: 0.875rem;
     transition: all 0.3s ease;
 }
 
-.glass-input:focus {
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
-    border-color: var(--biyani-red);
+.action-button:hover {
+    background: var(--aether-crimson);
+    transform: scale(1.02);
+    box-shadow: 0 10px 20px rgba(227, 30, 36, 0.15);
 }
 
-/* Force Light Mode */
-@media (prefers-color-scheme: dark) {
-    body {
-        background-color: white !important;
-        color: black !important;
-    }
+/* Performance Optimized Utilities */
+.gpu-render {
+    transform: translateZ(0);
+    will-change: transform, opacity;
 }
 
-body {
-    font-family: var(--premium-font);
-    -webkit-font-smoothing: antialiased;
-    background-color: #F8F9FA;
-    color: #1A1A1A;
-    letter-spacing: -0.01em;
+/* High-Density Tables/Grids */
+.data-table-refined {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
 }
 
-/* Scrollbar Styling */
+.data-table-refined tr {
+    background: var(--aether-white);
+    transition: all 0.2s ease;
+}
+
+.data-table-refined td {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--aether-border);
+    border-bottom: 1px solid var(--aether-border);
+}
+
+.data-table-refined td:first-child {
+    border-left: 1px solid var(--aether-border);
+    border-top-left-radius: 1rem;
+    border-bottom-left-radius: 1rem;
+}
+
+.data-table-refined td:last-child {
+    border-right: 1px solid var(--aether-border);
+    border-top-right-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
-
 ::-webkit-scrollbar-track {
     background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-    background: #E0E0E0;
+    background: #E2E8F0;
     border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-    background: #CCCCCC;
+    background: #CBD5E1;
+    background-clip: padding-box;
 }
 
-/* Premium Tooltip System */
-[data-tooltip] {
-    position: relative;
-    cursor: pointer;
+/* Scrollbar Utilities */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
 }
 
-/* Tooltip appearance only on devices that support hover (desktop) */
-@media (hover: hover) {
-    [data-tooltip]::before {
-        content: attr(data-tooltip);
-        position: absolute;
-        bottom: 125%;
-        left: 50%;
-        transform: translateX(-50%) translateY(10px);
-        padding: 8px 12px;
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        font-size: 10px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        white-space: nowrap;
-        border-radius: 12px;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        z-index: 1000;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        pointer-events: none;
-    }
-
-    [data-tooltip]:hover::before {
-        opacity: 1;
-        visibility: visible;
-        transform: translateX(-50%) translateY(0);
-    }
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
 }
 
-/* Accessibility Focus */
-*:focus-visible {
-    outline: 2px solid var(--biyani-red);
-    outline-offset: 2px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.08);
+    border-radius: 20px;
 }
 
-/* Responsive Typography & Layout Adjustments */
-@media (max-width: 640px) {
-    .text-3xl { font-size: 1.5rem !important; line-height: 2rem !important; }
-    .text-4xl { font-size: 1.875rem !important; line-height: 2.25rem !important; }
-    .text-6xl { font-size: 2.5rem !important; line-height: 2.5rem !important; }
-    .p-12 { padding: 1.5rem !important; }
-    .p-10 { padding: 1.25rem !important; }
-    .p-8 { padding: 1rem !important; }
-    [class*="rounded-[3rem]"] { border-radius: 1.5rem !important; }
-    [class*="rounded-[2.5rem]"] { border-radius: 1.25rem !important; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.15);
 }
 
-/* Utility Animations */
-@keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
 }
 
-.animate-premium-slide {
-    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
-/* ============================================================
-   Institutional BDCS Premium Styles
-   ============================================================ */
-
-/* Background Mesh & Texture */
-.mesh-gradient {
-    background-color: #ffffff;
-    background-image: 
-        radial-gradient(at 0% 0%, hsla(0, 100%, 50%, 0.05) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, hsla(217, 91%, 60%, 0.03) 0px, transparent 50%);
-}
-
-.noise-overlay {
-    background-image: url("https://www.transparenttextures.com/patterns/p6.png");
-    opacity: 0.15;
-    pointer-events: none;
-}
-
-/* Performant Animations */
-.premium-image-container {
-    will-change: transform;
-    backface-visibility: hidden;
-    -webkit-font-smoothing: antialiased;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
-.animate-float {
-    animation: float 6s ease-in-out infinite;
-}
-
-/* Glassmorphism Premium */
-.glass-card-premium {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-/* Premium Global Link Interactions - Refined Minimalist */
-.premium-hover-link {
-    position: relative;
-    transition: all 0.3s ease;
-    display: inline-block;
-    width: fit-content;
-}
-
-.premium-hover-link::after {
-    content: "";
-    position: absolute;
-    width: 0%;
-    height: 1px;
-    bottom: -2px;
-    left: 0;
-    background-color: #ee1b24;
-    transition: width 0.3s ease;
-}
-
-.premium-hover-link:hover {
-    color: white !important;
-    opacity: 1;
-}
-
-.premium-hover-link:hover::after {
-    width: 100%;
+/* Smooth Scrolling */
+.smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }

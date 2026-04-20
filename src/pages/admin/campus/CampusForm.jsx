@@ -133,14 +133,14 @@ export default function CampusForm({ isOpen, campus, onClose, onSuccess }) {
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}
-            title={campus ? 'Edit Campus Instance' : 'Provision New Campus'}
-            submitText={campus ? 'Update Records' : 'Initialize Campus'}
+            title={campus ? 'Edit Campus' : 'Add New Campus'}
+            submitText={campus ? 'Save Changes' : 'Add Campus'}
             loading={loading}
             size="md"
         >
             <div className="space-y-6 py-2">
                 <Input
-                    label="Legal Campus Name"
+                    label="Campus Name"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
@@ -151,7 +151,7 @@ export default function CampusForm({ isOpen, campus, onClose, onSuccess }) {
                 />
 
                 <Input
-                    label="Campus Identifier (Code)"
+                    label="Campus Code"
                     name="code"
                     value={formData.code}
                     onChange={handleChange}
@@ -163,12 +163,12 @@ export default function CampusForm({ isOpen, campus, onClose, onSuccess }) {
                 />
 
                 <Select
-                    label="Operational Status"
+                    label="Status"
                     name="status"
                     value={formData.status}
                     options={[
-                        { value: 'active', label: 'Active Service' },
-                        { value: 'inactive', label: 'Suspended' }
+                        { value: 'active', label: 'Active' },
+                        { value: 'inactive', label: 'Inactive' }
                     ]}
                     onChange={handleChange}
                     required

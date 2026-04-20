@@ -110,9 +110,9 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="hidden md:flex flex-col items-end justify-center">
                         <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 text-right">
-                            <p className="text-violet-200 font-black text-[10px] uppercase tracking-widest mb-2">My Influence</p>
+                            <p className="text-violet-200 font-black text-[10px] uppercase tracking-widest mb-2">My Department</p>
                             <p className="text-3xl font-black text-white">{stats.students}</p>
-                            <p className="text-violet-100/60 font-bold text-[10px] mt-1 uppercase tracking-widest leading-none">Total Scholars Reached</p>
+                            <p className="text-violet-100/60 font-bold text-[10px] mt-1 uppercase tracking-widest leading-none">Total Students in Department</p>
                         </div>
                     </div>
                 </div>
@@ -160,8 +160,8 @@ export default function TeacherDashboard() {
                     {[
                         { title: 'Attendance', desc: 'Secure Marking', path: '/teacher/attendance', color: 'emerald', icon: <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /> },
                         { title: 'Assessments', desc: 'Manage Tests', path: '/teacher/tests', color: 'blue', icon: <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293" /> },
-                        { title: 'Event Hub', desc: 'Activity Ledger', path: '/teacher/events', color: 'amber', icon: <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" /> },
-                        { title: 'Scholars', desc: 'Unified Roster', path: '/teacher/students', color: 'violet', icon: <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0" /> }
+                        { title: 'Event Hub', desc: 'Event Log', path: '/teacher/events', color: 'amber', icon: <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" /> },
+                        { title: 'Students', desc: 'Student List', path: '/teacher/students', color: 'violet', icon: <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0" /> }
                     ].map((item, i) => (
                         <motion.button
                             whileHover={{ y: -5, scale: 1.02 }}

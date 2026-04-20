@@ -4,8 +4,10 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { createHODUser, assignHOD, getCollegeDepartments } from '../../services/principalService';
 import { toast } from '../../components/admin/Toast';
-import HODDetailPanel from '../../components/principal/HODDetailPanel';
+import UserDetailPanel from '../../components/admin/UserDetailPanel';
 import StatusPill from '../../components/common/StatusPill';
+import { demoteHODToTeacher } from '../../services/promotionService';
+import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function CollegeUserManagement() {
     const { user } = useAuth();
@@ -15,20 +17,21 @@ export default function CollegeUserManagement() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
-    // Form Mode: 'create' or 'assign_self'
-    const [formMode, setFormMode] = useState('create');
 
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
         email: '',
         phone: '',
+        employeeId: '',
         departmentId: '',
         joiningDate: new Date().toISOString().split('T')[0]
     });
 
     const [selectedHOD, setSelectedHOD] = useState(null);
     const [showDetailPanel, setShowDetailPanel] = useState(false);
+
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (user?.collegeId) {
@@ -105,35 +108,20 @@ export default function CollegeUserManagement() {
 
         setSubmitting(true);
         try {
-            if (formMode === 'assign_self') {
-                // Check if department already has HOD
-                const selectedDept = departments.find(d => d.id === formData.departmentId);
-                if (selectedDept?.currentHOD) {
-                    toast.error(`Department ${selectedDept.name} already has an HOD.`);
-                    setSubmitting(false);
-                    return;
-                }
-
-                // Execute Self Assignment
-                await assignHOD(formData.departmentId, user.uid, formData.joiningDate, user);
-                toast.success('Successfully assigned yourself as HOD!');
-            } else {
-                // Create New User
-                if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
-                    toast.error('All fields are required');
-                    setSubmitting(false);
-                    return;
-                }
-                if (formData.phone.length < 10) {
-                    toast.error('Phone number must be at least 10 digits');
-                    setSubmitting(false);
-                    return;
-                }
-
-                const result = await createHODUser(formData, formData.departmentId, user);
-                toast.success(`✅ HOD account created! Initial password: firstname + last 4 of phone. They must reset on first login.`);
-
+            // Create New User
+            if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.employeeId) {
+                toast.error('All fields including Employee ID are required');
+                setSubmitting(false);
+                return;
             }
+            if (formData.phone.length < 10) {
+                toast.error('Phone number must be at least 10 digits');
+                setSubmitting(false);
+                return;
+            }
+
+            const result = await createHODUser(formData, formData.departmentId, user);
+            toast.success(`✅ HOD account created! Initial password: firstname + last 4 of phone. They must reset on first login.`);
 
             setShowForm(false);
             setFormData({
@@ -141,6 +129,7 @@ export default function CollegeUserManagement() {
                 lastName: '',
                 email: '',
                 phone: '',
+                employeeId: '',
                 departmentId: '',
                 joiningDate: new Date().toISOString().split('T')[0]
             });
@@ -155,19 +144,21 @@ export default function CollegeUserManagement() {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            <div className="mb-8 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">HOD Management</h1>
-                    <p className="text-gray-600">Create and manage HOD accounts for {user?.collegeName}</p>
+            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">HOD Management</h1>
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+                         {user?.collegeName || 'Institutional'} • HOD List
+                    </p>
                 </div>
                 <button
                     onClick={() => setShowForm(!showForm)}
-                    className="px-6 py-3 bg-biyani-red text-white rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+                    className={`w-full md:w-auto px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 border ${showForm ? 'bg-white text-gray-900 border-gray-100 hover:bg-gray-50' : 'bg-gray-900 text-white border-white/10 hover:bg-[#E31E24]'}`}
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d={showForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
                     </svg>
-                    {showForm ? 'Cancel' : 'Create / Assign HOD'}
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{showForm ? 'Cancel Operation' : 'Create / Assign HOD'}</span>
                 </button>
             </div>
 
@@ -175,71 +166,62 @@ export default function CollegeUserManagement() {
             {showForm && (
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 mb-8 animate-fadeIn">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-900">{formMode === 'create' ? 'Create New HOD' : 'Assign Myself as HOD'}</h2>
-
-                        {/* Mode Toggle */}
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                            <button
-                                onClick={() => setFormMode('create')}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${formMode === 'create' ? 'bg-white text-biyani-red shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Create New
-                            </button>
-                            <button
-                                onClick={() => setFormMode('assign_self')}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${formMode === 'assign_self' ? 'bg-white text-biyani-red shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Assign Myself
-                            </button>
-                        </div>
+                        <h2 className="text-xl font-bold text-gray-900">Create New HOD</h2>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {formMode === 'create' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.firstName}
-                                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.lastName}
-                                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
-                                        required
-                                        minLength={10}
-                                    />
-                                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                                <input
+                                    type="text"
+                                    value={formData.firstName}
+                                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
+                                    required
+                                />
                             </div>
-                        )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                                <input
+                                    type="text"
+                                    value={formData.lastName}
+                                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                                <input
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Faculty ID (EMP) *</label>
+                                <input
+                                    type="text"
+                                    placeholder="institutional ID"
+                                    value={formData.employeeId}
+                                    onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -250,21 +232,13 @@ export default function CollegeUserManagement() {
                                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
                                     required
                                 >
-                                    <option value="">Select Department {formMode === 'assign_self' ? '(Vacant Only)' : ''}</option>
-                                    {departments.map(dept => {
-                                        const disabled = formMode === 'assign_self' && dept.currentHOD;
-                                        return (
-                                            <option key={dept.id} value={dept.id} disabled={disabled}>
-                                                {dept.name} {disabled ? '(Has HOD)' : ''}
-                                            </option>
-                                        );
-                                    })}
+                                    <option value="">Select Department</option>
+                                    {departments.map(dept => (
+                                        <option key={dept.id} value={dept.id}>
+                                            {dept.name}
+                                        </option>
+                                    ))}
                                 </select>
-                                {formMode === 'assign_self' && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        * You can only assign yourself to departments that currently have no HOD.
-                                    </p>
-                                )}
                             </div>
 
                             <div>
@@ -279,25 +253,14 @@ export default function CollegeUserManagement() {
                             </div>
                         </div>
 
-                        {formMode === 'create' ? (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <p className="text-sm text-blue-900 flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>Password will be auto-generated: <strong>firstname + last 4 digits of phone</strong>. User must reset on first login.</span>
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-sm text-yellow-900 flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>You are assigning <strong>Yourself</strong> as the HOD. You will gain HOD access rights immediately.</span>
-                                </p>
-                            </div>
-                        )}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <p className="text-sm text-blue-900 flex items-start gap-2">
+                                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                </svg>
+                                <span>Password will be auto-generated: <strong>firstname + last 4 digits of phone</strong>. User must reset on first login.</span>
+                            </p>
+                        </div>
 
                         <div className="flex justify-end gap-4">
                             <button
@@ -312,95 +275,168 @@ export default function CollegeUserManagement() {
                                 disabled={submitting}
                                 className="px-6 py-2.5 bg-biyani-red text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {submitting ? 'Processing...' : (formMode === 'create' ? 'Create HOD' : 'Assign Myself as HOD')}
+                                {submitting ? 'Processing...' : 'Create HOD'}
                             </button>
                         </div>
                     </form>
                 </div>
             )}
 
-            {/* Existing HODs List - CARD TABLE HYBRID */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-lg font-bold text-gray-900">Existing HODs ({hods.length})</h3>
-                    {/* Filter placeholder if needed */}
+            {/* Existing HODs List - PREMIUM TABLE */}
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+                <div className="p-8 border-b border-gray-50 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div>
+                        <h3 className="text-xl font-black text-gray-900 tracking-tight">Active HODs</h3>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{hods.length} Total HODs Found</p>
+                    </div>
+                    
+                    <div className="relative w-full md:w-96 group">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-biyani-red transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth={3}/></svg>
+                        </span>
+                        <input 
+                            type="text" 
+                            placeholder="SEARCH BY NAME, DEPT OR EMAIL..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-14 pr-6 py-4 bg-white border border-gray-100 rounded-2xl focus:border-biyani-red focus:ring-4 focus:ring-red-500/5 outline-none text-sm font-bold text-gray-900 transition-all placeholder:text-gray-300"
+                        />
+                    </div>
                 </div>
 
                 {loading ? (
-                    <div className="bg-white rounded-xl p-8 text-center text-gray-500 animate-pulse border border-gray-200">
-                        <div className="h-4 bg-gray-200 rounded w-1/4 mx-auto mb-4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                    <div className="py-32 flex flex-col items-center justify-center space-y-4">
+                        <div className="w-12 h-12 border-4 border-gray-100 border-t-biyani-red rounded-full animate-spin"></div>
+                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Loading HODs...</p>
                     </div>
                 ) : hods.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
-                        <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    <div className="py-32 text-center">
+                        <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" strokeWidth={2}/></svg>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">No HODs Found</h3>
-                        <p className="text-gray-500 text-sm">Get started by creating a new HOD account.</p>
+                        <h3 className="text-xl font-black text-gray-900 mb-2">No HODs Found</h3>
+                        <p className="text-sm text-gray-400 max-w-xs mx-auto font-medium leading-relaxed">No Head of Departments have been appointed yet for this college.</p>
                     </div>
                 ) : (
-                    <div className="grid gap-3">
-                        {hods.map(hod => (
-                            <div
-                                key={hod.id}
-                                onClick={() => {
-                                    setSelectedHOD(hod);
-                                    setShowDetailPanel(true);
-                                }}
-                                className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:border-biyani-red/20 transition-all duration-200 cursor-pointer flex flex-col md:flex-row items-center gap-4"
-                            >
-                                {/* Avatar */}
-                                <div className="flex-shrink-0 relative">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center text-purple-700 font-bold border-2 border-white shadow-sm group-hover:scale-105 transition-transform">
-                                        {hod.name?.charAt(0)}
-                                    </div>
-                                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
-                                </div>
-
-                                {/* Info */}
-                                <div className="flex-1 min-w-0 text-center md:text-left">
-                                    <h4 className="font-bold text-gray-900 text-base group-hover:text-biyani-red transition-colors">
-                                        {hod.name}
-                                    </h4>
-                                    <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3 text-sm text-gray-500 mt-1">
-                                        <span className="flex items-center gap-1 justify-center md:justify-start">
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            {hod.email}
-                                        </span>
-                                        <span className="hidden md:inline text-gray-300">•</span>
-                                        <span className="flex items-center gap-1 justify-center md:justify-start font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                            {hod.departmentName || 'No Dept'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Status & Actions */}
-                                <div className="flex items-center gap-4 self-stretch md:self-auto justify-between md:justify-end border-t md:border-none border-gray-50 pt-3 md:pt-0 w-full md:w-auto">
-                                    <StatusPill status="Active" type="success" />
-
-                                    <button className="p-2 text-gray-400 hover:text-biyani-red hover:bg-red-50 rounded-lg transition-colors group-hover:opacity-100 opacity-60">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50">
+                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">HOD Name</th>
+                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Info</th>
+                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Department</th>
+                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {hods.filter(h => {
+                                    const s = searchTerm.toLowerCase();
+                                    return h.name?.toLowerCase().includes(s) || 
+                                           h.departmentName?.toLowerCase().includes(s) || 
+                                           h.email?.toLowerCase().includes(s);
+                                }).map(hod => (
+                                    <tr 
+                                        key={hod.id} 
+                                        className="group hover:bg-red-50/20 transition-all duration-300 cursor-pointer"
+                                        onClick={() => {
+                                            setSelectedHOD(hod);
+                                            setShowDetailPanel(true);
+                                        }}
+                                    >
+                                        <td className="p-8">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-xs font-black shadow-lg group-hover:bg-biyani-red group-hover:rotate-6 transition-all uppercase">
+                                                    {hod.name?.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="text-base font-black text-gray-900 group-hover:text-biyani-red transition-colors leading-none mb-1.5">{hod.name}</p>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded inline-block">Primary Head</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-8">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-700">{hod.email}</span>
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60">Email Address</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-8 text-center">
+                                            <span className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-100/50">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                                                {hod.departmentName || 'Unassigned'}
+                                            </span>
+                                        </td>
+                                        <td className="p-8 text-center">
+                                            <StatusPill status="ACTIVE" type="success" />
+                                        </td>
+                                        <td className="p-8 text-right">
+                                            <button className="px-6 py-2.5 bg-white border border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all shadow-sm active:scale-95">
+                                                Edit Profile
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
 
-            {/* HOD Detail Panel */}
+            {/* HOD Detail Panel - Standardized Card Style */}
             {showDetailPanel && selectedHOD && (
-                <HODDetailPanel
-                    hod={selectedHOD}
+                <UserDetailPanel
+                    user={selectedHOD}
                     onClose={() => {
                         setShowDetailPanel(false);
                         setSelectedHOD(null);
                     }}
-                    onUpdate={() => {
-                        loadData();
-                    }}
+                    onUserUpdated={() => loadData()}
+                    extraActions={[
+                        {
+                            label: 'Deactivate HOD',
+                            variant: 'warning',
+                            onClick: async () => {
+                                if (!window.confirm('Deactivate this HOD? Status will be set to inactive.')) return;
+                                try {
+                                    await updateDoc(doc(db, 'users', selectedHOD.id), { status: 'inactive', updatedAt: serverTimestamp() });
+                                    toast.success('HOD deactivated');
+                                    loadData();
+                                    setShowDetailPanel(false);
+                                } catch (error) { toast.error('Deactivation failed'); }
+                            }
+                        },
+                        {
+                            label: 'Revoke HOD Role',
+                            variant: 'danger',
+                            onClick: async () => {
+                                if (!window.confirm('Demote this HOD back to Teacher role? This will remove department ownership.')) return;
+                                try {
+                                    await demoteHODToTeacher(selectedHOD.id, selectedHOD.departmentId, 'Revoked by Principal', user);
+                                    toast.success('Role revoked. User is now a Teacher.');
+                                    loadData();
+                                    setShowDetailPanel(false);
+                                } catch (error) { toast.error(error.message || 'Revocation failed'); }
+                            }
+                        },
+                        {
+                            label: 'Delete HOD',
+                            variant: 'danger',
+                            onClick: async () => {
+                                if (!window.confirm('CRITICAL: This will permanently delete the HOD record. Proceed?')) return;
+                                try {
+                                    if (selectedHOD.departmentId) {
+                                        const deptRef = doc(db, 'departments', selectedHOD.departmentId);
+                                        await updateDoc(deptRef, { currentHOD: null, currentHODName: null });
+                                    }
+                                    await deleteDoc(doc(db, 'users', selectedHOD.id));
+                                    toast.success('HOD record deleted');
+                                    loadData();
+                                    setShowDetailPanel(false);
+                                } catch (error) { toast.error('Delete failed'); }
+                            }
+                        }
+                    ]}
                 />
             )}
         </div>

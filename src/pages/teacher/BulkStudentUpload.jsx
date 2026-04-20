@@ -144,16 +144,26 @@ export default function BulkStudentUpload({ onComplete }) {
             const studentsSnap = await getDocs(studentsQ);
             const existingStudents = studentsSnap.docs.map(d => d.data());
             
-            // Determine Serial Start
+            // Determine Serial Start & Robust Prefix Extraction
             let lastSerial = 0;
-            let rollPrefix = targetBatch.rollPrefix || targetBatch.name.split(' ')[0] || 'STU';
+            
+            // Extract Prefix: BCA 2023-26 -> BCA23
+            let batchBase = targetBatch.name.split(' ')[0] || 'STU';
+            let yearMatch = targetBatch.name.match(/\d{4}/);
+            let yearShort = yearMatch ? yearMatch[0].substring(2) : '';
+            let rollPrefix = targetBatch.rollPrefix || `${batchBase}${yearShort}`;
             
             existingStudents.forEach(s => {
-                if (s.rollNumber) {
-                    const match = s.rollNumber.match(/\d+$/);
-                    if (match) {
-                        const num = parseInt(match[0]);
-                        if (num > lastSerial) lastSerial = num;
+                const r = s.rollNumber || '';
+                const match = r.match(/\d+$/);
+                if (match) {
+                    const num = parseInt(match[0]);
+                    if (num > lastSerial) lastSerial = num;
+                    
+                    // If we find a student with a prefix in this batch, adopt it
+                    const currentPrefix = r.substring(0, r.length - match[0].length);
+                    if (currentPrefix && !targetBatch.rollPrefix) {
+                        rollPrefix = currentPrefix;
                     }
                 }
             });

@@ -14,7 +14,6 @@ import Login from './pages/Login';
 import Landing from './pages/Landing';
 import SessionManager from './components/SessionManager';
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const RoleSelectionPage = lazy(() => import('./pages/RoleSelectionPage'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'));
@@ -43,13 +42,12 @@ const HODEventApprovals = lazy(() => import('./pages/hod/EventApprovals'));
 const CouncilManagement = lazy(() => import('./pages/hod/CouncilManagement'));
 const HODAuditLogs = lazy(() => import('./pages/hod/HODAuditLogs'));
 
+
 // Principal Pages
 const PrincipalDashboard = lazy(() => import('./pages/principal/PrincipalDashboard'));
 const InstitutionalAnalytics = lazy(() => import('./pages/dashboards/AdminDashboard'));
 const DepartmentOverview = lazy(() => import('./pages/principal/DepartmentManagement'));
 const PolicyManagement = lazy(() => import('./pages/principal/CollegeUserManagement'));
-const PrincipalApprovals = lazy(() => import('./pages/principal/StudentOversight'));
-const UnlockRequests = lazy(() => import('./pages/principal/AttendanceUnlockRequests'));
 const StudentOversight = lazy(() => import('./pages/principal/StudentOversight'));
 const TeacherOversight = lazy(() => import('./pages/principal/TeacherOversight'));
 const PrincipalAuditLogs = lazy(() => import('./pages/principal/PrincipalAuditLogs'));
@@ -78,7 +76,8 @@ const MyCouncil = lazy(() => import('./pages/student/MyCouncil'));
 const StudentEventRequest = lazy(() => import('./pages/student/StudentEventRequest'));
 const StudentProfile = lazy(() => import('./pages/student/StudentProfile'));
 const ProjectShowcase = lazy(() => import('./pages/student/ProjectShowcase'));
-const StudentAssessmentView = lazy(() => import('./pages/student/StudentAssessmentView'));
+const StudentTestHistory = lazy(() => import('./pages/student/StudentTestHistory'));
+
 const StudentProgressTimeline = lazy(() => import('./pages/student/StudentProgressTimeline'));
 const CommunityExplore = lazy(() => import('./pages/student/CommunityExplore'));
 const StudentDirectory = lazy(() => import('./pages/student/StudentDirectory'));
@@ -98,7 +97,6 @@ export default function App() {
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={<Landing />} />
-                <Route path="/select-role" element={<RoleSelectionPage />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
 
@@ -151,8 +149,6 @@ export default function App() {
                     <Route path="hods" element={<PolicyManagement />} />
                     <Route path="teachers" element={<TeacherOversight />} />
                     <Route path="students" element={<StudentOversight />} />
-                    <Route path="unlock-requests" element={<UnlockRequests />} />
-                    <Route path="approvals" element={<PrincipalApprovals />} />
                     <Route path="audit-logs" element={<PrincipalAuditLogs />} />
                     <Route path="council" element={<PrincipalCouncil />} />
                     <Route path="profile" element={<AccountSettings />} />
@@ -193,7 +189,7 @@ export default function App() {
                     <Route path="council/propose-event" element={<StudentEventRequest />} />
                     <Route path="profile" element={<StudentProfile />} />
                     <Route path="projects" element={<ProjectShowcase />} />
-                    <Route path="test-history" element={<StudentAssessmentView />} />
+                    <Route path="test-history" element={<StudentTestHistory />} />
                     <Route path="test-history/timeline" element={<StudentProgressTimeline />} />
                     <Route path="community" element={<CommunityExplore />} />
                     <Route path="directory" element={<StudentDirectory />} />

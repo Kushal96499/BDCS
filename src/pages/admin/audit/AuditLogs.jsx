@@ -10,7 +10,7 @@ export default function AuditLogs() {
     return (
         <SharedAuditLogs 
             title="Institutional Audit Registry" 
-            subtitle="Global transaction ledger and operational history" 
+            subtitle="System activity and change history" 
         />
     );
 }

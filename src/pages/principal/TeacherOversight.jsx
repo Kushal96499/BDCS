@@ -1,26 +1,53 @@
-// ============================================
-// BDCS - Teacher Oversight (Principal)
-// View all teachers in college
-// ============================================
-
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
+import { createTeacherUser, getCollegeDepartments } from '../../services/principalService';
+import { toast } from '../../components/admin/Toast';
 import PromoteToHODModal from '../../components/principal/PromoteToHODModal';
+import FormModal from '../../components/admin/FormModal';
+import Input from '../../components/Input';
+import PremiumSelect from '../../components/common/PremiumSelect';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TeacherOversight() {
     const { user } = useAuth();
     const [teachers, setTeachers] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [formLoading, setFormLoading] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const [formMode, setFormMode] = useState('create'); // 'create' or 'assign_self'
     const [showPromoteModal, setShowPromoteModal] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState(null);
+
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        employeeId: '',
+        departmentId: '',
+        designation: '',
+        joiningDate: new Date().toISOString().split('T')[0]
+    });
+    const [errors, setErrors] = useState({});
 
     useEffect(() => {
         if (user?.collegeId) {
             loadTeachers();
+            loadDepartments();
         }
     }, [user?.collegeId]);
+
+    const loadDepartments = async () => {
+        try {
+            const depts = await getCollegeDepartments(user.collegeId);
+            setDepartments(depts);
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    };
 
     const loadTeachers = async () => {
         setLoading(true);
@@ -66,82 +93,121 @@ export default function TeacherOversight() {
         }
     };
 
+
+
+
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Teacher Oversight</h1>
-                <p className="text-gray-600">View all teachers in {user?.collegeName}</p>
+        <div className="space-y-8 pb-12">
+            {/* Executive Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-1">Teacher Management</h2>
+                    <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-[#E31E24] rounded-full animate-pulse" />
+                        Staff List • {user?.collegeName}
+                    </p>
+                </div>
+                <div className="flex gap-4">
+                    {/* Teacher creation is restricted to Admin level */}
+                </div>
             </div>
 
-            {/* Card Table Hybrid */}
-            <div className="space-y-4">
+            {/* Tabular Faculty Ledger */}
+            <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5 min-h-[400px]">
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-biyani-red mx-auto"></div>
-                        <p className="text-gray-500 mt-4 text-sm font-medium">Loading faculty data...</p>
+                    <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                        <div className="w-12 h-12 border-4 border-gray-100 border-t-[#E31E24] rounded-full animate-spin" />
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Loading Teacher Data...</p>
                     </div>
                 ) : teachers.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
-                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">No Teachers Found</h3>
-                        <p className="text-gray-500 text-sm">No teachers have been assigned to {user?.collegeName} yet.</p>
+                    <div className="flex flex-col items-center justify-center py-32 text-center px-10">
+                        <div className="w-24 h-24 bg-gray-50 text-gray-300 rounded-[2rem] flex items-center justify-center mb-6 ring-8 ring-gray-50/50">
+                            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                        <h3 className="text-xl font-black text-gray-900 mb-2">No teachers found</h3>
+                        <p className="text-gray-400 text-sm font-bold max-w-xs uppercase tracking-tight leading-relaxed">No active teacher profiles found in your college.</p>
                     </div>
                 ) : (
-                    <div className="grid gap-3">
-                        {teachers.map(teacher => (
-                            <div key={teacher.id} className="group bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md hover:border-biyani-red/30 transition-all duration-200 flex flex-col md:flex-row items-center gap-4">
-                                {/* Avatar */}
-                                <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold border-2 border-white shadow-sm">
-                                    {teacher.name?.charAt(0) || 'T'}
-                                </div>
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
+                        <table className="min-w-full divide-y divide-gray-100 table-auto min-w-[900px]">
+                            <thead>
+                                <tr className="bg-gray-50/30">
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Teacher Details</th>
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Department Details</th>
+                                    <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Position</th>
+                                    <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Status</th>
+                                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 bg-white/30">
+                                {teachers.map((teacher, index) => (
+                                    <tr key={teacher.id} className="group hover:bg-emerald-50/30 transition-all duration-300">
+                                        {/* Faculty Persona */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-sm font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all duration-500 shrink-0">
+                                                    {teacher.name?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex flex-col min-w-[220px]">
+                                                    <span className="text-sm font-black text-gray-900 group-hover:text-[#E31E24] transition-colors">{teacher.name}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400 lowercase tracking-tight truncate">{teacher.email}</span>
+                                                </div>
+                                            </div>
+                                        </td>
 
-                                {/* Body */}
-                                <div className="flex-1 text-center md:text-left">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                        <h4 className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
-                                            {teacher.name}
-                                        </h4>
-                                        {teacher.roles && teacher.roles.includes('hod') && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-200">
-                                                HOD
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4 mt-1 text-xs text-gray-500 font-medium">
-                                        <div className="flex items-center gap-1 justify-center md:justify-start">
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            {teacher.email}
-                                        </div>
-                                        <div className="hidden md:block w-1 h-1 bg-gray-300 rounded-full"></div>
-                                        <div className="flex items-center gap-1 justify-center md:justify-start text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                            {teacher.departmentName || 'Unassigned'}
-                                        </div>
-                                    </div>
-                                </div>
+                                        {/* Authority Scope */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1 min-w-[150px]">
+                                                <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-[0.2em] border border-emerald-100/50 rounded-full w-fit">
+                                                    {teacher.departmentName || 'General Faculty'}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">
+                                                    {teacher.collegeName || 'Faculty Member'}
+                                                </span>
+                                            </div>
+                                        </td>
 
-                                {/* Actions */}
-                                <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end border-t md:border-none border-gray-100 pt-3 md:pt-0 mt-2 md:mt-0">
-                                    <div className="px-3 py-1 bg-green-50 text-green-700 text-xs font-bold uppercase tracking-wider rounded-full border border-green-100">
-                                        Active
-                                    </div>
+                                        {/* Service Hierarchy */}
+                                        <td className="px-8 py-6 text-center">
+                                            {teacher.roles && teacher.roles.includes('hod') ? (
+                                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-100 text-[9px] font-black uppercase tracking-widest">
+                                                    👑 HOD
+                                                </span>
+                                            ) : (
+                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Teacher</span>
+                                            )}
+                                        </td>
 
-                                    {!teacher.roles?.includes('hod') && (
-                                        <button
-                                            onClick={() => {
-                                                setSelectedTeacher(teacher);
-                                                setShowPromoteModal(true);
-                                            }}
-                                            className="px-3 py-1.5 text-xs font-bold text-white bg-gray-900 rounded-lg hover:bg-biyani-red transition-colors opacity-80 group-hover:opacity-100 shadow-sm"
-                                        >
-                                            Promote
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                                        {/* Status */}
+                                        <td className="px-8 py-6 text-center">
+                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 shadow-sm">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest">Verified Active</span>
+                                            </div>
+                                        </td>
+
+                                        {/* Executive Actions */}
+                                        <td className="px-8 py-6 text-right">
+                                            {!teacher.roles?.includes('hod') ? (
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedTeacher(teacher);
+                                                        setShowPromoteModal(true);
+                                                    }}
+                                                    className="px-5 py-2.5 bg-gray-900 border border-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#E31E24] hover:border-[#E31E24] hover:shadow-xl hover:shadow-red-500/20 transition-all active:scale-95"
+                                                >
+                                                    Promote to HOD
+                                                </button>
+                                            ) : (
+                                                <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest italic pr-4">
+                                                    Leadership Assigned
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
@@ -162,6 +228,7 @@ export default function TeacherOversight() {
                     }}
                 />
             )}
+
         </div>
     );
 }

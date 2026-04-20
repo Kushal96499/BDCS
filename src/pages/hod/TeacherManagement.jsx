@@ -5,7 +5,7 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, doc, updateDoc, query, where, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
@@ -122,6 +122,7 @@ export default function TeacherManagement() {
         return Object.keys(newErrors).length === 0;
     };
 
+
     const handleSubmit = async () => {
         if (!validate()) return;
         setFormLoading(true);
@@ -207,17 +208,17 @@ export default function TeacherManagement() {
         try {
             await updateDoc(doc(db, 'users', teacher.id), { status: newStatus, updatedAt: serverTimestamp(), updatedBy: user.uid });
             await logStatusChange('users', teacher.id, teacher, { ...teacher, status: newStatus }, user);
-            toast.success(`Faculty status modified to ${newStatus}`);
+            toast.success(`Teacher status changed to ${newStatus}`);
             fetchTeachers();
             setConfirmDialog({ isOpen: false, teacher: null });
         } catch (error) {
-            toast.error('Status modification failed');
+            toast.error('Failed to update status');
         }
     };
 
     const columns = [
         {
-            header: 'Faculty Identity',
+            header: 'Teacher',
             field: 'name',
             render: (row) => (
                 <div className="flex items-center gap-4 py-2">
@@ -247,27 +248,27 @@ export default function TeacherManagement() {
             render: (row) => <StatusPill status={row.status} />
         },
         {
-            header: 'Operations',
+            header: 'Actions',
             field: 'actions',
             render: (row) => (
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setSelectedTeacherForDetails(row)}
-                        data-tooltip="View Full Profile"
+                        title="View Teacher Profile"
                         className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-900 hover:text-white transition-all border border-gray-100"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                     </button>
                     <button
                         onClick={() => handleEdit(row)}
-                        data-tooltip="Edit Credentials"
+                        title="Edit Teacher"
                         className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15" /></svg>
                     </button>
                     <button
                         onClick={() => setConfirmDialog({ isOpen: true, teacher: row })}
-                        data-tooltip={row.status === 'active' ? "Deactivate Acccount" : "Restore Account"}
+                        title={row.status === 'active' ? "Deactivate Acccount" : "Restore Account"}
                         className={`p-2.5 rounded-xl border transition-all ${row.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-black hover:text-white'}`}
                     >
                         {row.status === 'active' ? (
@@ -285,21 +286,21 @@ export default function TeacherManagement() {
         <div className="space-y-8 pb-12">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Teachers</h2>
-                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                        HOD Panel • {user?.departmentName}
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-1">Teacher List</h2>
+                    <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-[#E31E24] rounded-full animate-pulse" />
+                        Department Faculty • {user?.departmentName}
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    className="bg-[#E31E24] text-white px-8 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-black font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 active:scale-95 transition-all w-full md:w-auto border border-white/20"
-                >
-                    <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Teacher
-                </button>
+                <div className="flex gap-4">
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="bg-gray-900 text-white px-8 py-4 rounded-2xl shadow-xl shadow-gray-200 hover:bg-[#E31E24] font-black uppercase tracking-[0.2em] text-[10px] flex items-center gap-3 active:scale-95 transition-all border border-white/10"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                        Add New Teacher
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -307,7 +308,7 @@ export default function TeacherManagement() {
                     columns={columns}
                     data={teachers}
                     loading={loading}
-                    emptyMessage="Halls of wisdom are empty. Deploy departmental faculty."
+                    emptyMessage="No teachers found in the list yet."
                     actions={false}
                 />
             </div>
@@ -316,39 +317,39 @@ export default function TeacherManagement() {
                 isOpen={showForm}
                 onClose={() => setShowForm(false)}
                 onSubmit={handleSubmit}
-                title={editingTeacher ? 'Modify Faculty Credentials' : 'Enroll New Academician'}
-                submitText={editingTeacher ? 'Sync Identity' : 'Authorize Faculty'}
+                title={editingTeacher ? 'Edit Teacher Details' : 'Add New Teacher'}
+                submitText={editingTeacher ? 'Save Changes' : 'Add Teacher'}
                 loading={formLoading}
                 size="lg"
             >
                 <div className="space-y-6 pt-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Given Name" name="firstName" value={formData.firstName} onChange={handleChange} error={errors.firstName} required />
-                        <Input label="Family Name" name="lastName" value={formData.lastName} onChange={handleChange} error={errors.lastName} required />
+                        <Input label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} error={errors.firstName} required />
+                        <Input label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} error={errors.lastName} required />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Institutional Email" name="email" value={formData.email} onChange={handleChange} error={errors.email} required disabled={!!editingTeacher} />
-                        <Input label="Primary Contact" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} placeholder="+91" required />
+                        <Input label="Email Address" name="email" value={formData.email} onChange={handleChange} error={errors.email} required disabled={!!editingTeacher} />
+                        <Input label="Phone Number" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} placeholder="+91" required />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Faculty ID (EMP)" name="employeeId" value={formData.employeeId} onChange={handleChange} error={errors.employeeId} required placeholder="ERP-ID" />
-                        <Input label="Academic Designation" name="designation" value={formData.designation} onChange={handleChange} placeholder="e.g. Senior Professor" />
+                        <Input label="Employee ID" name="employeeId" value={formData.employeeId} onChange={handleChange} error={errors.employeeId} required placeholder="ERP-ID" />
+                        <Input label="Designation" name="designation" value={formData.designation} onChange={handleChange} placeholder="e.g. Senior Professor" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Onboarding Date" name="joiningDate" type="date" value={formData.joiningDate} onChange={handleChange} error={errors.joiningDate} required />
+                        <Input label="Joining Date" name="joiningDate" type="date" value={formData.joiningDate} onChange={handleChange} error={errors.joiningDate} required />
                         <PremiumSelect
-                            label="Auth Status"
+                            label="Status"
                             value={formData.status}
                             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            options={[{ label: 'Active Service', value: 'active' }, { label: 'Inactive / On Leave', value: 'inactive' }]}
+                            options={[{ label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }]}
                         />
                     </div>
 
                     <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Institutional Scope</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Assigned Department</p>
                         <p className="text-sm font-black text-gray-900 tracking-tight">{user?.departmentName}</p>
                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1 italic">{user?.collegeName} • {user?.campusName}</p>
                     </div>
@@ -360,10 +361,11 @@ export default function TeacherManagement() {
                                     <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Temporary Authentication Vault</p>
-                                <p className="text-xl font-black text-gray-900 tracking-tight">{tempPassword}</p>
-                                <p className="text-[9px] font-bold text-red-400 uppercase tracking-tighter mt-1 italic">Generated from Given Name + Primary Contact suffix.</p>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-black text-gray-900 leading-none">Teacher Details</h3>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-2">
+                                    Login details will be created automatically.
+                                </p>
                             </div>
                         </div>
                     )}
@@ -374,7 +376,7 @@ export default function TeacherManagement() {
                 isOpen={confirmDialog.isOpen}
                 onClose={() => setConfirmDialog({ isOpen: false, teacher: null })}
                 onConfirm={confirmStatusToggle}
-                title="Authorization Shift"
+                title="Change Teacher Status"
                 message={`Are you sure you want to change the active status for ${confirmDialog.teacher?.name}?`}
                 variant="warning"
             />

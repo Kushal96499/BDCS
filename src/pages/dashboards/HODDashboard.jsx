@@ -98,12 +98,8 @@ export default function HODDashboard() {
             const teachersSnap = await getDocs(teachersQ);
             const studentsQ = query(collection(db, 'users'), where('departmentId', '==', user.departmentId), where('role', '==', 'student'), where('status', '==', 'active'));
             const studentsSnap = await getDocs(studentsQ);
-            const leavesQ = query(collection(db, 'leave_requests'), where('departmentId', '==', user.departmentId), where('status', '==', 'pending'));
-            const unlocksQ = query(collection(db, 'attendance_edit_requests'), where('departmentId', '==', user.departmentId), where('status', '==', 'PENDING'));
-            const [leavesSnap, unlocksSnap] = await Promise.all([getDocs(leavesQ), getDocs(unlocksQ)]);
-            const pendingTotal = leavesSnap.size + unlocksSnap.size;
             const eventsQ = query(collection(db, 'events'), where('status', '==', 'pending_hod'), where('departmentId', '==', user.departmentId));
-            const eventsSnap = await getDocs(eventsQ);
+            const [eventsSnap] = await Promise.all([getDocs(eventsQ)]);
             const batchesQ = query(collection(db, 'batches'), where('departmentId', '==', user.departmentId), where('status', '==', 'active'));
             const batchesSnap = await getDocs(batchesQ);
 
@@ -111,7 +107,7 @@ export default function HODDashboard() {
                 teachers: teachersSnap.size,
                 activeStudents: studentsSnap.size,
                 courses: 0,
-                pendingApprovals: pendingTotal,
+                pendingApprovals: eventsSnap.size,
                 eventRequests: eventsSnap.size,
                 totalBatches: batchesSnap.size
             });
@@ -145,7 +141,7 @@ export default function HODDashboard() {
         emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600' },
         blue: { bg: 'bg-blue-50', icon: 'text-blue-600' },
         orange: { bg: 'bg-orange-50', icon: 'text-orange-600' },
-        red: { bg: 'bg-red-50', icon: 'text-red-600' }
+        red: { bg: 'bg-red-50/50', icon: 'text-red-600' }
     };
 
     return (
@@ -173,9 +169,9 @@ export default function HODDashboard() {
                     </div>
                     <div className="hidden md:flex flex-col items-end justify-center">
                         <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 text-right">
-                            <p className="text-emerald-200 font-black text-[10px] uppercase tracking-widest mb-2">Metrics Pulse</p>
+                            <p className="text-emerald-200 font-black text-[10px] uppercase tracking-widest mb-2">Department Overview</p>
                             <p className="text-3xl font-black text-white">{stats.activeStudents}</p>
-                            <p className="text-emerald-100/60 font-bold text-[10px] mt-1 uppercase tracking-widest leading-none">Active Scholars Under Supervision</p>
+                            <p className="text-emerald-100/60 font-bold text-[10px] mt-1 uppercase tracking-widest leading-none">Active Students in Department</p>
                         </div>
                     </div>
                 </div>
@@ -199,10 +195,10 @@ export default function HODDashboard() {
                         />
                         <MetricCard 
                             title="Pending Approvals" value={stats.pendingApprovals} colorClass={cardStyles.orange} path="/hod/approvals"
-                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-6 9l2 2 4-4" /></svg>}
+                            icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-6 9l2 2 4-4" /></svg>}
                         />
                         <MetricCard 
-                            title="Event Requests" value={stats.eventRequests} colorClass={cardStyles.red} path="/hod/event-approvals"
+                            title="Event Requests" value={stats.eventRequests} colorClass={cardStyles.red} path="/hod/approvals"
                             icon={<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
                         />
                     </>

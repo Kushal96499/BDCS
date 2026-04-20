@@ -12,7 +12,6 @@ import { useAuth } from '../hooks/useAuth';
 import { auth } from '../config/firebase';
 import ToastContainer from '../components/admin/Toast';
 import UserProfileModal from '../components/UserProfileModal';
-import RoleSwitcher from '../components/RoleSwitcher';
 
 const ROLE_THEME = {
     primary: '#2563EB', // Blue
@@ -36,9 +35,16 @@ const NAV_ITEMS = [
         )
     },
     {
-        name: 'Personnel', path: '/principal/teachers', showInMobileDock: true, icon: (
+        name: 'HODs', path: '/principal/hods', showInMobileDock: true, icon: (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+            </svg>
+        )
+    },
+    {
+        name: 'Faculty', path: '/principal/teachers', showInMobileDock: true, icon: (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4.354a4 4 0 1 1 0 5.292M15 21H3v-1a6 6 0 0 1 12 0v1" />
             </svg>
         )
     },
@@ -136,16 +142,16 @@ export default function PrincipalLayout() {
 
                     <div className="px-4 mt-auto pt-6 border-t border-gray-50 space-y-4">
                         {/* Session Security Notice */}
-                        <div className="px-5 py-3.5 bg-gradient-to-br from-red-500/10 to-transparent rounded-[1.5rem] border border-red-200/20 backdrop-blur-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-12 h-12 bg-red-400/10 blur-xl rounded-full -mr-6 -mt-6" />
+                        <div className="px-5 py-3.5 bg-gradient-to-br from-[#E31E24]/10 to-transparent rounded-[1.5rem] border border-[#E31E24]/20 backdrop-blur-sm relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-12 h-12 bg-[#E31E24]/10 blur-xl rounded-full -mr-6 -mt-6" />
                             <div className="flex items-center gap-2 mb-1.5">
-                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.15em] leading-none">
-                                    Note:-
+                                <div className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse shadow-[0_0_8_rgba(227,30,36,0.5)]" />
+                                <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-[0.15em] leading-none">
+                                    Session Details
                                 </p>
                             </div>
-                            <p className="text-[9px] font-bold text-red-600/70 leading-relaxed uppercase tracking-tight">
-                                Auto-logout after 2 hrs of inactivity
+                            <p className="text-[9px] font-bold text-[#E31E24]/70 leading-relaxed uppercase tracking-tight">
+                                Session expires after 2 hours
                             </p>
                         </div>
 
@@ -189,7 +195,6 @@ export default function PrincipalLayout() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <RoleSwitcher />
                         <button onClick={() => setMobileDrawerOpen(true)} className="p-2 text-gray-900 hover:bg-gray-100 rounded-xl transition-colors active:scale-90">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path d="M4 6h16M4 12h16M4 18h7" strokeLinecap="round" strokeLinejoin="round" />
@@ -201,16 +206,11 @@ export default function PrincipalLayout() {
 
             <main className="flex-1 min-w-0 w-full md:ml-64 min-h-screen relative flex flex-col">
                 <div className="hidden md:flex sticky top-0 z-30 w-full pt-6 pb-2 px-10 pointer-events-none items-center justify-between">
-                    <div className="bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] pointer-events-auto">
-                        <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest pointer-events-auto bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                             <span>Principal</span>
                             <span className="text-gray-300">/</span>
                             <span className="text-blue-600">{currentPageName}</span>
                         </nav>
-                    </div>
-                    <div className="pointer-events-auto flex items-center gap-4">
-                        <RoleSwitcher />
-                    </div>
                 </div>
 
                 <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-12 px-6 md:px-10`}>
@@ -248,7 +248,7 @@ export default function PrincipalLayout() {
                                 className="fixed inset-y-0 right-0 w-80 bg-white z-[2100] shadow-2xl flex flex-col overflow-hidden"
                             >
                                 <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
-                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Navigation Hub</h3>
+                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Main Menu</h3>
                                     <button onClick={() => setMobileDrawerOpen(false)} className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400">
                                         <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                             <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />

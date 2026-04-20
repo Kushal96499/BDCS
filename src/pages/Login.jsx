@@ -65,15 +65,11 @@ export default function Login() {
                 placement: '/placement',
                 hr: '/hr'
             };
-            const userRoles = user.roles || [user.role];
-            if (userRoles.length > 1) {
-                // Multi-role user → role selection page
-                navigate('/select-role', { state: { roles: userRoles } });
-            } else {
-                // Single role → direct dashboard
-                const singleRole = userRoles[0] || user.role || 'student';
-                navigate(rolePaths[singleRole] || '/');
-            }
+            
+            // Automatically pick highest role and redirect
+            const singleRole = getHighestPriorityRole(user);
+            sessionStorage.setItem('bdcs_activeRole', singleRole);
+            navigate(rolePaths[singleRole] || '/');
         } else if (user && user.mustResetPassword) {
             navigate('/reset');
         }
@@ -107,8 +103,6 @@ export default function Login() {
             if (userData.mustResetPassword) {
                 navigate('/reset');
             } else {
-                // Check roles for multi-role redirect
-                const userRoles = userData.roles || [userData.role];
                 const rolePaths = {
                     admin: '/admin',
                     director: '/director',
@@ -121,15 +115,10 @@ export default function Login() {
                     hr: '/hr'
                 };
 
-                if (userRoles.length > 1) {
-                    // Multi-role user → role selection page
-                    navigate('/select-role', { state: { roles: userRoles } });
-                } else {
-                    // Single role → direct dashboard
-                    const singleRole = userRoles[0] || userData.role || 'student';
-                    sessionStorage.setItem('bdcs_activeRole', singleRole);
-                    navigate(rolePaths[singleRole] || '/');
-                }
+                // Automatically pick highest role and redirect (skip multi-role selection)
+                const singleRole = getHighestPriorityRole(userData);
+                sessionStorage.setItem('bdcs_activeRole', singleRole);
+                navigate(rolePaths[singleRole] || '/');
             }
         } catch (err) {
             console.error('Login error:', err);

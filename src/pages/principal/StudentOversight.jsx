@@ -109,27 +109,27 @@ export default function StudentOversight() {
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] p-10 md:p-14 border border-white/50 relative overflow-hidden shadow-2xl shadow-blue-500/5"
+                className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-14 border border-white/50 relative overflow-hidden shadow-2xl shadow-blue-500/5"
             >
                 <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/5 blur-[100px] -mr-48 -mt-48 rounded-full" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[80px] -ml-32 -mb-32 rounded-full" />
                 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
-                    <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                    <div className="space-y-3 md:space-y-4 text-center md:text-left">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 border border-red-100/50">
                             <span className="w-2 h-2 rounded-full bg-[#E31E24] animate-pulse" />
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#E31E24]">Academic Oversight</span>
                         </div>
                         <h2 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter leading-none">
-                            Student <span className="text-[#E31E24]">Directory</span>
+                            Student <span className="text-[#E31E24]">Register</span>
                         </h2>
                         <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">{user?.collegeName}</p>
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="bg-white/80 border border-gray-100 px-8 py-5 rounded-[2rem] shadow-sm backdrop-blur-md flex flex-col items-center min-w-[140px]">
+                    <div className="flex justify-center md:justify-end">
+                        <div className="bg-white/80 border border-gray-100 px-6 py-4 md:px-8 md:py-5 rounded-[2rem] shadow-sm backdrop-blur-md flex flex-col items-center min-w-[120px] md:min-w-[140px]">
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Records</p>
-                            <p className="text-3xl font-black tracking-tighter text-gray-900">{stats.total}{stats.isLimited ? '+' : ''}</p>
+                            <p className="text-2xl md:text-3xl font-black tracking-tighter text-gray-900">{stats.total}{stats.isLimited ? '+' : ''}</p>
                         </div>
                     </div>
                 </div>
@@ -165,7 +165,7 @@ export default function StudentOversight() {
                 />
             </div>
 
-            {/* Content Deck */}
+            {/* Tabular Student Ledger */}
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {[1, 2, 3, 4, 5, 6].map(i => (
@@ -185,64 +185,82 @@ export default function StudentOversight() {
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Try adjusting your search filters.</p>
                 </motion.div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <AnimatePresence mode="popLayout">
-                        {students.map((student, idx) => (
-                            <StudentCard key={student.id} student={student} idx={idx} />
-                        ))}
-                    </AnimatePresence>
+                <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
+                        <table className="min-w-full divide-y divide-gray-100 table-auto">
+                            <thead>
+                                <tr className="bg-gray-50/30">
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID</th>
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details</th>
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Department & Sem</th>
+                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID / Roll No</th>
+                                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 bg-white/30">
+                                {students.map((student, index) => (
+                                    <tr key={student.id} className="group hover:bg-red-50/30 transition-all duration-300">
+                                        {/* S.No */}
+                                        <td className="px-8 py-6 text-[10px] font-black text-gray-300 font-mono w-10">
+                                            {String(index + 1).padStart(2, '0')}
+                                        </td>
+
+                                        {/* Persona */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-sm font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all duration-500 shrink-0">
+                                                    {student.name?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex flex-col min-w-[200px]">
+                                                    <span className="text-sm font-black text-gray-900 group-hover:text-[#E31E24] transition-colors">{student.name}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400 lowercase tracking-tight truncate">{student.email}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        {/* Academic Scope */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1 min-w-[150px]">
+                                                <div className="px-3 py-1 bg-red-50 text-[#E31E24] text-[8px] font-black uppercase tracking-[0.2em] border border-red-100/50 rounded-full w-fit">
+                                                    {student.departmentName || 'General'}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-2 font-mono">
+                                                    Semester 0{student.currentSemester || 1}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* Identification */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-sm font-black text-gray-900 tracking-tight">#{student.rollNumber || 'NOT SET'}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                    <span className="text-[9px] font-bold text-gray-400 font-mono tracking-widest uppercase">{student.enrollmentNumber || 'NO ENROLLMENT'}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        {/* NOC Status */}
+                                        <td className="px-8 py-6 text-right">
+                                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border backdrop-blur-sm transition-all shadow-sm ${
+                                                student.nocStatus === 'cleared'
+                                                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600'
+                                                    : 'bg-amber-50 border-amber-100 text-amber-600'
+                                            }`}>
+                                                <span className={`w-2 h-2 rounded-full ${student.nocStatus === 'cleared' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                                                <span className="text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                                                    {student.nocStatus === 'cleared' ? 'AUTHORIZED' : 'PENDING'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
-    );
-}
-
-function StudentCard({ student, idx }) {
-    return (
-        <motion.div
-            layout
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
-            transition={{ delay: idx * 0.03, type: 'spring', stiffness: 200, damping: 20 }}
-            className="group bg-white rounded-[2.8rem] p-8 shadow-sm border border-gray-100 flex flex-col hover:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.08)] hover:border-red-100 transition-all duration-500 relative overflow-hidden"
-        >
-            <div className="relative z-10 flex flex-col h-full gap-8">
-                {/* Upper Section */}
-                <div className="flex justify-between items-start">
-                    <div className="w-16 h-16 rounded-[1.8rem] bg-gray-900 text-white flex items-center justify-center text-xl font-black shadow-xl shadow-gray-200 group-hover:bg-[#E31E24] group-hover:shadow-red-200 group-hover:rotate-6 transition-all duration-500">
-                        {student.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <div className="px-4 py-1.5 rounded-full bg-red-50 text-[#E31E24] text-[8px] font-black uppercase tracking-[0.2em] border border-red-100 shadow-sm mb-2">
-                            {student.departmentName || 'General'}
-                        </div>
-                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{student.batchName || '2023-26'}</span>
-                    </div>
-                </div>
-
-                {/* Info Section */}
-                <div className="space-y-1.5 flex-grow">
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tighter leading-none group-hover:text-[#E31E24] transition-colors duration-300">{student.name}</h3>
-                    <p className="text-[10px] font-bold text-gray-400 line-clamp-1 uppercase tracking-widest">{student.email}</p>
-                </div>
-
-                {/* Footer Section */}
-                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-50">
-                    <div className="space-y-1">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Semester</p>
-                        <p className="text-sm font-black text-gray-900">SEM 0{student.currentSemester || '1'}</p>
-                    </div>
-                    <div className="space-y-1 text-right">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Roll Number</p>
-                        <p className="text-sm font-black text-gray-900">{student.rollNumber || student.enrollmentNumber || 'N/A'}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Subtle background decoration */}
-            <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-red-500/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="absolute top-0 right-0 w-2 h-full bg-[#E31E24] opacity-0 group-hover:opacity-10 transition-opacity" />
-        </motion.div>
     );
 }

@@ -159,13 +159,13 @@ export default function BatchManagement() {
                     }
                 }
                 await logUpdate('batches', editingBatch.id, editingBatch, payload, user);
-                toast.success('Batch Config Synchronized');
+                toast.success('Batch Updated Successfully');
             } else {
                 payload.createdAt = serverTimestamp();
                 payload.createdBy = user.uid;
                 const ref = await addDoc(collection(db, 'batches'), payload);
                 await logCreate('batches', ref.id, payload, user);
-                toast.success('New Batch Manifest Created');
+                toast.success('New Batch Created');
             }
 
             setShowForm(false);
@@ -191,15 +191,6 @@ export default function BatchManagement() {
                         <div className="font-black text-gray-900 tracking-tight">{row.name}</div>
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{row.courseName}</div>
                     </div>
-                </div>
-            )
-        },
-        {
-            header: 'Timeline',
-            field: 'sessionStart',
-            render: (row) => (
-                <div className="bg-gray-50/50 px-4 py-2 rounded-xl border border-gray-100/50 inline-block">
-                    <span className="text-xs font-black text-gray-600 tracking-tighter">{row.sessionStart} — {row.sessionEnd}</span>
                 </div>
             )
         },
@@ -236,19 +227,21 @@ export default function BatchManagement() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => { setActiveBatch(row); setShowStudentModal(true); }}
+                        title="View Student Roster"
                         className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-100 shadow-sm shadow-emerald-100/30"
                     >
                         Roster
                     </button>
                     <button
                         onClick={() => { setActiveBatch(row); setShowPromoteModal(true); }}
+                        title="Promote to Next Semester"
                         className="px-4 py-2 bg-[#E31E24] text-white rounded-xl hover:bg-black transition-all text-[10px] font-black uppercase tracking-widest border border-white/20 shadow-lg shadow-red-200"
                     >
                         Promote
                     </button>
                     <button
                         onClick={() => handleEdit(row)}
-                        data-tooltip="Configure Parameters"
+                        title="Configure Parameters"
                         className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-900 hover:text-white transition-all border border-gray-100"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37" /><circle cx="12" cy="12" r="3" /></svg>
@@ -260,31 +253,38 @@ export default function BatchManagement() {
 
     return (
         <div className="space-y-8 pb-12">
+            {/* Executive Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Batches</h2>
-                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                        HOD Panel • {user?.departmentName}
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-1">Batch List</h2>
+                    <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-[#E31E24] rounded-full animate-pulse" />
+                        Active Batch Groups • {user?.departmentName}
                     </p>
                 </div>
-                <button
-                    onClick={handleAdd}
-                    className="bg-[#E31E24] text-white px-8 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-black font-black uppercase tracking-widest text-xs flex items-center gap-3 active:scale-95 transition-all border border-white/20"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Batch
-                </button>
+                <div className="flex items-center gap-4">
+                    <div className="bg-white px-5 py-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-end">
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Total Batches</span>
+                        <span className="text-xl font-black text-gray-900">{batches.length} Active</span>
+                    </div>
+                    <button
+                        onClick={handleAdd}
+                        title="Add New Batch Profile"
+                        className="bg-gray-900 text-white px-8 py-4 rounded-2xl shadow-xl shadow-gray-200 hover:bg-[#E31E24] font-black uppercase tracking-[0.2em] text-[10px] flex items-center gap-3 active:scale-95 transition-all border border-white/10"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M12 4v16m8-8H4"/></svg>
+                        Create New Batch
+                    </button>
+                </div>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            {/* Tabular Batch Ledger */}
+            <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5 min-h-[400px]">
                 <DataTable
                     columns={columns}
                     data={batches}
                     loading={loading}
-                    emptyMessage="No batches found. Add your first batch to start."
+                    emptyMessage="No classes found in the list yet."
                     actions={false}
                 />
             </div>

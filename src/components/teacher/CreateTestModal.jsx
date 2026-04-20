@@ -45,50 +45,56 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
             const batchesData = batchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setBatches(batchesData);
 
+            // Directly fetch assignments - each assignment is a unique Subject+Batch+Teacher triplet
             const subjectsSnap = await getDocs(query(collection(db, 'class_assignments'), where('teacherId', '==', teacherUser.uid)));
-            const subjectsData = subjectsSnap.docs.map(doc => doc.data());
+            const assignmentsData = subjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            const uniqueSubjects = [];
-            const seen = new Set();
-            subjectsData.forEach(assignment => {
-                if (!seen.has(assignment.subjectId)) {
-                    seen.add(assignment.subjectId);
-                    uniqueSubjects.push({
-                        id: assignment.subjectId,
-                        label: `${assignment.subjectName} (${assignment.subjectCode})`,
-                        value: assignment.subjectId,
-                        name: assignment.subjectName,
-                        code: assignment.subjectCode,
-                        batchId: assignment.batchId,
-                        batchName: assignment.batchName,
-                        semester: assignment.semester,
-                        courseId: assignment.courseId
-                    });
-                }
-            });
-            setSubjects(uniqueSubjects);
+            // Map assignments to dropdown options, filtering out archived/historical ones
+            const dropdownOptions = assignmentsData
+                .filter(assignment => {
+                    const batch = batchesData.find(b => b.id === assignment.batchId);
+                    // Match assignments ONLY if they belong to the current active semester for that batch
+                    return batch && String(assignment.semester) === String(batch.currentSemester);
+                })
+                .map(assignment => ({
+                    id: assignment.id,
+                    label: `${assignment.subjectName} — ${assignment.batchName}`,
+                    value: assignment.id,
+                    subjectId: assignment.subjectId,
+                    name: assignment.subjectName,
+                    code: assignment.subjectCode,
+                    batchId: assignment.batchId,
+                    batchName: assignment.batchName,
+                    semester: assignment.semester,
+                    courseId: assignment.courseId
+                }));
+
+            setSubjects(dropdownOptions);
         } catch (error) {
             console.error('Error loading data:', error);
-            toast.error('Failed to load academic dependencies');
+            toast.error('Failed to load classes or subjects');
         } finally {
             setLoading(false);
         }
     };
 
+    const [submitting, setSubmitting] = useState(false);
+
     const handleSubjectChange = (e) => {
-        const subjectId = e.target.value;
-        const selectedSubject = subjects.find(s => s.id === subjectId);
-        if (selectedSubject) {
-            const matchingBatch = batches.find(b => b.id === selectedSubject.batchId);
+        const assignmentId = e.target.value;
+        const selected = subjects.find(s => s.id === assignmentId);
+        if (selected) {
+            const matchingBatch = batches.find(b => b.id === selected.batchId);
             setFormData(prev => ({
                 ...prev,
-                subject: subjectId,
-                subjectName: selectedSubject.name,
-                batch: selectedSubject.batchId,
-                batchName: selectedSubject.batchName,
-                semester: selectedSubject.semester || matchingBatch?.currentSemester || '',
+                subject: selected.subjectId,
+                subjectAssignmentId: assignmentId,
+                subjectName: selected.name,
+                batch: selected.batchId,
+                batchName: selected.batchName,
+                semester: selected.semester || matchingBatch?.currentSemester || '',
                 academicYear: matchingBatch?.academicYear || '',
-                course: selectedSubject.courseId || matchingBatch?.courseId || '',
+                course: selected.courseId || matchingBatch?.courseId || '',
                 courseName: matchingBatch?.courseName || ''
             }));
         }
@@ -96,25 +102,28 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
+        if (submitting) return; // Prevent double-clicks
+
         if (!formData.subject || !formData.batch || !formData.topic || !formData.testDate || !formData.maxMarks) {
             toast.error('Required fields: Subject, Topic, Date, and Marks');
             return;
         }
 
         try {
-            setLoading(true);
+            setSubmitting(true);
             await createTest({
                 ...formData,
                 subjectId: formData.subject,
                 batchId: formData.batch,
                 testDate: formData.testDate
             }, teacherUser);
-            toast.success('Assessment Protocol Authorized');
+            toast.success('Test Created Successfully');
             onSuccess();
         } catch (error) {
-            toast.error(error.message || 'Deployment failed');
+            console.error('Submit error:', error);
+            toast.error(error.message || 'Creation failed');
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -137,8 +146,8 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
                                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3.5}><path d="M12 4v16m8-8H4" /></svg>
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-white tracking-tight leading-none uppercase">Authorizing Assessment</h2>
-                                <p className="text-[8px] font-black text-gray-500 uppercase tracking-[0.2em] mt-1.5">Academic Year {new Date().getFullYear()} • Institutional Protocol</p>
+                                <h2 className="text-xl font-black text-white tracking-tight leading-none uppercase">Create New Test</h2>
+                                <p className="text-[8px] font-black text-gray-500 uppercase tracking-[0.2em] mt-1.5">New Record • {new Date().getFullYear()}</p>
                             </div>
                         </div>
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-90">
@@ -152,15 +161,15 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
                         <PremiumSelect
                             label="Subject Assignment *"
                             placeholder="Select Assigned Subject"
-                            value={formData.subject}
+                            value={formData.subjectAssignmentId}
                             onChange={handleSubjectChange}
                             options={subjects}
                             icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13" /></svg>}
                         />
 
                         <Input
-                            label="Topic / Curricular Phase *"
-                            placeholder="e.g. Data Structures - Unit 1"
+                            label="Topic Name *"
+                            placeholder="e.g. Unit 1 - Basics"
                             value={formData.topic}
                             onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
                             required
@@ -173,21 +182,22 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
                                 </svg>
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest mb-0.5">Target Identification (Cohort)</p>
-                                <p className="text-xl font-black text-gray-900 tracking-tight">{formData.batchName ? `${formData.batchName} — Sem ${formData.semester}` : 'Select Subject to Resolve Cohort'}</p>
+                                <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest mb-0.5">Selected Batch</p>
+                                <p className="text-xl font-black text-gray-900 tracking-tight">{formData.batchName ? `${formData.batchName} — Sem ${formData.semester}` : 'Select Subject to see Batch'}</p>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
                             <Input
-                                label="Execution Date *"
+                                label="Test Date *"
                                 type="date"
                                 value={formData.testDate}
                                 onChange={(e) => setFormData(prev => ({ ...prev, testDate: e.target.value }))}
+                                min={new Date().toISOString().split('T')[0]}
                                 required
                             />
                             <Input
-                                label="Yield Target (Marks) *"
+                                label="Max Marks *"
                                 type="number"
                                 value={formData.maxMarks}
                                 onChange={(e) => setFormData(prev => ({ ...prev, maxMarks: parseInt(e.target.value) }))}
@@ -196,18 +206,18 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
                         </div>
 
                         <PremiumSelect
-                            label="Assessment Domain"
+                            label="Test Type"
                             value={formData.testType}
                             onChange={(e) => setFormData(prev => ({ ...prev, testType: e.target.value }))}
                             options={[
-                                { label: 'Class Assessment (CT)', value: 'class_test' },
-                                { label: 'Unit Evaluation (UT)', value: 'unit_test' },
-                                { label: 'Practical Phase', value: 'practical' }
+                                { label: 'Class Test (CT)', value: 'class_test' },
+                                { label: 'Unit Test (UT)', value: 'unit_test' },
+                                { label: 'Practical Exam', value: 'practical' }
                             ]}
                         />
 
                         <div className="relative">
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Protocol Objectives (Optional)</label>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Test Rules / Info (Optional)</label>
                             <textarea
                                 value={formData.description}
                                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -221,13 +231,13 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
 
                 {/* Footer */}
                 <div className="p-8 border-t border-gray-100 bg-white shrink-0 flex items-center justify-between gap-4">
-                    <button onClick={onClose} className="px-6 py-2.5 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-all">Discard Request</button>
+                    <button onClick={onClose} className="px-6 py-2.5 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-all">Cancel</button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
                         className="bg-[#E31E24] text-white px-10 py-3.5 rounded-2xl shadow-xl shadow-red-200/50 hover:bg-black font-black uppercase tracking-widest text-[10px] flex items-center gap-3 active:scale-95 transition-all border border-white/10 disabled:opacity-50"
                     >
-                        {loading ? 'Processing Authorization...' : 'Authorize Deploy'}
+                        {loading ? 'Wait...' : 'Create Test'}
                     </button>
                 </div>
             </motion.div>

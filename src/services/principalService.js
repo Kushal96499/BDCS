@@ -317,17 +317,11 @@ export async function assignHOD(departmentId, userId, effectiveDate, currentPrin
         });
 
         // Log role change for audit trail
-        if (userId === currentPrincipal.uid) {
-            // Self-assignment
-            await logSelfAssignment(user, department);
-        } else {
-            // Regular assignment
-            await logRoleAssignment(user, 'hod', {
-                departmentId: departmentId,
-                departmentName: department.name,
-                details: `Assigned as HOD of ${department.name} by ${currentPrincipal.displayName || currentPrincipal.email}`
-            });
-        }
+        await logRoleAssignment(user, 'hod', {
+            departmentId: departmentId,
+            departmentName: department.name,
+            details: `Assigned as HOD of ${department.name} by ${currentPrincipal.displayName || currentPrincipal.email}`
+        });
 
         return { success: true };
     } catch (error) {
@@ -480,6 +474,7 @@ export async function createHODUser(userData, departmentId, currentPrincipal) {
             lastName: userData.lastName,
             email: userData.email,
             phone: userData.phone,
+            employeeId: userData.employeeId || '',
             role: 'hod',
             primaryRole: 'hod',
             roles: ['hod'],
@@ -530,6 +525,81 @@ export async function createHODUser(userData, departmentId, currentPrincipal) {
         };
     } catch (error) {
         console.error('Error creating HOD user:', error);
+        throw error;
+    }
+}
+
+/**
+ * Create new Teacher user (by Principal)
+ */
+export async function createTeacherUser(userData, departmentId, currentPrincipal) {
+    try {
+        const { initializeApp, deleteApp } = await import('firebase/app');
+        const { getAuth, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
+        const { firebaseConfig } = await import('../config/firebase');
+
+        // Generate password: firstname + last 4 digits of phone
+        const firstName = userData.firstName.trim().toLowerCase();
+        const last4Digits = userData.phone.slice(-4);
+        const password = firstName + last4Digits;
+
+        // Create Firebase Auth account
+        const secondaryAppName = `TeacherApp-${Date.now()}`;
+        const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+        const secondaryAuth = getAuth(secondaryApp);
+
+        try {
+            const authResult = await createUserWithEmailAndPassword(
+                secondaryAuth,
+                userData.email,
+                password
+            );
+
+            // Get department data
+            const deptDoc = await getDoc(doc(db, 'departments', departmentId));
+            const deptData = deptDoc ? deptDoc.data() : { name: 'Unknown' };
+
+            // Create user document
+            const fullName = `${userData.firstName.trim()} ${userData.lastName.trim()}`;
+            const newUser = {
+                uid: authResult.user.uid,
+                name: fullName,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                email: userData.email,
+                phone: userData.phone,
+                employeeId: userData.employeeId || '',
+                role: 'teacher',
+                roles: ['teacher'],
+                collegeId: currentPrincipal.collegeId || null,
+                collegeName: currentPrincipal.collegeName || null,
+                campusId: currentPrincipal.campusId || null,
+                campusName: currentPrincipal.campusName || null,
+                departmentId: departmentId,
+                departmentName: deptData.name || null,
+                status: 'active',
+                mustResetPassword: true,
+                createdAt: serverTimestamp(),
+                createdBy: currentPrincipal.uid,
+                updatedAt: serverTimestamp(),
+                updatedBy: currentPrincipal.uid,
+                designation: userData.designation || 'Teacher'
+            };
+
+            await setDoc(doc(db, 'users', authResult.user.uid), newUser);
+            await logCreate('users', authResult.user.uid, newUser, currentPrincipal);
+            await signOut(secondaryAuth);
+
+            return {
+                success: true,
+                userId: authResult.user.uid,
+                password: password
+            };
+        } finally {
+            await deleteApp(secondaryApp);
+        }
+    } catch (error) {
+        console.error('Error creating Teacher user:', error);
         throw error;
     }
 }

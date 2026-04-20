@@ -158,25 +158,25 @@ export default function UserProfileModal({ isOpen, onClose }) {
                             {/* Inputs */}
                             <div className="space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Relational Hash / Contact</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contact Number</label>
                                     <input
                                         type="tel"
                                         {...register('phoneNumber')}
                                         disabled={isStaff}
                                         className={`w-full px-5 py-4 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 focus:bg-white focus:border-[#E31E24] outline-none transition-all ${errors.phoneNumber ? 'border-red-500' : 'border-gray-100'} ${isStaff ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        placeholder="Mobile Identity"
+                                        placeholder="Phone Number"
                                     />
                                     {errors.phoneNumber && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.phoneNumber.message}</p>}
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Extended Bio-Data</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bio / Description</label>
                                     <textarea
                                         {...register('bio')}
                                         disabled={isStaff}
                                         rows="3"
                                         className={`w-full px-5 py-4 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 focus:bg-white focus:border-[#E31E24] outline-none transition-all resize-none ${errors.bio ? 'border-red-500' : 'border-gray-100'} ${isStaff ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        placeholder={isStaff ? "Profile managed by Institutional Administration" : "Professional background and objectives..."}
+                                        placeholder={isStaff ? "Profile managed by Institutional Administration" : "Write something about yourself..."}
                                     />
                                     {errors.bio && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.bio.message}</p>}
                                 </div>

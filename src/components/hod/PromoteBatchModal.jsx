@@ -208,20 +208,37 @@ export default function PromoteBatchModal({ isOpen, onClose, batch, onSuccess })
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    {loading ? [1,2,3].map(i=><div key={i} className="h-24 animate-pulse bg-gray-50 rounded-3xl" />) : 
-                                        students.map(student => (
-                                            <CandidateLine 
-                                                key={student.id} 
-                                                student={student} 
-                                                mode={studentSelections[student.id]?.mode || 'PROMOTED'} 
-                                                onModeChange={(m) => setStudentMode(student.id, m)}
-                                                subjects={subjects}
-                                                selectedSubjects={studentSelections[student.id]?.subjects || []}
-                                                onToggleSubject={(s) => toggleSubject(student.id, s)}
-                                            />
-                                        ))
-                                    }
+                                <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden">
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-left border-collapse min-w-[800px]">
+                                            <thead>
+                                                <tr className="bg-gray-50/50">
+                                                    <th className="p-6 text-[9px] font-black text-gray-400 uppercase tracking-widest pl-10">Candidate Identity</th>
+                                                    <th className="p-6 text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Clearance Protocol</th>
+                                                    <th className="p-6 text-[9px] font-black text-gray-400 uppercase tracking-widest">Backlog / Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {loading ? [1,2,3].map(i=>(
+                                                    <tr key={i} className="animate-pulse">
+                                                        <td colSpan="3" className="p-10"><div className="h-12 bg-gray-50 rounded-2xl w-full" /></td>
+                                                    </tr>
+                                                )) : 
+                                                    students.map(student => (
+                                                        <CandidateLine 
+                                                            key={student.id} 
+                                                            student={student} 
+                                                            mode={studentSelections[student.id]?.mode || 'PROMOTED'} 
+                                                            onModeChange={(m) => setStudentMode(student.id, m)}
+                                                            subjects={subjects}
+                                                            selectedSubjects={studentSelections[student.id]?.subjects || []}
+                                                            onToggleSubject={(s) => toggleSubject(student.id, s)}
+                                                        />
+                                                    ))
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                              </div>
                         </div>
@@ -262,42 +279,46 @@ const CandidateLine = ({ student, mode, onModeChange, subjects, selectedSubjects
     const needsSubjects = mode !== 'PROMOTED';
     
     return (
-        <div className={`p-6 sm:p-8 rounded-[2rem] border transition-all group ${mode === 'PROMOTED' ? 'bg-white border-gray-100' : activeCfg.bg + ' ' + activeCfg.border}`}>
-            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                <div className="lg:w-1/4 min-w-0">
-                    <p className="text-sm font-black text-gray-900 truncate leading-tight">{student.name}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1 truncate">{student.rollNumber}</p>
+        <tr className={`transition-all group ${mode === 'PROMOTED' ? 'bg-white' : activeCfg.bg + '/30 hover:' + activeCfg.bg + '/50'}`}>
+            <td className="p-6 pl-10 whitespace-nowrap">
+                <div className="flex flex-col">
+                    <p className="text-sm font-black text-gray-900 leading-tight uppercase tracking-tight">{student.name}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{student.rollNumber}</p>
                 </div>
-                
-                <div className="lg:w-1/3 flex gap-2">
+            </td>
+            
+            <td className="p-6">
+                <div className="flex gap-2 justify-center">
                     {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                         <button key={key} onClick={() => onModeChange(key)} 
-                            className={`flex-1 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all border ${mode === key ? `${cfg.activeBg} ${cfg.activeText} border-transparent shadow-lg shadow-${cfg.color}-100` : `bg-white border-gray-100 text-gray-400 hover:border-${cfg.color}-200`}`}>
+                            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all border shrink-0 ${mode === key ? `${cfg.activeBg} ${cfg.activeText} border-transparent shadow-lg shadow-${cfg.color}-100` : `bg-white border-gray-100 text-gray-400 hover:border-${cfg.color}-200`}`}>
                             {cfg.emoji} {cfg.label}
                         </button>
                     ))}
                 </div>
+            </td>
 
-                <div className="flex-1">
+            <td className="p-6 pr-10">
+                <div className="flex flex-wrap gap-2">
                     {needsSubjects ? (
-                        <div className="flex flex-wrap gap-2">
+                        <>
                             {subjects.map(subj => {
                                 const isSelected = selectedSubjects.some(s => s.code === subj.code);
                                 return (
                                     <button key={subj.id} onClick={() => onToggleSubject(subj)}
-                                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-tight border transition-all ${isSelected ? `${activeCfg.activeBg} ${activeCfg.activeText} border-transparent` : 'bg-white border-gray-100 text-gray-400'}`}>
+                                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-tight border transition-all ${isSelected ? `${activeCfg.activeBg} ${activeCfg.activeText} border-transparent shadow-sm` : 'bg-white border-gray-100 text-gray-400 hover:bg-gray-50'}`}>
                                         {subj.name}
                                     </button>
                                 );
                             })}
-                        </div>
+                        </>
                     ) : (
-                        <div className="flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl inline-flex">
+                        <div className="flex items-center gap-2 text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm shadow-emerald-100/30">
                             <span className="animate-pulse">✨</span> Operational Clearance Active
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+            </td>
+        </tr>
     );
 }

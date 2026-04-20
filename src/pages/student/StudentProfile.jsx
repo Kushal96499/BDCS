@@ -4,9 +4,9 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
 import { doc, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { useAuth } from '../../hooks/useAuth';
+import { db, auth } from '../../config/firebase';
 import { toast } from '../../components/admin/Toast';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -704,10 +704,33 @@ export default function StudentProfile() {
                 )}
             </AnimatePresence>
 
+
+            {/* ═══════════════════════════════════════════════════
+                SYSTEM & CONTROL
+            ═══════════════════════════════════════════════════ */}
+            <h3 className="section-title text-slate-400 mt-12 mb-6 uppercase text-[10px] font-black tracking-widest">System & Control</h3>
+            <div className="aether-card p-6 border-red-50 hover:border-red-100 transition-colors bg-white">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <span>🔐</span>
+                            Session Management
+                        </h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5 font-medium uppercase tracking-tight">Terminate active institutional session and purge local tokens.</p>
+                    </div>
+                    <button
+                        onClick={() => auth.signOut().then(() => navigate('/login'))}
+                        className="w-full sm:w-auto px-10 py-4 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-[#E31E24] hover:shadow-red-200 transition-all active:scale-95"
+                    >
+                        Execute Logout
+                    </button>
+                </div>
+            </div>
+
+            <div className="h-20" />
         </div>
     );
 }
-
 
 // ─── SUB-COMPONENTS ──────────────────────────────────────────────
 

@@ -1,16 +1,21 @@
-// ============================================
-// BDCS - Student Progress Timeline
-// Visual timeline of student's academic journey
-// ============================================
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { getStudentAcademicHistory } from '../../services/batchPromotionService';
 import { exportStudentHistoryToExcel } from '../../services/assessmentExportService';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const container = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const item = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 200 } }
+};
 
 export default function StudentProgressTimeline() {
     const { user } = useAuth();
@@ -20,23 +25,21 @@ export default function StudentProgressTimeline() {
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
-        if (user) {
-            loadHistory();
-        }
+        if (user) loadHistory();
     }, [user]);
 
     const loadHistory = async () => {
         try {
             setLoading(true);
-            const historyData = await getStudentAcademicHistory(user.uid);
-            setHistory(historyData);
+            const data = await getStudentAcademicHistory(user.uid);
+            setHistory(data);
         } catch (error) {
             console.error('Error loading history:', error);
             toast.error('Failed to load academic history');
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const handleExport = async () => {
         try {
@@ -44,198 +47,136 @@ export default function StudentProgressTimeline() {
             const filename = await exportStudentHistoryToExcel(user.uid, user.name);
             toast.success(`Exported to ${filename}`);
         } catch (error) {
-            console.error('Error exporting:', error);
-            toast.error('Failed to export history');
+            toast.error('Export failed');
         } finally {
             setExporting(false);
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status?.toUpperCase()) {
-            case 'PROMOTED':
-                return 'bg-green-100 text-green-700 border-green-300';
-            case 'ACTIVE':
-                return 'bg-blue-100 text-blue-700 border-blue-300';
-            case 'BACK':
-                return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-            case 'PASSOUT':
-                return 'bg-purple-100 text-purple-700 border-purple-300';
-            default:
-                return 'bg-gray-100 text-gray-700 border-gray-300';
-        }
-    };
-
-    const getStatusIcon = (status) => {
-        switch (status?.toUpperCase()) {
-            case 'PROMOTED':
-                return (
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                );
-            case 'ACTIVE':
-                return (
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                );
-            case 'BACK':
-                return (
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                );
-            case 'PASSOUT':
-                return (
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                    </svg>
-                );
-            default:
-                return null;
-        }
-    };
+    if (loading) return <div className="p-12 animate-pulse space-y-8"><div className="h-64 bg-white rounded-[3rem] border border-slate-100" /></div>;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <button
-                        onClick={() => navigate('/student/assessment')}
-                        className="text-biyani-red hover:underline mb-2 flex items-center gap-1"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back to Assessment
-                    </button>
-                    <h1 className="text-3xl font-bold text-gray-900">Academic Progress Timeline</h1>
-                    <p className="text-gray-600 mt-1">Your complete academic journey</p>
-                </div>
-                <button
-                    onClick={handleExport}
-                    disabled={exporting || history.length === 0}
-                    className="px-6 py-3 bg-biyani-red text-white rounded-xl font-semibold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-lg flex items-center gap-2"
-                >
-                    {exporting ? 'Exporting...' : (
-                        <>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Export History
-                        </>
-                    )}
-                </button>
-            </div>
-
-            {/* Timeline */}
-            {loading ? (
-                <div className="space-y-8">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="animate-pulse">
-                            <div className="h-32 bg-gray-200 rounded-xl"></div>
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-12 pb-32">
+            
+            {/* ── ACADEMIC JOURNEY SPOTLIGHT ───────────────────────── */}
+            <motion.div variants={item} className="aether-card p-10 md:p-14 relative overflow-hidden bg-white">
+                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-slate-50 to-transparent pointer-events-none" />
+                
+                <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
+                    <div className="flex-1 space-y-8">
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <button
+                                    onClick={() => navigate('/student/test-history')}
+                                    className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-colors"
+                                >
+                                    ←
+                                </button>
+                                <span className="px-3 py-1 bg-slate-900 text-white text-[9px] font-bold uppercase tracking-[0.2em] rounded-md">Achievement History</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Academic Records</span>
+                            </div>
+                            <h1 className="text-5xl md:text-6xl font-heading text-slate-900 leading-tight">
+                                Progress <span className="text-[#E31E24]">Timeline.</span>
+                            </h1>
+                            <p className="mt-6 text-slate-500 text-lg max-w-xl leading-relaxed font-medium">
+                                A verified history of your academic progress and promotion through the college.
+                            </p>
                         </div>
-                    ))}
-                </div>
-            ) : history.length === 0 ? (
-                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
-                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No History Available</h3>
-                    <p className="text-gray-600">Your academic history will appear here</p>
-                </div>
-            ) : (
-                <div className="relative">
-                    {/* Timeline Line */}
-                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                    </div>
 
-                    {/* Timeline Items */}
-                    <div className="space-y-8">
-                        {history.map((record, index) => (
-                            <motion.div
-                                key={record.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="relative pl-20"
-                            >
-                                {/* Timeline Dot */}
-                                <div className={`absolute left-5 w-6 h-6 rounded-full border-4 border-white ${getStatusColor(record.status).split(' ')[0]
-                                    } shadow-lg flex items-center justify-center`}>
-                                    {record.status === 'active' && (
-                                        <div className="w-3 h-3 rounded-full bg-blue-600 animate-pulse"></div>
-                                    )}
-                                </div>
+                    <div className="hidden lg:block w-px h-32 bg-slate-100" />
 
-                                {/* Content Card */}
-                                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex-1">
-                                            <h3 className="text-xl font-bold text-gray-900">{record.batchName}</h3>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                Semester {record.semester} • {record.academicYear}
-                                            </p>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(record.status)}`}>
-                                            {record.status}
-                                        </span>
-                                    </div>
-
-                                    {/* Timeline Dates */}
-                                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                            </svg>
-                                            Joined: {format(record.joinedAt, 'MMM dd, yyyy')}
-                                        </div>
-                                        {record.leftAt && (
-                                            <div className="flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                                </svg>
-                                                Left: {format(record.leftAt, 'MMM dd, yyyy')}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Performance Stats */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 bg-gray-50 rounded-lg p-4">
-                                        <div>
-                                            <p className="text-xs text-gray-500 mb-1">Tests</p>
-                                            <p className="text-lg font-semibold text-gray-900">{record.testsCompleted || 0}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 mb-1">Average %</p>
-                                            <p className="text-lg font-semibold text-gray-900">{record.averagePercentage?.toFixed(2) || 'N/A'}%</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 mb-1">Passed</p>
-                                            <p className="text-lg font-semibold text-green-600">{record.passCount || 0}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 mb-1">Failed</p>
-                                            <p className="text-lg font-semibold text-red-600">{record.failCount || 0}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Remarks */}
-                                    {record.remarks && (
-                                        <div className="pt-4 border-t border-gray-200">
-                                            <p className="text-sm text-gray-700">
-                                                <span className="font-semibold text-gray-900">Remarks:</span> {record.remarks}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        ))}
+                    <div className="flex flex-col items-center gap-6">
+                        <button 
+                            onClick={handleExport}
+                            disabled={exporting || history.length === 0}
+                            className="action-button px-10"
+                        >
+                            {exporting ? 'Processing...' : 'Export Transcript'}
+                        </button>
+                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.3em]">Official College Record</p>
                     </div>
                 </div>
-            )}
+            </motion.div>
+
+            {/* ── CHRONOLOGICAL FEED ─────────────────────────────── */}
+            <div className="relative px-4">
+                {/* Visual Line */}
+                <div className="absolute left-16 top-0 bottom-0 w-px bg-slate-100" />
+
+                <div className="space-y-16">
+                    {history.map((record, index) => (
+                        <TimelineNode key={record.id} record={record} index={index} />
+                    ))}
+
+                    {history.length === 0 && (
+                        <div className="py-32 text-center aether-card">
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.4em]">No Academic History Found</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+function TimelineNode({ record, index }) {
+    const isPassout = record.status?.toUpperCase() === 'PASSOUT';
+    const isActive = record.status?.toUpperCase() === 'ACTIVE';
+    
+    return (
+        <motion.div 
+            variants={item}
+            className="relative flex gap-12 group"
+        >
+            {/* Visual Dot */}
+            <div className="relative z-10 mt-6">
+                <div className={`w-4 h-4 rounded-full border-4 border-white shadow-sm ring-4 ring-slate-50 transition-all duration-500
+                    ${isActive ? 'bg-blue-500 animate-pulse' : isPassout ? 'bg-[#E31E24]' : 'bg-emerald-500'}`} />
+            </div>
+
+            {/* Content Card */}
+            <div className="flex-1 aether-card p-8 hover:bg-slate-50/50 transition-all duration-500">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-10">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">{record.academicYear}</span>
+                             <span className="w-1 h-1 bg-slate-200 rounded-full" />
+                             <span className="text-[9px] font-bold text-slate-900 uppercase tracking-widest">Sem {record.semester}</span>
+                        </div>
+                        <h3 className="text-3xl font-heading text-slate-900 group-hover:text-[#E31E24] transition-colors">{record.batchName}</h3>
+                    </div>
+                    <div className={`px-4 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest border
+                        ${isActive ? 'bg-blue-50 text-blue-600 border-blue-100' : isPassout ? 'bg-[#E31E24] text-white border-[#E31E24]' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                        {record.status}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                    <LogStat label="Admission Date" value={format(record.joinedAt?.toDate ? record.joinedAt.toDate() : new Date(record.joinedAt), 'dd MMM, yy')} />
+                    <LogStat label="Total Tests" value={record.testsCompleted || 0} />
+                    <LogStat label="Passed" value={`${record.passCount || 0} Tests`} />
+                    <LogStat label="Overall Marks" value={`${record.averagePercentage?.toFixed(1) || 0}%`} />
+                </div>
+
+                {record.remarks && (
+                    <div className="mt-8 pt-8 border-t border-slate-50">
+                         <div className="flex items-start gap-4">
+                            <span className="text-slate-300">⚡</span>
+                            <p className="text-sm text-slate-500 font-medium italic leading-relaxed">"{record.remarks}"</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </motion.div>
+    );
+}
+
+function LogStat({ label, value }) {
+    return (
+        <div className="space-y-1">
+            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{label}</p>
+            <p className="text-xl font-heading text-slate-900">{value}</p>
         </div>
     );
 }

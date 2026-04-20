@@ -144,12 +144,33 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
         }
     };
 
+    // Roles that need each scope level
+    const NEEDS_COLLEGE = ['principal', 'hod', 'teacher', 'student', 'exam_cell', 'placement'];
+    const NEEDS_DEPT    = ['hod', 'teacher', 'student'];
+
     const handleChange = (e) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'number' ? parseInt(value) : value
-        }));
+
+        if (name === 'role') {
+            // Clear scope fields that don't apply to the new role
+            const newNeedsCollege = NEEDS_COLLEGE.includes(value);
+            const newNeedsDept    = NEEDS_DEPT.includes(value);
+            setFormData(prev => ({
+                ...prev,
+                role: value,
+                collegeId:    newNeedsCollege ? prev.collegeId : '',
+                departmentId: newNeedsDept    ? prev.departmentId : '',
+            }));
+            // Reset dependent dropdowns if no longer needed
+            if (!newNeedsCollege) { setColleges([]); setDepartments([]); }
+            if (!newNeedsDept)    { setDepartments([]); }
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: type === 'number' ? parseInt(value) : value
+            }));
+        }
+
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     };
 
@@ -219,6 +240,13 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                 collegeName: selectedCollege?.label || null,
                 departmentId: formData.departmentId || null,
                 departmentName: selectedDept?.label || null,
+                // Academic & Professional Identity
+                rollNumber: formData.rollNumber || null,
+                enrollmentNumber: formData.enrollmentNumber || null,
+                employeeId: formData.employeeId || null,
+                currentSemester: parseInt(formData.currentSemester) || 1,
+                academicYear: formData.academicYear || '',
+                designation: formData.designation || null,
                 status: formData.status
             };
 
@@ -228,7 +256,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                 const metadata = { label: userData.name, path: buildHierarchyPath(userData) };
                 await updateDoc(userRef, updateData);
                 await logUpdate('users', editUser.id, editUser, { ...editUser, ...updateData }, currentUser, metadata);
-                toast.success('Member active records updated');
+                toast.success('User details updated');
             } else {
                 const firstPart = formData.firstName.trim().toLowerCase();
                 const last4Digits = formData.phone.slice(-4);
@@ -256,7 +284,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                     const metadata = { label: userData.name, path: buildHierarchyPath(userData) };
                     await setDoc(doc(db, 'users', authResult.user.uid), newUser);
                     await logCreate('users', authResult.user.uid, newUser, currentUser, metadata);
-                    toast.success('New member enrolled successfully');
+                    toast.success('User added successfully');
                 } finally {
                     await signOut(secondaryAuth);
                     await deleteApp(secondaryApp);
@@ -265,7 +293,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
             onSuccess();
         } catch (error) {
             console.error('Save Error:', error);
-            toast.error('Failed to finalize enrollment');
+            toast.error('Failed to save user');
         } finally {
             setLoading(false);
         }
@@ -287,8 +315,8 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}
-            title={editUser ? 'Update Personnel Identity' : 'Enroll Institutional Member'}
-            submitText={editUser ? 'Commit Changes' : 'Finalize Enrollment'}
+            title={editUser ? 'Edit User Details' : 'Add New User'}
+            submitText={editUser ? 'Save Changes' : 'Add User'}
             loading={loading}
             size="xl"
         >
@@ -297,12 +325,12 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                 <div className="space-y-5">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-5 bg-[#E31E24] rounded-full" />
-                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Personal Identification</h4>
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Personal Details</h4>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Input
-                            label="Given Name"
+                            label="First Name"
                             name="firstName"
                             value={formData.firstName}
                             onChange={handleChange}
@@ -312,7 +340,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                             autoComplete="given-name"
                         />
                         <Input
-                            label="Family Name"
+                            label="Last Name"
                             name="lastName"
                             value={formData.lastName}
                             onChange={handleChange}
@@ -325,7 +353,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Input
-                            label="Official Email Address"
+                            label="Email Address"
                             name="email"
                             type="email"
                             value={formData.email}
@@ -337,7 +365,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                             autoComplete="email"
                         />
                         <Input
-                            label="Contact Number"
+                            label="Phone Number"
                             name="phone"
                             type="tel"
                             value={formData.phone}
@@ -354,12 +382,12 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                 <div className="space-y-5">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-5 bg-blue-500 rounded-full" />
-                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Access & Authority</h4>
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role & Access</h4>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Select
-                            label="Institutional Role"
+                            label="Role"
                             name="role"
                             value={formData.role}
                             options={roleOptions}
@@ -370,7 +398,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                         />
 
                         <Input
-                            label="Residential/Postal Address"
+                            label="Address"
                             name="address"
                             value={formData.address}
                             onChange={handleChange}
@@ -385,7 +413,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                             </div>
                             <div>
-                                <h5 className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Security Protocol</h5>
+                                <h5 className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Default Password Info</h5>
                                 <p className="text-[11px] font-semibold text-amber-600/80 leading-relaxed max-w-md">
                                     Initial password: <span className="text-amber-700 bg-white/50 px-1.5 py-0.5 rounded uppercase font-mono">{formData.firstName || 'FIRSTNAME'}</span> + last 4 digits of phone. 
                                 </p>
@@ -398,56 +426,69 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                 <div className="space-y-5">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jurisdiction & Assignment</h4>
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assign To</h4>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        <Select
-                            label="Assigned Campus"
-                            name="campusId"
-                            value={formData.campusId}
-                            options={campuses}
-                            onChange={handleChange}
-                            error={errors.campusId}
-                            placeholder="Select Campus"
-                        />
+                {/* Assign To section — shown only for roles that need a campus/college/dept */}
+                {(() => {
+                    const needsCollege = NEEDS_COLLEGE.includes(formData.role);
+                    const needsDept    = NEEDS_DEPT.includes(formData.role);
+                    const cols = needsDept ? 'lg:grid-cols-3' : needsCollege ? 'lg:grid-cols-2' : '';
+                    return (
+                        <div className={`grid grid-cols-1 md:grid-cols-2 ${cols} gap-5`}>
+                            {/* Campus — shown for everyone except admin */}
+                            {formData.role !== 'admin' && (
+                                <Select
+                                    label="Campus"
+                                    name="campusId"
+                                    value={formData.campusId}
+                                    options={campuses}
+                                    onChange={handleChange}
+                                    error={errors.campusId}
+                                    placeholder="Select Campus"
+                                />
+                            )}
 
-                        {colleges.length > 0 && (
-                            <Select
-                                label="Parent College"
-                                name="collegeId"
-                                value={formData.collegeId}
-                                options={colleges}
-                                onChange={handleChange}
-                                error={errors.collegeId}
-                                placeholder="Select College"
-                            />
-                        )}
+                            {/* College — only for college-level roles and below */}
+                            {needsCollege && colleges.length > 0 && (
+                                <Select
+                                    label="College"
+                                    name="collegeId"
+                                    value={formData.collegeId}
+                                    options={colleges}
+                                    onChange={handleChange}
+                                    error={errors.collegeId}
+                                    placeholder="Select College"
+                                />
+                            )}
 
-                        {departments.length > 0 && (
-                            <Select
-                                label="Assigned Dept"
-                                name="departmentId"
-                                value={formData.departmentId}
-                                options={departments}
-                                onChange={handleChange}
-                                error={errors.departmentId}
-                                placeholder="Select Dept"
-                            />
-                        )}
-                    </div>
+                            {/* Department — only for HOD, Teacher, Student */}
+                            {needsDept && departments.length > 0 && (
+                                <Select
+                                    label="Department"
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    options={departments}
+                                    onChange={handleChange}
+                                    error={errors.departmentId}
+                                    placeholder="Select Department"
+                                />
+                            )}
+                        </div>
+                    );
+                })()}
                 </div>
 
                 {/* Enrollment Section */}
                 <div className="space-y-5">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-5 bg-violet-500 rounded-full" />
-                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Employment Details</h4>
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Job Details</h4>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <Input
-                            label="Employee ID (Serial)"
+                            label="Employee ID"
                             name="employeeId"
                             value={formData.employeeId}
                             onChange={handleChange}
@@ -466,12 +507,12 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                         </div>
 
                         <Select
-                            label="Service Status"
+                            label="Status"
                             name="status"
                             value={formData.status}
                             options={[
-                                { value: 'active', label: 'Active Service' },
-                                { value: 'inactive', label: 'On Hold / Suspension' }
+                                { value: 'active', label: 'Active' },
+                                { value: 'inactive', label: 'Inactive' }
                             ]}
                             onChange={handleChange}
                         />

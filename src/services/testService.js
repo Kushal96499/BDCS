@@ -74,22 +74,22 @@ export async function createTest(testData, teacherUser) {
         const testDoc = {
             // Test Identity
             subject: subjectId,
-            subjectName,
-            topic,
+            subjectName: subjectName || 'Unknown Subject',
+            topic: topic || '',
 
             // Batch & Academic Context
             batch: batchId,
-            batchName,
-            semester: parseInt(semester),
-            academicYear,
-            course: courseId,
-            courseName,
+            batchName: batchName || 'Unknown Batch',
+            semester: parseInt(semester) || 1,
+            academicYear: academicYear || '',
+            course: courseId || '',
+            courseName: courseName || '',
 
             // Test Details
             testDate: Timestamp.fromDate(new Date(testDate)),
-            maxMarks: parseInt(maxMarks),
-            testType,
-            description,
+            maxMarks: parseInt(maxMarks) || 0,
+            testType: testType || 'class_test',
+            description: description || '',
 
             // Ownership
             createdBy: teacherUser.uid,
@@ -97,14 +97,14 @@ export async function createTest(testData, teacherUser) {
             createdAt: serverTimestamp(),
 
             // Status
-            status: 'draft', // draft, scheduled, completed, published
+            status: 'draft',
             publishedAt: null,
             publishedBy: null,
 
             // Stats
-            totalStudents,
+            totalStudents: totalStudents || 0,
             resultsEntered: 0,
-            resultsMissing: totalStudents
+            resultsMissing: totalStudents || 0
         };
 
         const docRef = await addDoc(collection(db, 'tests'), testDoc);
@@ -141,8 +141,8 @@ export async function getTestsByBatch(batchId, filters = {}) {
     try {
         let q = query(
             collection(db, 'tests'),
-            where('batch', '==', batchId),
-            orderBy('testDate', 'desc')
+            where('batch', '==', batchId)
+            // Removed orderBy to avoid composite index requirement
         );
 
         // Apply filters
@@ -157,13 +157,20 @@ export async function getTestsByBatch(batchId, filters = {}) {
         }
 
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
+        const tests = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             testDate: doc.data().testDate?.toDate(),
             createdAt: doc.data().createdAt?.toDate(),
             publishedAt: doc.data().publishedAt?.toDate()
         }));
+
+        // Sort by testDate descending on client-side
+        return tests.sort((a, b) => {
+            const dateA = a.testDate || new Date(0);
+            const dateB = b.testDate || new Date(0);
+            return dateB - dateA;
+        });
     } catch (error) {
         console.error('Error fetching tests by batch:', error);
         throw error;

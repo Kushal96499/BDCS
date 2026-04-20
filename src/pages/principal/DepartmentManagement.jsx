@@ -80,18 +80,13 @@ export default function DepartmentManagement() {
         <div className="space-y-10 pb-12 animate-fade-in">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative">
-                <div className="space-y-2">
-                    <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                        <span>Principal</span>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth={3}/></svg>
-                        <span className="text-blue-500">Departments</span>
-                    </nav>
+                <div className="space-y-4">
                     <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
                         Department Management
                     </h1>
                     <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                         <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                        Principal Panel • {user?.collegeName}
+                        Management Registry • {user?.collegeName}
                     </p>
                 </div>
                 

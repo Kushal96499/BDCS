@@ -55,7 +55,7 @@ export default function AdminDashboard() {
                         onClick={() => navigate('/admin/users')}
                     />
                     <QuickStatCard
-                        title="System Rules"
+                        title="Academic Settings"
                         value={stats.settings}
                         icon="⚙️"
                         color="bg-gray-600"

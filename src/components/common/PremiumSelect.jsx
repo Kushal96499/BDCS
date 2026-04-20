@@ -79,11 +79,11 @@ export default function PremiumSelect({
                 <AnimatePresence>
                     {isOpen && !disabled && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 5 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                            className="absolute z-[100] w-full mt-2 bg-white/95 backdrop-blur-2xl border border-gray-100 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden py-3"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.1, ease: "easeOut" }}
+                            className="absolute z-[100] w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden py-2"
                         >
                             <div className="max-h-60 overflow-y-auto no-scrollbar">
                                 {options.length > 0 ? (
@@ -93,12 +93,12 @@ export default function PremiumSelect({
                                             type="button"
                                             onClick={() => handleSelect(opt.value)}
                                             className={`
-                                                w-full flex items-center gap-3 px-6 py-3.5 text-left transition-all
-                                                ${value === opt.value ? 'bg-gray-50 text-gray-900' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
+                                                w-full flex items-center gap-3 px-5 py-3 text-left transition-all
+                                                ${value === opt.value ? 'bg-gray-50 text-gray-900 font-black' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
                                             `}
                                         >
-                                            <div className={`w-2 h-2 rounded-full transition-all ${value === opt.value ? 'bg-red-500' : 'bg-transparent'}`} />
-                                            <span className={`text-sm font-bold tracking-tight ${value === opt.value ? 'font-black' : ''}`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full transition-all ${value === opt.value ? 'bg-red-500' : 'bg-transparent'}`} />
+                                            <span className="text-xs font-bold tracking-tight">
                                                 {opt.label}
                                             </span>
                                         </button>

@@ -12,7 +12,6 @@ import { useAuth } from '../hooks/useAuth';
 import { auth } from '../config/firebase';
 import ToastContainer from '../components/admin/Toast';
 import UserProfileModal from '../components/UserProfileModal';
-import RoleSwitcher from '../components/RoleSwitcher';
 
 // ── NAVIGATION MAP ──
 const NAV_ITEMS = [
@@ -228,7 +227,6 @@ export default function AdminLayout() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <RoleSwitcher />
                         <button onClick={() => toggleMobileDrawer(true)} className="p-2 text-gray-900 hover:bg-gray-100 rounded-xl transition-colors active:scale-90">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path d="M4 6h16M4 12h16M4 18h7" strokeLinecap="round" strokeLinejoin="round" />
@@ -240,16 +238,11 @@ export default function AdminLayout() {
 
             <main className="flex-1 min-w-0 w-full md:ml-64 min-h-screen relative flex flex-col">
                 <div className="hidden md:flex sticky top-0 z-30 w-full pt-6 pb-2 px-10 pointer-events-none items-center justify-between">
-                    <div className="bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] pointer-events-auto">
-                        <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest pointer-events-auto bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                             <span>Admin</span>
                             <span className="text-gray-300">/</span>
                             <span className="text-[#E31E24]">{currentPage}</span>
                         </nav>
-                    </div>
-                    <div className="pointer-events-auto flex items-center gap-4">
-                        <RoleSwitcher />
-                    </div>
                 </div>
 
                 <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-12 px-6 md:px-10`}>

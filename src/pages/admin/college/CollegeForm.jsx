@@ -109,7 +109,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 const updateData = { ...sanitizedData, updatedAt: serverTimestamp(), updatedBy: user.uid };
                 await updateDoc(collegeRef, updateData);
                 await logUpdate('colleges', college.id, college, { ...college, ...updateData }, user, metadata);
-                toast.success('College portfolio updated');
+                toast.success('College details updated');
             } else {
                 const newCollege = {
                     ...sanitizedData,
@@ -120,7 +120,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 };
                 const docRef = await addDoc(collection(db, 'colleges'), newCollege);
                 await logCreate('colleges', docRef.id, newCollege, user, metadata);
-                toast.success('College registration complete');
+                toast.success('College added successfully');
             }
 
             onSuccess();
@@ -137,14 +137,14 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
             isOpen={true}
             onClose={onClose}
             onSubmit={handleSubmit}
-            title={college ? 'Modify Institutional Portfolio' : 'Register New College Instance'}
-            submitText={college ? 'Sync Records' : 'Initialize College'}
+            title={college ? 'Edit College Details' : 'Add New College'}
+            submitText={college ? 'Save Changes' : 'Add College'}
             loading={loading}
             size="md"
         >
             <div className="space-y-6 py-2">
                 <Input 
-                    label="College Legal Name" 
+                    label="College Name" 
                     name="name" 
                     value={formData.name} 
                     onChange={handleChange} 
@@ -155,7 +155,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 
                 <div className="grid grid-cols-2 gap-4">
                     <Input 
-                        label="Portfolio Code" 
+                        label="College Code" 
                         name="code" 
                         value={formData.code} 
                         onChange={handleChange} 
@@ -165,7 +165,7 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                     />
 
                     <Select
-                        label="Campus Territory"
+                        label="Campus"
                         name="campusId"
                         value={formData.campusId}
                         options={campuses}
@@ -177,19 +177,19 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                 </div>
 
                 <Input 
-                    label="University Affiliation" 
+                    label="Affiliated University" 
                     name="affiliation" 
                     value={formData.affiliation} 
                     onChange={handleChange} 
                     error={errors.affiliation} 
                     placeholder="e.g., University of Rajasthan" 
                     required 
-                    helperText="Official university governing this college"
+                    helperText="University this college is affiliated with"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
                     <Select
-                        label="Institutional Structure"
+                        label="College Type"
                         name="type"
                         value={formData.type}
                         options={[
@@ -200,12 +200,12 @@ export default function CollegeForm({ college, onClose, onSuccess }) {
                     />
 
                     <Select
-                        label="Operational Status"
+                        label="Status"
                         name="status"
                         value={formData.status}
                         options={[
-                            { value: 'active', label: 'Active Service' },
-                            { value: 'inactive', label: 'Inactive/Suspended' }
+                            { value: 'active', label: 'Active' },
+                            { value: 'inactive', label: 'Inactive' }
                         ]}
                         onChange={handleChange}
                     />

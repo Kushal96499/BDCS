@@ -73,6 +73,7 @@ export async function uploadMarks(testId, marksArray, teacherUser) {
                 test: testId,
                 student: studentId,
                 studentName: studentData.name,
+                rollNumber: studentData.rollNumber || null,
                 enrollmentNumber: studentData.enrollmentNumber || studentData.rollNumber || 'N/A',
 
                 // Academic Context (denormalized for queries)
@@ -203,6 +204,14 @@ export async function initializeTestResults(testId) {
         const testData = testDoc.data();
         const { batch, batchId, batchName, subject, subjectName, semester, academicYear, maxMarks, topic, testDate } = testData;
 
+        // SANITIZATION: Ensure no undefined values hit Firestore queries
+        const resolvedBatchId = batchId || (typeof batch === 'string' ? batch : batch?.id) || '';
+        
+        if (!resolvedBatchId) {
+            console.warn('Initialization aborted: No valid Batch reference found for test:', testId);
+            return 0;
+        }
+
         // Check if results already exist - improved to check per student
         const existingResults = await getDocs(query(
             collection(db, 'test_results'),
@@ -264,17 +273,12 @@ export async function initializeTestResults(testId) {
         const studentsQuery = query(
             collection(db, 'users'),
             where('role', '==', 'student'),
-            where('batchId', '==', batchId || batch),
-            where('status', '==', 'active') // Only fetch active students
+            where('batchId', '==', resolvedBatchId)
+            // Removed strict status filtering to ensure all batch students are markable
         );
 
         const studentsSnapshot = await getDocs(studentsQuery);
-
-        // Exclude failed students (BACKLOG or REPEAT_YEAR) from tests
-        const eligibleStudents = studentsSnapshot.docs.filter(doc => {
-            const data = doc.data();
-            return data.academicStatus !== 'BACKLOG' && data.academicStatus !== 'REPEAT_YEAR';
-        });
+        const eligibleStudents = studentsSnapshot.docs;
 
         // Cleanup Orphans (Students removed from batch or marked as BACKLOG later)
         const currentStudentIds = new Set(eligibleStudents.map(d => d.id));
@@ -306,17 +310,44 @@ export async function initializeTestResults(testId) {
             return 0;
         }
 
-        // Create result placeholders
+        // Create or Update result placeholders
         const batch_write = writeBatch(db);
-        let count = 0;
+        let newCount = 0;
+        let syncCount = 0;
 
         eligibleStudents.forEach(studentDoc => {
-            // Skip if this student already has a result entry
-            if (existingStudentIds.has(studentDoc.id)) {
+            const student = studentDoc.data();
+            const studentId = studentDoc.id;
+
+            // CHECK: Does this student already have a result entry?
+            if (existingStudentIds.has(studentId)) {
+                // IDENTITY SYNC: Update existing entry with latest metadata (Name, Roll No)
+                const existingEntries = studentResultMap.get(studentId);
+                if (existingEntries && existingEntries.length > 0) {
+                    const existingDoc = existingEntries[0]; // After cleanup, only one remains
+                    const currentData = existingDoc.data;
+
+                    // Only update if something has changed to save writes
+                    const needsSync = 
+                        currentData.studentName !== student.name ||
+                        currentData.rollNumber !== (student.rollNumber || null) ||
+                        currentData.enrollmentNumber !== (student.enrollmentNumber || null);
+
+                    if (needsSync) {
+                        batch_write.update(doc(db, 'test_results', existingDoc.id), {
+                            studentName: student.name || 'Unknown',
+                            rollNumber: student.rollNumber || null,
+                            enrollmentNumber: student.enrollmentNumber || null,
+                            email: student.email || null,
+                            updatedAt: serverTimestamp()
+                        });
+                        syncCount++;
+                    }
+                }
                 return;
             }
 
-            const student = studentDoc.data();
+            // CREATE NEW: Placeholder for student not yet in results
             const resultRef = doc(collection(db, 'test_results'));
 
             const resultData = {
@@ -327,18 +358,19 @@ export async function initializeTestResults(testId) {
                 maxMarks,
 
                 // Student Info
-                student: studentDoc.id,
+                student: studentId,
                 studentName: student.name || 'Unknown',
+                rollNumber: student.rollNumber || null,
                 enrollmentNumber: student.enrollmentNumber || null,
                 email: student.email || null,
 
                 // Batch/Course Info
-                batch: batchId || batch,
-                batchName,
-                subject,
-                subjectName,
-                semester: parseInt(semester),
-                academicYear,
+                batch: resolvedBatchId,
+                batchName: batchName || 'Batch',
+                subject: subject || '',
+                subjectName: subjectName || 'Subject',
+                semester: parseInt(semester) || 1,
+                academicYear: academicYear || '',
 
                 // Results (empty initially)
                 marksObtained: null,
@@ -359,20 +391,20 @@ export async function initializeTestResults(testId) {
             };
 
             batch_write.set(resultRef, resultData);
-            count++;
+            newCount++;
         });
 
-        if (count > 0) {
+        if (newCount > 0 || syncCount > 0) {
             await batch_write.commit();
-            console.log(`Initialized ${count} new student result entries`);
+            console.log(`Test Init: Created ${newCount} new, Synced ${syncCount} existing identity profiles`);
         } else {
-            console.log('No new students to initialize');
+            console.log('Test logic: All student identities are up-to-date');
         }
 
         // Update test stats with authoritative count
         await updateTestStats(testId, eligibleStudents.length);
 
-        return count;
+        return newCount;
     } catch (error) {
         console.error('Error initializing test results:', error);
         throw error;

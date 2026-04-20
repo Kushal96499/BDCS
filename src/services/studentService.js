@@ -15,7 +15,7 @@ import { db } from '../config/firebase';
  */
 export const generateNextRollNumber = (batchName, existingStudents) => {
     let yearPart = new Date().getFullYear().toString().slice(-2);
-    const yearMatch = batchName?.match(/20(\d{2})/);
+    const yearMatch = batchName?.match(/20(\d{2})/) || batchName?.match(/-(\d{2})/);
     if (yearMatch) yearPart = yearMatch[1];
 
     const coursePart = batchName

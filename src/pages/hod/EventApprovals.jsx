@@ -167,35 +167,43 @@ export default function EventApprovals() {
 
     return (
         <div className="space-y-8 pb-12">
+            {/* Executive Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Event Logistics</h2>
-                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse" />
-                        Infrastructure Planning • {user?.departmentName}
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-1">Event List</h2>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                        Manage Event Permissions • {user?.departmentName}
                     </p>
                 </div>
 
-                <div className="flex bg-white/50 backdrop-blur-md p-1.5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                    {['pending', 'approved', 'rejected', 'all'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setCurrentFilter(f)}
-                            className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${currentFilter === f ? 'bg-black text-white shadow-lg' : 'text-gray-400 hover:text-gray-900'}`}
-                        >
-                            {f}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-4">
+                    <div className="bg-white/50 backdrop-blur-xl p-2 rounded-[2rem] border border-gray-100 flex flex-wrap items-center gap-1">
+                        {['pending', 'approved', 'rejected', 'all'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setCurrentFilter(f)}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    currentFilter === f 
+                                        ? 'bg-gray-900 text-white shadow-xl shadow-gray-200' 
+                                        : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
+                                }`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            {/* Tabular Event Ledger */}
+            <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5 min-h-[400px]">
                 <DataTable
                     columns={columns}
                     data={filteredEvents}
                     loading={loading}
                     actions={false}
-                    emptyMessage={`No ${currentFilter === 'all' ? '' : currentFilter + ' '}manifests in archive.`}
+                    emptyMessage={`Event archive is void for isolated sector: ${currentFilter}`}
                 />
             </div>
         </div>

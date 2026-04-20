@@ -64,20 +64,6 @@ export async function logRoleChange(eventType, userData, changes) {
     }
 }
 
-/**
- * Log self-assignment event (Principal assigns self as HOD)
- */
-export async function logSelfAssignment(userData, departmentData) {
-    return logRoleChange('assign_self_role', userData, {
-        oldRoles: userData.roles || [userData.role],
-        newRoles: [...(userData.roles || [userData.role]), 'hod'],
-        roleAdded: 'hod',
-        departmentId: departmentData.id,
-        departmentName: departmentData.name,
-        details: `${userData.name} assigned themselves as HOD of ${departmentData.name}`,
-        effectiveDate: new Date()
-    });
-}
 
 /**
  * Log Teacher → HOD promotion
@@ -133,6 +119,23 @@ export async function logRoleAssignment(userData, role, context = {}) {
         details: context.details || `Role '${role}' assigned to ${userData.name}`
     });
 }
+
+/**
+ * Log self-assignment of a role (e.g. principal assigning themselves to a department)
+ */
+export async function logSelfAssignment(userData, role, context = {}) {
+    const oldRoles = userData.roles || [userData.role];
+    const newRoles = oldRoles.includes(role) ? oldRoles : [...oldRoles, role];
+
+    return logRoleChange('assign_self_role', userData, {
+        oldRoles,
+        newRoles,
+        roleAdded: role,
+        ...context,
+        details: context.details || `${userData.name} self-assigned role '${role}'`
+    });
+}
+
 
 /**
  * Log generic role removal
