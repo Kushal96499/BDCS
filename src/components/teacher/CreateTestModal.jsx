@@ -30,7 +30,7 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
         courseName: '',
         testDate: '',
         maxMarks: 50,
-        testType: 'class_test',
+        testType: 'theory_ct',
         description: ''
     });
 
@@ -210,9 +210,8 @@ export default function CreateTestModal({ onClose, onSuccess, teacherUser }) {
                             value={formData.testType}
                             onChange={(e) => setFormData(prev => ({ ...prev, testType: e.target.value }))}
                             options={[
-                                { label: 'Class Test (CT)', value: 'class_test' },
-                                { label: 'Unit Test (UT)', value: 'unit_test' },
-                                { label: 'Practical Exam', value: 'practical' }
+                                { label: 'Theory Class Test (TCT)', value: 'theory_ct' },
+                                { label: 'Practical Class Test (PCT)', value: 'practical_ct' }
                             ]}
                         />
 

@@ -307,7 +307,7 @@ export default function ClassAssignment() {
                                                 <td className="p-8 whitespace-nowrap">
                                                     <div className="flex flex-col">
                                                         <p className="text-xs font-black text-gray-900 uppercase tracking-tight">{assign.batchName}</p>
-                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Cohort Manifest</p>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Student List</p>
                                                     </div>
                                                 </td>
                                                 <td className="p-8 whitespace-nowrap">

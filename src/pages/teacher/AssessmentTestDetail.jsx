@@ -4,8 +4,9 @@ import { db } from '../../config/firebase';
 import { doc, getDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { initializeTestResults, updateStudentMark, uploadMarks } from '../../services/testResultService';
+import { publishTest, postponeTest } from '../../services/testService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
 
 const container = {
@@ -182,6 +183,8 @@ export default function AssessmentTestDetail() {
             let sessionSnap = null;
             const targetBatchId = testData.batchId || (typeof testData.batch === 'string' ? testData.batch : testData.batch?.id);
             const targetBatchName = testData.batchName || (typeof testData.batch === 'object' ? testData.batch?.name : null);
+            const targetCourseId = testData.courseId || (typeof testData.course === 'string' ? testData.course : testData.course?.id);
+            const targetCourseName = testData.courseName || (typeof testData.course === 'object' ? testData.course?.name : null);
             
             // Normalize Semester for type-agnostic search
             const semNum = parseInt(testData.semester);
@@ -197,15 +200,15 @@ export default function AssessmentTestDetail() {
                 sessionSnap = await getDocs(idQuery);
             }
 
-            // Strategy 2: Type-Agnostic Metadata Search (Handles String vs Number)
-            if ((!sessionSnap || sessionSnap.empty)) {
-                console.log('Strategy 1 failed, trying type-agnostic fallback');
+            // Strategy 2: Type-Agnostic Metadata Search (Course ID + Sem)
+            if ((!sessionSnap || sessionSnap.empty) && targetCourseId) {
+                console.log('Strategy 1 failed, trying course-id fallback');
                 const semToTry = [semNum, semStr].filter(v => v !== undefined && v !== null);
                 
                 for (const s of semToTry) {
                     const q = query(
                         collection(db, 'attendance_sessions'),
-                        where('courseId', '==', testData.course || testData.courseId || ''),
+                        where('courseId', '==', targetCourseId),
                         where('date', '==', dateStr),
                         where('semester', '==', s)
                     );
@@ -217,7 +220,7 @@ export default function AssessmentTestDetail() {
                 }
             }
 
-            // Strategy 3: Human-Readable Name Fallback
+            // Strategy 3: Human-Readable Name Fallback (Batch Name)
             if ((!sessionSnap || sessionSnap.empty) && targetBatchName) {
                 console.log('Strategy 2 failed, trying fallback: Batch Name');
                 const nameQuery = query(
@@ -231,9 +234,23 @@ export default function AssessmentTestDetail() {
                 }
             }
 
-            // Strategy 4: Teacher-Centric Context Discovery (Ultimate Fallback)
+            // Strategy 4: Fuzzy Logic - Course Name Search
+            if ((!sessionSnap || sessionSnap.empty) && targetCourseName) {
+                console.log('Strategy 3 failed, trying fallback: Course Name');
+                const courseNameQuery = query(
+                    collection(db, 'attendance_sessions'),
+                    where('date', '==', dateStr),
+                    where('courseName', '==', targetCourseName)
+                );
+                const courseNameSnap = await getDocs(courseNameQuery);
+                if (!courseNameSnap.empty) {
+                    sessionSnap = courseNameSnap;
+                }
+            }
+
+            // Strategy 5: Teacher-Centric Context Discovery (Ultimate Fallback)
             if ((!sessionSnap || sessionSnap.empty) && user?.uid) {
-                console.log('Strategy 3 failed, trying ultimate discovery: Teacher + Date');
+                console.log('Fuzzy strategies failed, trying ultimate discovery: Teacher + Date');
                 const discoveryQuery = query(
                     collection(db, 'attendance_sessions'),
                     where('teacherId', '==', user.uid),
@@ -273,7 +290,7 @@ export default function AssessmentTestDetail() {
     const applicableResults = useMemo(() => {
         return results.filter(r => {
             const matchesSearch = r.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 r.enrollmentNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                                 r.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase());
             
             if (!matchesSearch) return false;
             
@@ -286,28 +303,86 @@ export default function AssessmentTestDetail() {
     }, [results, searchTerm, showPresentOnly, presentStudentIds, attendanceStatus]);
 
     const handleMarkChange = (studentId, field, value) => {
+        if (field === 'marksObtained') {
+            const val = parseFloat(value);
+            if (!isNaN(val) && val > test.maxMarks) {
+                toast.error(`Limit: ${test.maxMarks}`, { id: 'limit-err' });
+                return;
+            }
+        }
         setMarks(prev => ({
             ...prev,
-            [studentId]: { ...prev[studentId], [field]: field === 'marksObtained' ? (value === '' ? '' : value) : value }
+            [studentId]: { ...prev[studentId], [field]: value, isDirty: true }
         }));
     };
 
     const saveMark = async (studentId) => {
         const studentMark = marks[studentId];
-        if (studentMark.marksObtained === '') return;
+        if (!studentMark?.isDirty) return;
 
         try {
-            setSyncing(true);
-            const val = parseFloat(studentMark.marksObtained);
-            if (isNaN(val) || val < 0 || val > test.maxMarks) {
-                toast.error(`Constraint violation: 0-${test.maxMarks}`);
+            const val = studentMark.marksObtained === '' ? null : parseFloat(studentMark.marksObtained);
+            
+            if (val !== null && (isNaN(val) || val < 0 || val > test.maxMarks)) {
+                toast.error(`Invalid Marks for student: 0-${test.maxMarks}`);
                 return;
             }
 
+            // If we are marking as 0 and remarks is ABSENT, it's an absent sync
             await updateStudentMark(testId, studentId, val, studentMark.remarks, user);
-            toast.success('Marks Saved Successfully', { duration: 1000 });
+            setMarks(prev => ({
+                ...prev,
+                [studentId]: { ...prev[studentId], isDirty: false }
+            }));
         } catch (error) {
-            toast.error('Sync failed');
+            console.error('Error saving student mark:', studentId, error);
+            throw error;
+        }
+    };
+
+    const handleAutoMarkAbsents = async () => {
+        const absentStudentIds = results
+            .filter(r => !presentStudentIds.has(r.student) && r.marksObtained === null)
+            .map(r => r.student);
+
+        if (absentStudentIds.length === 0) {
+            toast.success('All absent students are already marked');
+            return;
+        }
+
+        try {
+            setSyncing(true);
+            let count = 0;
+            for (const sId of absentStudentIds) {
+                // ABSENT = FAIL with 0 marks as per user request
+                await updateStudentMark(testId, sId, 0, 'ABSENT', user);
+                count++;
+            }
+            toast.success(`Successfully marked ${count} absent students as FAIL`);
+        } catch (error) {
+            console.error('Auto-mark failed:', error);
+            toast.error('Partial failure marking absents');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const saveAllMarks = async () => {
+        const dirtyIds = Object.keys(marks).filter(id => marks[id].isDirty);
+        if (dirtyIds.length === 0) {
+            toast.success('Everything is up to date');
+            return;
+        }
+
+        try {
+            setSyncing(true);
+            // Save sequentially to avoid Firestore burst limits and ensure audit trail integrity
+            for (const studentId of dirtyIds) {
+                await saveMark(studentId);
+            }
+            toast.success(`Successfully saved ${dirtyIds.length} changes`);
+        } catch (error) {
+            toast.error('Partial or full save failure. Please check inputs.');
         } finally {
             setSyncing(false);
         }
@@ -321,47 +396,67 @@ export default function AssessmentTestDetail() {
         
         try {
             setSyncing(true);
-            const testRef = doc(db, 'tests', testId);
-            await updateDoc(testRef, {
-                testDate: Timestamp.fromDate(new Date(newTestDate)),
-                status: 'postponed',
-                updatedAt: serverTimestamp(),
-                updatedBy: user.uid
-            });
+            await postponeTest(testId, newTestDate, user);
             
-            toast.success('Test Postponed');
+            toast.success('Test Postponed & Attendance Reset');
             setIsPostponing(false);
-            // Local state update will happen via snapshot or we can just reload
+            
+            // Reload to re-check attendance and refresh UI
             window.location.reload(); 
         } catch (error) {
-            toast.error('Postpone failed');
+            console.error('Postpone Error:', error);
+            toast.error(error.message || 'Postpone failed');
         } finally {
             setSyncing(false);
         }
     };
 
     const handlePublishResults = async () => {
-        const missingCount = results.filter(r => r.marksObtained === null).length;
-        if (missingCount > 0) {
-            toast.error(`Cannot publish: ${missingCount} marks not entered`);
+        // Validation: Only require marks for PRESENT students.
+        // Absent students are automatically handled by the system.
+        const missingMarksForPresent = results.filter(r => 
+            presentStudentIds.has(r.student) && (r.marksObtained === null || r.marksObtained === undefined)
+        ).length;
+
+        const dirtyMarks = Object.values(marks).filter(m => m.isDirty);
+        const unsavedCount = dirtyMarks.length;
+
+        if (unsavedCount > 0) {
+            toast.error(`Cannot publish: You have ${unsavedCount} unsaved changes. Please click 'Save All Changes' first.`);
             return;
         }
 
-        if (!window.confirm('Send results to students?')) return;
+        if (missingMarksForPresent > 0) {
+            toast.error(`Publish Blocked: ${missingMarksForPresent} present students are missing marks.`);
+            return;
+        }
+
+        const confirmPublish = window.confirm(
+            "FINAL PUBLICATION NOTICE:\n\n" +
+            "You are about to publish results for this test. Once published:\n" +
+            "1. Students will receive instant access to their marks.\n" +
+            "2. Academic records will be locked for editing.\n" +
+            "Do you wish to proceed?"
+        );
+        if (!confirmPublish) return;
+
         try {
             setSyncing(true);
-            await updateDoc(doc(db, 'tests', testId), {
-                status: 'published',
-                publishedAt: serverTimestamp()
-            });
-            toast.success('Results Published');
-            navigate('/teacher/tests');
+            await publishTest(testId, user);
+            toast.success('Results Published Successfully!');
+            // Delay navigation slightly to let state settle
+            setTimeout(() => navigate('/teacher/tests'), 1000);
         } catch (error) {
-            toast.error('Publish failed');
+            console.error('Publication Error:', error);
+            toast.error(error.message || 'Publish failed. Please check your connection.');
         } finally {
             setSyncing(false);
         }
     };
+
+    const testDate = test?.testDate ? (test.testDate.toDate ? test.testDate.toDate() : new Date(test.testDate)) : null;
+    const today = startOfDay(new Date());
+    const isFutureTest = testDate ? startOfDay(testDate) > today : false;
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-20 space-y-4">
@@ -418,26 +513,53 @@ export default function AssessmentTestDetail() {
                     </div>
 
                     <div className="flex flex-col gap-4 w-full lg:w-auto">
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 justify-center lg:justify-end">
                              {!test.isHistorical && test.status !== 'published' && (
-                                <button 
-                                    onClick={() => setIsPostponing(!isPostponing)}
-                                    className="px-6 py-4 border border-slate-100 bg-white text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95"
-                                >
-                                    {isPostponing ? 'Cancel' : 'Postpone Test'}
-                                </button>
+                                <>
+                                    {attendanceStatus === 'verified' && results.some(r => !presentStudentIds.has(r.student) && r.marksObtained === null) && !isFutureTest && (
+                                        <button 
+                                            onClick={handleAutoMarkAbsents}
+                                            disabled={syncing}
+                                            className="px-6 py-4 bg-amber-50 text-amber-600 border border-amber-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all active:scale-95"
+                                        >
+                                            {syncing ? 'Wait...' : 'Auto-Mark Absents'}
+                                        </button>
+                                    )}
+
+                                    <button 
+                                        onClick={() => setIsPostponing(!isPostponing)}
+                                        className="px-6 py-4 border border-slate-100 bg-white text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95"
+                                    >
+                                        {isPostponing ? 'Cancel' : 'Postpone Test'}
+                                    </button>
+                                    
+                                    {!isFutureTest && (
+                                        <button 
+                                            onClick={saveAllMarks}
+                                            disabled={syncing || !Object.values(marks).some(m => m.isDirty)}
+                                            className={`px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${Object.values(marks).some(m => m.isDirty) ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            {syncing ? 'Saving Process...' : 'Save All Changes'}
+                                        </button>
+                                    )}
+                                </>
                              )}
                             <button 
                                 onClick={handlePublishResults}
-                                disabled={stats.entered < stats.total || test.status === 'published' || syncing || test.isHistorical}
-                                className={`action-button px-10 py-5 text-sm ${test.status === 'published' || stats.entered < stats.total || test.isHistorical ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                                disabled={results.filter(r => presentStudentIds.has(r.student) && r.marksObtained === null).length > 0 || test.status === 'published' || syncing || test.isHistorical || Object.values(marks).some(m => m.isDirty) || isFutureTest}
+                                className={`action-button px-10 py-5 text-sm ${test.status === 'published' || results.filter(r => presentStudentIds.has(r.student) && r.marksObtained === null).length > 0 || test.isHistorical || Object.values(marks).some(m => m.isDirty) || isFutureTest ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                             >
                                 {test.isHistorical ? 'Read Only' : 'Publish Results'}
                             </button>
                         </div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">
-                            {stats.entered < stats.total ? `${stats.total - stats.entered} Marks Not Entered` : 'All Marks Completed'}
-                        </p>
+                        <div className="flex flex-col gap-1">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">
+                                {stats.entered < stats.total ? `${stats.total - stats.entered} Marks Not Entered` : 'All Marks Completed'}
+                            </p>
+                            {Object.values(marks).some(m => m.isDirty) && (
+                                <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest text-center animate-pulse">Save required before publishing</p>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-slate-50/50 to-transparent pointer-events-none" />
@@ -615,11 +737,11 @@ export default function AssessmentTestDetail() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50">
-                                <th className="p-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Student Information</th>
-                                <th className="p-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Attendance</th>
-                                <th className="p-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Marks Obtained</th>
-                                <th className="p-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Remarks</th>
-                                <th className="p-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                <th className="px-6 py-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Student Information</th>
+                                <th className="px-6 py-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Attendance</th>
+                                <th className="px-6 py-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Marks Obtained</th>
+                                <th className="px-6 py-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Remarks</th>
+                                <th className="px-6 py-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -628,54 +750,80 @@ export default function AssessmentTestDetail() {
                                 const hasMarks = result.marksObtained !== null;
                                 
                                 return (
-                                    <tr key={result.id} className="group hover:bg-slate-50/30 transition-colors">
-                                        <td className="p-8">
-                                            <div>
-                                                <p className="font-heading text-sm md:text-lg text-slate-900 leading-tight">{result.studentName}</p>
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-60">Roll No: {result.rollNumber || result.enrollmentNumber || 'N/A'}</p>
+                                     <tr key={result.id} className={`group transition-colors ${!isPresent ? 'bg-red-50/20' : 'hover:bg-slate-50/20'}`}>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <p className="font-heading text-sm md:text-base text-slate-900 leading-tight">{result.studentName}</p>
+                                                {!isPresent && (
+                                                    <span className="text-[7px] font-black bg-red-100 text-red-500 px-1.5 py-0.5 rounded uppercase tracking-tighter w-fit mt-1">Absent Student</span>
+                                                )}
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5">{result.rollNumber || 'N/A'}</p>
                                             </div>
                                         </td>
-                                        <td className="p-8">
+                                        <td className="px-6 py-4">
                                             {attendanceStatus === 'verified' ? (
-                                                <div className={`flex items-center gap-2 px-3 py-1 rounded-md w-fit border ${isPresent ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest">{isPresent ? 'Present' : 'Absent'}</span>
+                                                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md w-fit border ${isPresent ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                                    <div className={`w-1 h-1 rounded-full ${isPresent ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">{isPresent ? 'Present' : 'Absent'}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Manual Override</span>
+                                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">Legacy Data</span>
                                             )}
                                         </td>
-                                        <td className="p-8">
-                                            <div className="relative group">
+                                        <td className="px-6 py-4">
+                                            <div className="relative flex items-center">
                                                 <input 
                                                     type="number" 
                                                     max={test.maxMarks}
                                                     min="0"
-                                                    disabled={test.status === 'published' || test.isHistorical}
+                                                    disabled={test.status === 'published' || test.isHistorical || isFutureTest || (!isPresent && marks[result.student]?.marksObtained === '')}
                                                     value={marks[result.student]?.marksObtained ?? ''}
                                                     onChange={(e) => handleMarkChange(result.student, 'marksObtained', e.target.value)}
-                                                    onBlur={() => saveMark(result.student)}
-                                                    className={`w-28 bg-transparent border-b-2 border-slate-100 py-2 text-xl font-heading focus:border-[#E31E24] focus:outline-none transition-all ${hasMarks ? 'text-slate-900 font-bold' : 'text-slate-300'}`}
-                                                    placeholder="00"
+                                                    className={`w-16 bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-sm font-black focus:bg-white focus:border-[#E31E24] focus:ring-4 focus:ring-red-50 outline-none transition-all ${hasMarks || marks[result.student]?.marksObtained !== '' ? 'text-slate-900' : 'text-slate-400 placeholder:text-slate-300'} ${!isPresent || isFutureTest ? 'opacity-50' : ''}`}
+                                                    placeholder="0"
                                                 />
-                                                <span className="absolute -top-4 left-0 text-[8px] font-bold text-slate-400 uppercase tracking-tighter"> / {test.maxMarks}</span>
+                                                <span className="ml-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">/ {test.maxMarks}</span>
                                             </div>
                                         </td>
-                                        <td className="p-8">
-                                            <input 
-                                                type="text" 
-                                                disabled={test.status === 'published' || test.isHistorical}
-                                                value={marks[result.student]?.remarks ?? ''}
-                                                onChange={(e) => handleMarkChange(result.student, 'remarks', e.target.value)}
-                                                onBlur={() => saveMark(result.student)}
-                                                className="w-full bg-transparent border-none py-2 text-xs text-slate-500 italic focus:ring-0 outline-none placeholder:opacity-30"
-                                                placeholder={test.isHistorical ? "Read-only" : "Enter evaluation notes..."}
-                                            />
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <input 
+                                                    type="text" 
+                                                    disabled={test.status === 'published' || test.isHistorical || isFutureTest}
+                                                    value={marks[result.student]?.remarks ?? ''}
+                                                    onChange={(e) => handleMarkChange(result.student, 'remarks', e.target.value)}
+                                                    className="flex-1 bg-transparent border-none py-2 text-[11px] text-slate-600 font-bold focus:ring-0 outline-none placeholder:text-slate-200"
+                                                    placeholder="Add note..."
+                                                />
+                                                
+                                                {/* LIVE RESULT BADGE */}
+                                                {(marks[result.student]?.marksObtained !== '' && marks[result.student]?.marksObtained !== undefined && marks[result.student]?.marksObtained !== null) && (
+                                                    <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm ${
+                                                        (parseFloat(marks[result.student].marksObtained) / test.maxMarks * 100) >= 40 
+                                                        ? 'bg-emerald-500 text-white' 
+                                                        : 'bg-red-500 text-white'
+                                                    }`}>
+                                                        {marks[result.student]?.remarks === 'ABSENT' ? 'FAIL (ABSENT)' : (parseFloat(marks[result.student].marksObtained) / test.maxMarks * 100) >= 40 ? 'PASS' : 'FAIL'}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="p-8 text-right">
-                                            {hasMarks ? (
-                                                <motion.span initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center ml-auto">✓</motion.span>
+                                        <td className="px-6 py-4 text-right">
+                                            {marks[result.student]?.isDirty ? (
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[8px] font-black uppercase tracking-widest animate-pulse">Unsaved</span>
+                                                    <p className="text-[7px] font-bold text-amber-400 uppercase tracking-tighter">Needs global save</p>
+                                                </div>
+                                            ) : hasMarks ? (
+                                                <div className="flex items-center justify-end gap-2 text-emerald-600">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Recorded</span>
+                                                    <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-[10px]">✓</div>
+                                                </div>
                                             ) : (
-                                                <span className="w-10 h-10 rounded-full bg-slate-50 text-slate-200 flex items-center justify-center ml-auto group-hover:bg-amber-50 group-hover:text-amber-400 transition-all">?</span>
+                                                <div className="flex items-center justify-end gap-2 text-slate-200">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Pending</span>
+                                                    <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center text-[10px]">?</div>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>

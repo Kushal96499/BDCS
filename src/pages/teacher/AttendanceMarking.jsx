@@ -119,7 +119,7 @@ export default function AttendanceMarking() {
                 return {
                     id: d.id,
                     name: data.name,
-                    rollNumber: data.rollNumber || data.enrollmentNumber || '',
+                    rollNumber: data.rollNumber || '',
                     nocStatus: data.nocStatus || 'pending',
                     fatherName: data.fatherName || 'N/A',
                     phone: data.phone || '',
@@ -548,9 +548,11 @@ export default function AttendanceMarking() {
                 />
 
                 <div className="flex flex-col gap-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Attendance Date</label>
+                    <label htmlFor="attendance-date" className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Attendance Date</label>
                     <div className="relative">
                         <input
+                            id="attendance-date"
+                            name="attendanceDate"
                             type="date"
                             className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-100 rounded-xl text-xs font-black text-gray-900 outline-none transition-all focus:ring-4 focus:ring-violet-50 focus:border-violet-200 hover:bg-gray-100/50 cursor-pointer"
                             value={date}
@@ -749,65 +751,102 @@ export default function AttendanceMarking() {
 
                     {/* Locked Actions Overlay */}
                     {session?.status === 'LOCKED' && (
-                        <div className="bg-gray-900/5 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-gray-200/50 flex items-center gap-6 mb-12">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-xl shrink-0">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                                    <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="font-black text-gray-900 text-lg tracking-tight leading-none mb-1">Attendance Locked & Secure</h4>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Attendance locked on {format(new Date(date), 'dd MMM yyyy')}</p>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                {existingRequest ? (
-                                    <div className="px-5 py-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Request Pending HOD Approval</span>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.99 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="relative group mb-8"
+                        >
+                            <div className="absolute -inset-0.5 bg-gradient-to-r from-gray-900/10 to-gray-800/10 rounded-2xl blur-sm group-hover:opacity-100 transition duration-1000" />
+                            <div className="relative bg-white/90 backdrop-blur-xl p-5 sm:p-7 rounded-2xl border border-gray-100 shadow-xl flex flex-col md:flex-row items-center gap-6">
+                                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-950 text-white rounded-xl flex items-center justify-center shadow-lg shrink-0 transform -rotate-1 group-hover:rotate-0 transition-transform duration-500">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                                
+                                <div className="flex-1 text-center md:text-left">
+                                    <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1 justify-center md:justify-start">
+                                        <h4 className="font-black text-gray-900 text-lg tracking-tight">Attendance Locked & Secure</h4>
+                                        <span className="w-fit mx-auto md:mx-0 px-2 py-0.5 bg-gray-950 text-white text-[7px] font-black uppercase tracking-widest rounded">Verified Asset</span>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={handleRequestUnlock}
-                                        disabled={requestingUnlock}
-                                        className="px-6 py-3 bg-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                        Request Unlock
-                                    </button>
-                                )}
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest max-w-sm opacity-80">Finalized on {format(new Date(date), 'dd MMM yyyy')}. Session is encrypted and archived.</p>
+                                </div>
+    
+                                <div className="flex flex-col items-center md:items-end gap-2 min-w-[180px]">
+                                    {existingRequest ? (
+                                        <div className="w-full px-5 py-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 flex items-center justify-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest leading-none">Unlock Pending Approval</span>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleRequestUnlock}
+                                            disabled={requestingUnlock}
+                                            className="w-full px-6 py-3 bg-gray-950 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all active:scale-95 disabled:opacity-50 shadow-md"
+                                        >
+                                            Request Session Unlock
+                                        </button>
+                                    )}
+                                    <p className="text-[7px] font-bold text-gray-300 uppercase tracking-widest">Requires Departmental Authorization</p>
+                                </div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
                     {/* Reporting Hub */}
-                    <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] mt-12 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
-                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div>
-                                <h3 className="text-xl font-black text-white tracking-tight leading-none mb-1">Monthly Command Registry</h3>
-                                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Generate comprehensive Institutional Reports (Excel)</p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[8px] font-black text-white/30 uppercase tracking-widest ml-1">Select Month</label>
-                                    <input
-                                        type="month"
-                                        value={exportMonth}
-                                        onChange={e => setExportMonth(e.target.value)}
-                                        max={format(new Date(), 'yyyy-MM')}
-                                        className="px-4 py-2.5 bg-white/10 border border-white/10 rounded-xl text-white text-[11px] font-bold outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
-                                    />
+                    <motion.div 
+                        whileHover={{ y: -3 }}
+                        className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-7 md:p-10 rounded-[2.5rem] mt-10 overflow-hidden relative shadow-2xl"
+                    >
+                        <div className="absolute top-0 right-0 w-80 h-80 bg-violet-500/5 rounded-full blur-[100px] -mr-40 -mt-40 animate-pulse" />
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-red-500/5 rounded-full blur-[80px] -ml-24 -mb-24" />
+                        
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
+                            <div className="flex items-start gap-5">
+                                <div className="w-14 h-14 bg-white/5 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shrink-0">
+                                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M9 17v-2m3 2v-4m3 4V8m6 4v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h6.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V12" strokeWidth={2.5} strokeLinecap="round" />
+                                    </svg>
                                 </div>
+                                <div className="text-center md:text-left">
+                                    <h3 className="text-2xl font-black text-white tracking-tight leading-none mb-2.5">Institutional Ledger</h3>
+                                    <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] leading-relaxed max-w-sm">Generate high-fidelity institutional attendance reports in XLSX format.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-stretch md:items-end gap-5 w-full md:w-auto">
+                                <div className="space-y-2 flex-1 sm:min-w-[180px]">
+                                    <label className="text-[8px] font-black text-white px-1 tracking-widest uppercase opacity-30">Review Period</label>
+                                    <div className="relative">
+                                        <input
+                                            type="month"
+                                            value={exportMonth}
+                                            onChange={e => setExportMonth(e.target.value)}
+                                            max={format(new Date(), 'yyyy-MM')}
+                                            className="w-full px-5 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white text-[10px] font-black outline-none focus:ring-4 focus:ring-violet-500/10 focus:bg-white/10 transition-all cursor-pointer appearance-none"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeWidth={2.5}/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <button
                                     onClick={() => handleExportExcel(new Date(exportMonth + '-01'))}
                                     disabled={exporting || !selectedClass}
-                                    className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 self-end"
+                                    className="px-8 py-4 bg-white text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 group"
                                 >
-                                    {exporting ? 'Processing...' : 'Download Matrix'}
-                                    {!exporting && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                                    {exporting ? (
+                                        <div className="h-4 w-4 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeWidth={3}/></svg>
+                                            <span className="whitespace-nowrap">Generate Matrix</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 </motion.div>
             ) : (
                 <div className="bg-gray-50/50 rounded-[3rem] p-24 text-center border-4 border-dashed border-gray-100">

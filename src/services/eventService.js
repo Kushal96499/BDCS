@@ -80,6 +80,11 @@ export async function proposeEvent(formData, user) {
             organizerId: user.uid,
             organizerName: user.name,
             organizerRole: 'Student President',
+            
+            // Assets & Links
+            posterUrl: formData.posterUrl || '',
+            posterId: formData.posterId || '',
+            registrationLink: formData.registrationLink || '',
 
             // Scoping keys — always populated so HOD/Principal can filter
             batchId: user.batchId || null,

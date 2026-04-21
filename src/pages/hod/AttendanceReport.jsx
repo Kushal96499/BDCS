@@ -124,7 +124,7 @@ export default function AttendanceReport() {
             const { utils, writeFile } = await import('xlsx');
             const batchDoc = batches.find(b => b.id === selectedBatch);
             const exportRows = matrixData.students.map(s => ({
-                'Name': s.name, 'Roll No': s.enrollmentNumber || 'N/A', 'Sem': s.stats.percentage + '%',
+                'Name': s.name, 'Roll No': s.rollNumber || 'N/A', 'Sem': s.stats.percentage + '%',
                 ...matrixData.days.reduce((acc, d) => ({ ...acc, [d]: s.attendance[d] }), {}),
                 'P': s.stats.present, 'A': s.stats.absent, 'H': s.stats.holiday, '%': s.stats.percentage
             }));

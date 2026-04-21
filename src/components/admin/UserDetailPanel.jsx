@@ -141,24 +141,35 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
                         className="relative w-full max-w-2xl bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl shadow-gray-900/15 flex flex-col overflow-hidden max-h-[94vh] md:max-h-[85vh] border border-gray-100/50"
                     >
                         {/* Header */}
-                        <div className="bg-white p-5 sm:p-8 md:p-12 shrink-0 relative overflow-hidden border-b border-gray-50/50">
+                        <div className="bg-white p-6 sm:p-10 md:p-12 shrink-0 relative overflow-hidden border-b border-gray-50/50">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 relative z-10">
-                                <div className="flex items-center gap-4 sm:gap-8">
-                                    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-[1.2rem] sm:rounded-[2rem] bg-gray-900 text-white flex items-center justify-center text-2xl sm:text-4xl font-black shadow-2xl shadow-gray-300 shrink-0">
+                            {/* Absolute Close Button */}
+                            <button
+                                onClick={onClose}
+                                className="absolute top-6 right-6 z-50 p-3 bg-gray-50/80 backdrop-blur-sm hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-2xl transition-all active:scale-90 border border-transparent hover:border-red-100"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 relative z-10 pr-12 sm:pr-0">
+                                <div className="flex items-center gap-5 sm:gap-8">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.8rem] bg-gray-900 text-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-2xl shadow-blue-900/10 shrink-0 border-4 border-white transform -rotate-3">
                                         {targetUser?.name?.charAt(0)?.toUpperCase()}
                                     </div>
-                                    <div className="min-w-0 pr-4">
-                                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                                            <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-none tracking-tight truncate max-w-[220px] sm:max-w-md">{targetUser?.name}</h2>
-                                            <span className="px-2.5 py-1 bg-gray-900 text-white rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest h-fit">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                                            <h2 className="text-xl sm:text-3xl font-black text-gray-900 leading-none tracking-tight truncate max-w-[200px] sm:max-w-md">{targetUser?.name}</h2>
+                                            <span className="px-2.5 py-1 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest h-fit">
                                                 {targetUser?.role || 'Staff'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-widest truncate max-w-[200px] sm:max-w-xs">{targetUser?.email}</p>
-                                            <span className={`w-2 h-2 rounded-full ring-4 ring-emerald-50 ${targetUser?.status === 'active' ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-widest">{targetUser?.email}</p>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${targetUser?.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{targetUser?.status || 'Active'}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -166,30 +177,23 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => setIsEditing(!isEditing)}
-                                        className={`px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl transition-all border active:scale-95 flex items-center gap-2 ${isEditing ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-gray-900 text-white border-gray-900 shadow-xl shadow-gray-900/10'}`}
+                                        className={`px-5 py-3 sm:px-8 sm:py-4 rounded-2xl transition-all border active:scale-95 flex items-center gap-3 ${isEditing ? 'bg-amber-50 text-amber-600 border-amber-100 shadow-sm' : 'bg-gray-950 text-white border-gray-900 hover:bg-black shadow-2xl shadow-gray-200'}`}
                                     >
-                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                                             <path d={isEditing ? "M6 18L18 6M6 6l12 12" : "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"} strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
-                                        <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap">{isEditing ? 'Cancel' : 'Edit Profile'}</span>
-                                    </button>
-                                    <button
-                                        onClick={onClose}
-                                        title="Close Panel"
-                                        className="p-3.5 sm:p-5 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-900 rounded-xl sm:rounded-2xl transition-all border border-gray-100 active:scale-90"
-                                    >
-                                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3.5}><path d="M6 18L18 6M6 6l12 12" /></svg>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">{isEditing ? 'Cancel Edit' : 'Edit Profile'}</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-5 sm:p-8 md:p-12 pt-0 bg-white space-y-10 no-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-12 pt-0 bg-white space-y-8 sm:space-y-10 no-scrollbar">
                             <div className="space-y-8">
-                                <div className="bg-slate-50/50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-gray-100 p-6 md:p-10 shadow-inner">
-                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3 ml-2">
-                                        <div className="w-2.5 h-6 bg-red-600 rounded-full" />
+                                <div className="bg-slate-50/50 rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 p-4 sm:p-8 md:p-10 shadow-inner">
+                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 sm:mb-10 flex items-center gap-3 ml-1">
+                                        <div className="w-2 h-2 bg-red-600 rounded-full" />
                                         Identity Architecture
                                     </h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -250,9 +254,9 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-gray-100 p-6 md:p-10 shadow-sm">
-                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3 ml-2">
-                                        <div className="w-2.5 h-6 bg-[#E31E24] rounded-full" />
+                                <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 p-4 sm:p-8 md:p-10 shadow-sm">
+                                    <h3 className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 sm:mb-10 flex items-center gap-3 ml-1">
+                                        <div className="w-2 h-2 bg-[#E31E24] rounded-full" />
                                         Institutional Scope
                                     </h3>
                                     <div className="grid grid-cols-1 gap-4">
@@ -317,18 +321,20 @@ export default function UserDetailPanel({ user: targetUser, onClose, onUserDelet
 }
 
 const DetailItem = ({ label, value, isStatus }) => (
-    <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{label}</label>
+    <div className="space-y-2 group">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 transition-colors group-hover:text-blue-500">{label}</label>
         {isStatus ? (
-            <div><span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${value === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>{value}</span></div>
+            <div className="pt-1"><span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${value === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm shadow-emerald-100/50' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>{value}</span></div>
         ) : (
-            <p className="text-sm font-bold text-gray-900 bg-gray-50/50 px-4 py-3 rounded-xl border border-gray-50">{value || 'N/A'}</p>
+            <div className="bg-white px-5 py-4 rounded-2xl border border-gray-100 shadow-sm transition-all group-hover:border-blue-100 group-hover:translate-x-1">
+                <p className="text-[11px] sm:text-xs font-black text-gray-900 tracking-tight">{value || 'NOT SET'}</p>
+            </div>
         )}
     </div>
 );
 
 const ScopeItem = ({ icon, label, value }) => (
-    <div className="flex items-center gap-4 p-4 bg-gray-50/50 rounded-2xl border border-gray-50">
+    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50/50 rounded-2xl border border-gray-50">
         <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-xl shadow-sm">{icon}</div>
         <div className="flex flex-col">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</span>

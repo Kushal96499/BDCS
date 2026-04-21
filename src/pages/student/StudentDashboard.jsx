@@ -5,12 +5,11 @@ import { collection, query, where, onSnapshot, limit, doc, getDoc } from 'fireba
 import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { isBacklogStudent, hasAnyBacklogs } from '../../services/batchPromotionService';
-import AcademicTimeline from '../../components/student/AcademicTimeline';
+import { getDoc as getFirestoreDoc } from 'firebase/firestore';
 
 const container = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
 };
 
 const item = {
@@ -18,53 +17,38 @@ const item = {
     show: { opacity: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 200 } }
 };
 
-function getGreeting() {
-    const h = new Date().getHours();
-    if (h < 12) return { text: 'Good Morning', sub: 'Session: Morning' };
-    if (h < 17) return { text: 'Good Afternoon', sub: 'Session: Afternoon' };
-    return { text: 'Good Evening', sub: 'Session: Evening' };
-}
-
 export default function StudentDashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ 
-        attendance: 0, 
-        testsCount: 0, 
-        upcomingTests: [], // Array of upcoming test objects
-        projectsCount: 0, 
-        upcomingEvent: null 
+    const [stats, setStats] = useState({
+        attendance: 0,
+        testsCount: 0,
+        upcomingTests: [],
+        projectsCount: 0,
+        upcomingEvent: null
     });
     const [loading, setLoading] = useState(true);
     const [displayCourseName, setDisplayCourseName] = useState(user?.courseName || '');
-    const greeting = useMemo(() => getGreeting(), []);
 
     useEffect(() => {
         if (!user?.uid) return;
 
-        // ── PERSISTENT FIRESTORE LISTENERS ──────────────────────────
         const unsubAtt = onSnapshot(query(collection(db, 'attendance_records'), where('studentId', '==', user.uid)), (snap) => {
             const data = snap.docs.map(d => d.data());
-            
-            // CUMULATIVE ATTENDANCE LOGIC (System Wide)
-            // We calculate overall attendance across all semesters for the dashboard metric
             const uniqueRecordsMap = {};
             data.forEach(record => {
                 const dateKey = record.date || record.dateStr;
                 if (!dateKey) return;
-                // De-duplicate multiple records on the same day
                 if (!uniqueRecordsMap[dateKey] || (record.timestamp?.toMillis?.() > uniqueRecordsMap[dateKey].timestamp?.toMillis?.())) {
                     uniqueRecordsMap[dateKey] = record;
                 }
             });
-
             const uniqueRecords = Object.values(uniqueRecordsMap);
             const total = uniqueRecords.length;
             const present = uniqueRecords.filter(r => {
                 const status = (r.status || r.attendanceStatus || '').toUpperCase();
                 return ['PRESENT', 'NOC', 'P'].includes(status);
             }).length;
-            
             const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
             setStats(prev => ({ ...prev, attendance: percentage }));
             setLoading(false);
@@ -87,20 +71,14 @@ export default function StudentDashboard() {
             setStats(prev => ({ ...prev, upcomingEvent: upcoming }));
         });
 
-        // ── UPCOMING TESTS LISTENER ──────────────────────────────
-        let unsubUpcoming = () => {};
+        let unsubUpcoming = () => { };
         if (user?.batchId) {
             unsubUpcoming = onSnapshot(
-                query(
-                    collection(db, 'tests'), 
-                    where('batch', '==', user.batchId),
-                    where('status', 'in', ['scheduled', 'draft', 'postponed'])
-                ),
+                query(collection(db, 'tests'), where('batch', '==', user.batchId), where('status', 'in', ['scheduled', 'draft', 'postponed'])),
                 (snap) => {
                     const now = new Date();
                     now.setHours(0, 0, 0, 0);
-                    
-                    const upcoming = snap.docs
+                    const upcomingDocs = snap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
                         .filter(t => {
                             const tDate = t.testDate?.toDate ? t.testDate.toDate() : new Date(t.testDate);
@@ -111,192 +89,257 @@ export default function StudentDashboard() {
                             const dateB = b.testDate?.toDate ? b.testDate.toDate() : new Date(b.testDate);
                             return dateA - dateB;
                         });
-                    
-                    setStats(prev => ({ ...prev, upcomingTests: upcoming }));
+                    setStats(prev => ({ ...prev, upcomingTests: upcomingDocs }));
                 }
             );
         }
 
         return () => { unsubAtt(); unsubTests(); unsubProj(); unsubEvents(); unsubUpcoming(); };
-    }, [user?.uid, user?.currentSemester]);
+    }, [user?.uid]);
 
     useEffect(() => {
         if (!user?.courseName && user?.courseId) {
-            getDoc(doc(db, 'courses', user.courseId)).then(snap => {
+            getFirestoreDoc(doc(db, 'courses', user.courseId)).then(snap => {
                 if (snap.exists()) setDisplayCourseName(snap.data().name);
             });
         }
     }, [user?.courseName, user?.courseId]);
 
-    if (loading) return <div className="p-12 animate-pulse space-y-8"><div className="h-64 bg-white rounded-[3rem] border border-slate-100" /></div>;
-
     const firstName = user?.name?.split(' ')[0] || 'Student';
 
+    if (loading) return (
+        <div className="space-y-8 animate-pulse w-full">
+            <div className="h-48 bg-white rounded-3xl border border-slate-100 shadow-sm" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[1, 2, 3].map(i => <div key={i} className="h-56 bg-white rounded-3xl border border-slate-100" />)}
+            </div>
+        </div>
+    );
+
     return (
-        <motion.div variants={container} initial="hidden" animate="show" className="space-y-12 pb-20">
-            
-            {/* ── STUDENT PORTAL OVERVIEW ───────────────────────────── */}
-            <motion.div variants={item} className="aether-card p-10 md:p-16 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-slate-50 to-transparent pointer-events-none" />
-                
-                <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
-                    <div className="flex-1 space-y-8">
-                        <div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <span className="px-3 py-1 bg-slate-900 text-white text-[9px] font-bold uppercase tracking-[0.2em] rounded-md">Spotlight</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{greeting.sub}</span>
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-10 pb-32 w-full">
+
+            {/* ── UNIFIED DASHBOARD HERO: PREMIUM GLASS EDITION ────── */}
+            <motion.div variants={item} className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-100 via-white to-red-100 rounded-[3.5rem] blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-1000" />
+                <div className="relative bg-white/60 rounded-[3rem] p-6 sm:p-10 md:p-14 overflow-hidden border border-white/80 shadow-2xl shadow-indigo-100/50 backdrop-blur-3xl">
+                    {/* Soft Glow Orbs */}
+                    <motion.div
+                        animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.4, 0.6, 0.4]
+                        }}
+                        transition={{ duration: 10, repeat: Infinity }}
+                        className="absolute -top-32 -right-32 w-96 h-96 bg-red-100/60 rounded-full blur-[100px]"
+                    />
+                    <motion.div
+                        animate={{
+                            scale: [1, 1.3, 1],
+                            opacity: [0.3, 0.5, 0.3]
+                        }}
+                        transition={{ duration: 8, repeat: Infinity }}
+                        className="absolute -bottom-32 -left-32 w-96 h-96 bg-indigo-100/40 rounded-full blur-[100px]"
+                    />
+
+                    <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
+                        <div className="flex-1 space-y-8 md:space-y-10">
+                            <div className="space-y-3 md:space-y-4">
+                                <div className="flex items-center justify-center lg:justify-start gap-2">
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-[#E31E24]/5 backdrop-blur-xl rounded-full border border-[#E31E24]/10">
+                                        <span className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse shadow-[0_0_8px_rgba(227,30,36,0.4)]" />
+                                        <p className="text-[8px] md:text-[10px] font-black text-[#E31E24] uppercase tracking-[0.25em]">Student Identity Card</p>
+                                    </div>
+                                </div>
+                                <h1 className="text-4xl md:text-7xl font-black text-slate-950 tracking-tighter uppercase leading-[0.9]">
+                                    Welcome,<br />
+                                    <span className="text-[#E31E24] inline-block mt-1 md:mt-2">
+                                        {user?.name?.split(' ')[0] || 'Scholar'}
+                                    </span>
+                                </h1>
                             </div>
-                            <h1 className="text-5xl md:text-7xl font-heading text-slate-900 leading-none">
-                                {greeting.text}, <span className="text-[#E31E24]">{firstName}</span>.
-                            </h1>
-                            <p className="mt-6 text-slate-500 text-lg max-w-xl leading-relaxed">
-                                See your attendance and test results here. All your academic records are safe.
-                            </p>
+
+                            <div className="flex flex-wrap justify-center lg:justify-start gap-2 md:gap-4">
+                                <HeroPill label="Course" value={displayCourseName || user?.courseName || 'Student'} color="slate" />
+                                <HeroPill label="Sem" value={user?.currentSemester || 'Auto'} icon="🎓" color="red" />
+                                <HeroPill label="Roll No" value={user?.rollNumber || user?.uid?.slice(-6).toUpperCase()} icon="🆔" color="indigo" />
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-4">
-                            <StatPill label="Course" value={displayCourseName || user?.courseName || 'Syncing...'} />
-                            <StatPill label="Semester" value={user?.currentSemester || 'Regular'} />
-                            <StatPill label="Status" value="Verified" color="emerald" />
-                        </div>
-                    </div>
-
-                    <div className="hidden lg:block w-px h-32 bg-slate-100" />
-
-                        <div className="flex items-center gap-8 px-8">
-                        <div className="text-center group cursor-default">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Attendance</p>
-                            <h3 className="text-5xl font-heading text-slate-900 group-hover:text-[#E31E24] transition-colors">{stats.attendance}%</h3>
-                        </div>
-                        <div className="text-center group cursor-default">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Upcoming Tests</p>
-                            <h3 className="text-5xl font-heading text-slate-900 group-hover:text-[#E31E24] transition-colors">{stats.upcomingTests.length}</h3>
+                        <div className="flex shrink-0 items-center gap-6 md:gap-10 bg-slate-50/50 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 backdrop-blur-2xl shadow-sm group/stats w-full lg:w-auto">
+                            <div className="flex-1 text-center px-4 md:px-8 border-r border-slate-100">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Attendance</p>
+                                <h3 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter tabular-nums">{stats.attendance}%</h3>
+                                <div className="mt-2 md:mt-3 h-1 md:h-1.5 w-full bg-slate-200/50 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${stats.attendance}%` }}
+                                        className="h-full bg-[#E31E24]"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex-1 text-center px-4 md:px-8">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Upcoming</p>
+                                <h3 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter tabular-nums">{stats.upcomingTests.length}</h3>
+                                <div className="mt-2 md:mt-3 text-[8px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 py-1 px-2 md:px-3 rounded-full">Tests Pending</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </motion.div>
 
-            {/* ── DASHBOARD SHORTCUTS ────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <BentoCard 
-                    title="My Attendance" 
-                    desc="Check your attendance status for all subjects."
-                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /></svg>}
+            {/* ── BENTO NAVIGATION ────────────────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <BentoCard
+                    title="Attendance"
+                    desc="Track your daily presence."
+                    icon="📊"
                     onClick={() => navigate('/student/attendance')}
-                    stats={`${stats.attendance}% Present`}
+                    stats={`${stats.attendance}%`}
+                    label="Current"
+                    color="slate"
                 />
-                <BentoCard 
-                    title="Test Results" 
-                    desc="View your marks for unit tests and assignments."
-                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M8 13h2M8 17h2M14 13h2M14 17h2" /></svg>}
+                <BentoCard
+                    title="Results"
+                    desc="View class test records."
+                    icon="📋"
                     onClick={() => navigate('/student/test-history')}
-                    stats={`${stats.testsCount} Tests`}
+                    stats={stats.testsCount}
+                    label="Tests"
+                    color="red"
                 />
-                <BentoCard 
-                    title="My Projects" 
-                    desc="Manage your college projects and reports."
-                    icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>}
+                <BentoCard
+                    title="Projects"
+                    desc="Showcase your work."
+                    icon="🚀"
                     onClick={() => navigate('/student/projects')}
-                    stats={`${stats.projectsCount} Active`}
+                    stats={stats.projectsCount}
+                    label="Active"
+                    color="indigo"
                 />
             </div>
 
-            {/* ── COLLEGE ANNOUNCEMENTS ──────────────────────────────── */}
+            {/* ── UPDATES FEED ──────────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                <motion.div variants={item} className="lg:col-span-3 aether-card p-10 flex flex-col justify-between hover:bg-slate-50/50">
-                    <div>
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-4">Immediate Schedule</h3>
+                <motion.div variants={item} className="lg:col-span-3 bg-white rounded-[3rem] border border-slate-100 p-12 flex flex-col justify-between hover:shadow-2xl transition-all duration-700 h-[380px] relative overflow-hidden group shadow-xl shadow-slate-100/50">
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-red-50/50 rounded-full blur-3xl group-hover:bg-red-100 transition-colors duration-700" />
+                    <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl group-hover:bg-indigo-100 transition-colors duration-700" />
+
+                    <div className="relative z-10 space-y-8">
+                        <div className="flex items-center gap-3">
+                            <span className="px-3 py-1.5 bg-red-50 text-[#E31E24] text-[10px] font-black uppercase tracking-[0.2em] rounded-lg border border-red-100">Latest Update</span>
+                        </div>
                         {stats.upcomingEvent || stats.upcomingTests.length > 0 ? (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {stats.upcomingEvent ? (
                                     <>
-                                        <h4 className="text-3xl font-heading text-slate-900">{stats.upcomingEvent.title}</h4>
-                                        <p className="text-slate-500 max-w-md">Upcoming institutional event. Check calendar for details.</p>
+                                        <h4 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tight leading-[0.95] line-clamp-2">{stats.upcomingEvent.title}</h4>
+                                        <p className="text-slate-500 font-semibold text-lg max-w-md leading-relaxed">New campus event scheduled. Visit the explorer to register.</p>
                                     </>
                                 ) : (
                                     <>
-                                        <h4 className="text-3xl font-heading text-slate-900">{stats.upcomingTests[0].subjectName}</h4>
-                                        <p className="text-slate-500 max-w-md">Upcoming Test: {stats.upcomingTests[0].topic} on {format(stats.upcomingTests[0].testDate?.toDate ? stats.upcomingTests[0].testDate.toDate() : new Date(stats.upcomingTests[0].testDate), 'MMM dd')}</p>
+                                        <h4 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tight leading-[0.95] line-clamp-2">{stats.upcomingTests[0].subjectName}</h4>
+                                        <p className="text-slate-500 font-semibold text-lg max-w-md leading-relaxed">Upcoming Test on {format(stats.upcomingTests[0].testDate?.toDate ? stats.upcomingTests[0].testDate.toDate() : new Date(stats.upcomingTests[0].testDate), 'MMMM dd, yyyy')}</p>
                                     </>
                                 )}
                             </div>
                         ) : (
-                            <p className="text-slate-400 font-medium">No immediate tests or events scheduled.</p>
+                            <div className="py-10">
+                                <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-3xl opacity-20">No New Activity</p>
+                            </div>
                         )}
                     </div>
-                    <button 
-                        onClick={() => navigate(stats.upcomingEvent ? '/student/events' : '/student/test-history')}
-                        className="mt-12 action-button w-fit px-8"
-                    >
-                        {stats.upcomingEvent ? 'View Events' : 'View Test Schedule'}
-                    </button>
+
+                    <div className="relative z-10 pt-10">
+                        <button
+                            onClick={() => navigate(stats.upcomingEvent ? '/student/events' : '/student/test-history')}
+                            className="bg-slate-950 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-[#E31E24] hover:-translate-y-1 active:translate-y-0 transition-all duration-500 flex items-center gap-3"
+                        >
+                            Explore Now
+                            <span className="text-xl">→</span>
+                        </button>
+                    </div>
                 </motion.div>
 
-                <motion.div variants={item} className="lg:col-span-2 space-y-4">
-                    <QuickUplink icon="🏛️" label="Campus Council" to="/student/council" />
-                    <QuickUplink icon="🔍" label="Student Search" to="/student/directory" />
-                    <QuickUplink icon="🎒" label="Materials" to="/student/projects" />
+                <motion.div variants={item} className="lg:col-span-2 space-y-6">
+                    <QuickAction icon="🏛️" label="Campus Council" to="/student/council" />
+                    <QuickAction icon="🤳" label="Student Directory" to="/student/directory" />
                 </motion.div>
-            </div>
-
-            <div className="pt-20 text-center opacity-30">
-                <span className="text-[10px] font-bold uppercase tracking-[0.6em] text-slate-900">Biyani Digital Campus System | Student Dashboard</span>
             </div>
         </motion.div>
     );
 }
 
-// ── SUB-COMPONENTS ──────────────────────────────────────────
-
-function StatPill({ label, value, color = 'slate' }) {
+function HeroPill({ label, value, icon, color = 'slate' }) {
     const colors = {
-        slate: 'bg-slate-50 text-slate-600 border-slate-100',
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        slate: 'text-slate-600 border-slate-200 bg-slate-50',
+        red: 'text-[#E31E24] border-red-100 bg-red-50/50',
+        indigo: 'text-indigo-600 border-indigo-100 bg-indigo-50/50'
     };
     return (
-        <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 ${colors[color]}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}:</span>
-            <span className="text-[11px] font-bold uppercase">{value}</span>
+        <div className={`px-3 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border flex items-center gap-2 md:gap-3 transition-all hover:bg-white hover:scale-105 backdrop-blur-xl ${colors[color]}`}>
+            {icon && <span className="text-[10px] md:text-xs opacity-70">{icon}</span>}
+            <div className="flex items-center gap-1">
+                <span className="text-[7px] md:text-[9px] font-black uppercase tracking-widest opacity-40">{label}:</span>
+                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-tight text-slate-800">{value}</span>
+            </div>
         </div>
     );
 }
 
-function BentoCard({ title, desc, icon, onClick, stats }) {
+
+function BentoCard({ title, desc, icon, onClick, stats, label, color }) {
+    const overlays = {
+        slate: 'hover:border-slate-900 hover:bg-slate-50',
+        red: 'hover:border-[#E31E24] hover:bg-red-50',
+        indigo: 'hover:border-indigo-600 hover:bg-indigo-50'
+    };
     return (
-        <motion.div 
+        <motion.div
             variants={item}
+            whileHover={{ y: -5, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onClick}
-            className="aether-card p-10 cursor-pointer group flex flex-col justify-between min-h-[300px]"
+            className={`aether-card p-8 cursor-pointer group flex flex-col justify-between min-h-[220px] transition-all duration-500 border border-slate-100 ${overlays[color]}`}
         >
-            <div className="space-y-6">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#E31E24] group-hover:text-white transition-all duration-500">
-                    <div className="w-6 h-6">{icon}</div>
+            <div className="flex justify-between items-start">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl group-hover:scale-110 group-hover:-rotate-12 transition-all duration-500 group-hover:bg-white shadow-sm">
+                    {icon}
                 </div>
-                <div>
-                    <h3 className="text-2xl font-heading text-slate-900 mb-3">{title}</h3>
-                    <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
+                <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+                    <h4 className="text-2xl font-black text-slate-900 group-hover:text-[#E31E24] transition-colors tabular-nums">{stats}</h4>
                 </div>
             </div>
-            <div className="pt-8 flex items-center justify-between border-t border-slate-50 mt-auto">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stats}</span>
-                <span className="text-slate-200 group-hover:text-[#E31E24] transition-colors">→</span>
+
+            <div className="space-y-1">
+                <h3 className="text-xl font-black uppercase tracking-tight leading-none group-hover:translate-x-1 transition-transform duration-500">{title}</h3>
+                <p className="text-slate-400 font-semibold text-[11px] leading-snug">{desc}</p>
+            </div>
+
+            <div className="pt-4 flex items-center justify-between border-t border-slate-50 opacity-40 group-hover:opacity-100 transition-all">
+                <span className="text-[9px] font-black uppercase tracking-widest">Open Analytics</span>
+                <span className="text-lg group-hover:translate-x-2 transition-transform">→</span>
             </div>
         </motion.div>
     );
 }
 
-function QuickUplink({ icon, label, to }) {
+function QuickAction({ icon, label, to }) {
     const navigate = useNavigate();
     return (
-        <button 
+        <button
             onClick={() => navigate(to)}
-            className="w-full aether-card p-6 flex items-center justify-between hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full bg-white border border-slate-100 rounded-[2.2rem] p-8 flex items-center justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group shadow-lg shadow-slate-100/30"
         >
-            <div className="flex items-center gap-4">
-                <span className="text-xl">{icon}</span>
-                <span className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">{label}</span>
+            <div className="flex items-center gap-6">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 group-hover:bg-red-50">
+                    <span className="text-3xl">{icon}</span>
+                </div>
+                <span className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] group-hover:text-[#E31E24] transition-colors">{label}</span>
             </div>
-            <span className="text-slate-300">→</span>
+            <div className="w-10 h-10 rounded-full border border-slate-50 flex items-center justify-center group-hover:rotate-45 transition-all text-slate-200 group-hover:text-slate-900">
+                <span className="text-xl">→</span>
+            </div>
         </button>
     );
 }

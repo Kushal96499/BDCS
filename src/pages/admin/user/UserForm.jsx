@@ -300,6 +300,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
     };
 
     const roleOptions = [
+        { value: 'admin', label: 'Admin' },
         { value: 'director', label: 'Director' },
         { value: 'principal', label: 'Principal' },
         { value: 'hr', label: 'HR Manager' },
@@ -450,7 +451,7 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                             )}
 
                             {/* College — only for college-level roles and below */}
-                            {needsCollege && colleges.length > 0 && (
+                            {needsCollege && (
                                 <Select
                                     label="College"
                                     name="collegeId"
@@ -496,8 +497,9 @@ export default function UserForm({ isOpen, user: editUser, onClose, onSuccess })
                         />
                         
                         <div className="space-y-1.5 flex flex-col">
-                           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] ml-1">Joining Date</label>
+                           <label htmlFor="user-joining-date" className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] ml-1">Joining Date</label>
                             <input 
+                                id="user-joining-date"
                                 type="date" 
                                 name="joiningDate" 
                                 value={formData.joiningDate} 

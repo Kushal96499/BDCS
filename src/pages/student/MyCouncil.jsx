@@ -4,6 +4,7 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import PremiumSelect from '../../components/common/PremiumSelect';
 
 export default function MyCouncil() {
     const { user } = useAuth();
@@ -117,46 +118,25 @@ export default function MyCouncil() {
                 </div>
 
                 {/* Explorer Filters */}
-                <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 border-t border-gray-100">
-                    <div className="space-y-2">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Location Segment</p>
-                        <div className="relative">
-                            <select 
-                                value={campusFilter} 
-                                onChange={e => setCampusFilter(e.target.value)}
-                                className="appearance-none w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-amber-200 transition-all outline-none cursor-pointer"
-                            >
-                                {dbCampuses.map(c => <option key={c} value={c}>{c === 'All' ? 'All Campuses' : c}</option>)}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">▼</div>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Institutional Body</p>
-                        <div className="relative">
-                            <select 
-                                value={collegeFilter} 
-                                onChange={e => setCollegeFilter(e.target.value)}
-                                className="appearance-none w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-amber-200 transition-all outline-none cursor-pointer"
-                            >
-                                {dbColleges.map(c => <option key={c} value={c}>{c === 'All' ? 'All Colleges' : c}</option>)}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">▼</div>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Department Sector</p>
-                        <div className="relative">
-                            <select 
-                                value={deptFilter} 
-                                onChange={e => setDeptFilter(e.target.value)}
-                                className="appearance-none w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-amber-200 transition-all outline-none cursor-pointer"
-                            >
-                                {dbDepartments.map(c => <option key={c} value={c}>{c === 'All' ? 'All Departments' : c}</option>)}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">▼</div>
-                        </div>
-                    </div>
+                <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-gray-100">
+                    <PremiumSelect
+                        label="Location Segment"
+                        value={campusFilter}
+                        onChange={(e) => setCampusFilter(e.target.value)}
+                        options={dbCampuses.map(c => ({ value: c, label: c === 'All' ? 'All Campuses' : c }))}
+                    />
+                    <PremiumSelect
+                        label="Institutional Body"
+                        value={collegeFilter}
+                        onChange={(e) => setCollegeFilter(e.target.value)}
+                        options={dbColleges.map(c => ({ value: c, label: c === 'All' ? 'All Colleges' : c }))}
+                    />
+                    <PremiumSelect
+                        label="Department Sector"
+                        value={deptFilter}
+                        onChange={(e) => setDeptFilter(e.target.value)}
+                        options={dbDepartments.map(c => ({ value: c, label: c === 'All' ? 'All Departments' : c }))}
+                    />
                 </div>
             </motion.header>
 

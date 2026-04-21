@@ -143,7 +143,7 @@ export default function UserList() {
     };
 
     const roleLabels = {
-        admin: 'Global Admin',
+        admin: 'Admin',
         director: 'Director',
         principal: 'Principal',
         hod: 'Head of Department',
@@ -243,7 +243,9 @@ export default function UserList() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div className="md:col-span-2">
                          <Input 
+                            id="personnel-search"
                             label="Search Personnel"
+                            name="search"
                             placeholder="Name, email or employee ID..."
                             value={filters.search}
                             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
@@ -252,6 +254,7 @@ export default function UserList() {
                     </div>
                     <div>
                         <Select 
+                            id="personnel-role-filter"
                             label="Assign. Role"
                             name="role"
                             value={filters.role}

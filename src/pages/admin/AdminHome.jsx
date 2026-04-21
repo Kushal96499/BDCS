@@ -310,7 +310,7 @@ function AlertCard({ count, title, label, icon, color, items, onClick }) {
                 )}
             </div>
 
-            <h3 className="text-xl font-black text-gray-900 tracking-tight mb-1">{isError ? title : 'All Secure'}</h3>
+            <h3 className="text-xl font-black text-gray-900 tracking-tight mb-1">{title}</h3>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">{isError ? label : 'No Action Required'}</p>
 
             {isError ? (

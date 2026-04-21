@@ -3,11 +3,11 @@
 // Desktop: Sleek Table | Mobile: Card View
 // ============================================
 
-import React from 'react';
+import React, { memo } from 'react';
 import Button from '../Button';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function DataTable({
+const DataTable = ({
     columns,
     data,
     onEdit,
@@ -16,7 +16,7 @@ export default function DataTable({
     actions = true,
     emptyMessage = 'No data found',
     loading = false
-}) {
+}) => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 animate-premium-slide">
@@ -65,13 +65,12 @@ export default function DataTable({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        <AnimatePresence mode="popLayout">
+                        <AnimatePresence mode="popLayout" initial={false}>
                             {data.map((row, rowIndex) => (
                                 <motion.tr
-                                    layout
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
                                     key={row.id || row._id || rowIndex}
                                     className="hover:bg-red-50/10 transition-all group"
                                 >
@@ -128,4 +127,6 @@ export default function DataTable({
             </div>
         </div>
     );
-}
+};
+
+export default memo(DataTable);

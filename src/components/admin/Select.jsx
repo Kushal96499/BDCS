@@ -1,13 +1,7 @@
-// ============================================
-// BDCS - Premium Custom Select Component
-// Replaces native browser selects with a 
-// smooth, glassmorphic dropdown.
-// ============================================
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Select({
+const Select = ({
     label,
     name,
     value,
@@ -18,7 +12,7 @@ export default function Select({
     required = false,
     className = '',
     id
-}) {
+}) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
     
@@ -68,7 +62,7 @@ export default function Select({
                     aria-labelledby={labelId}
                     className={`
                         w-full flex items-center justify-between
-                        px-5 py-3.5 text-sm font-semibold
+                        px-5 py-2.5 text-sm font-semibold
                         bg-gray-50/50 hover:bg-white rounded-2xl
                         border transition-all duration-300
                         ${error 
@@ -161,4 +155,6 @@ export default function Select({
             </AnimatePresence>
         </div>
     );
-}
+};
+
+export default memo(Select);

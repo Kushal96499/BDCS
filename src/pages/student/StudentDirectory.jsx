@@ -4,6 +4,7 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import PremiumSelect from '../../components/common/PremiumSelect';
 
 const fade = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } };
 const grid = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -246,24 +247,20 @@ export default function StudentDirectory() {
 }
 
 function FilterSelect({ label, value, onChange, options, icon, disabled }) {
+    const mappedOptions = options.map(opt => ({
+        value: opt,
+        label: opt === 'All' ? `All ${label === 'Campus' ? 'Campuses' : label + 's'}` : opt
+    }));
+
     return (
-        <div className={`relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg opacity-70">{icon}</div>
-            <select
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                className="w-full appearance-none bg-white border border-gray-200 rounded-2xl pl-11 pr-10 py-3 text-sm font-bold text-gray-700 focus:outline-none focus:ring-4 focus:ring-[#E31E24]/10 focus:border-[#E31E24] transition-all shadow-sm cursor-pointer truncate"
-            >
-                {options.map(opt => (
-                    <option key={opt} value={opt}>
-                        {opt === 'All' ? `All ${label === 'Campus' ? 'Campuses' : label + 's'}` : opt}
-                    </option>
-                ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </div>
-        </div>
+        <PremiumSelect
+            disabled={disabled}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            options={mappedOptions}
+            icon={<span className="text-lg opacity-70">{icon}</span>}
+            className="w-full"
+        />
     );
 }
 

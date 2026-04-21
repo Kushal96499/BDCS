@@ -1,6 +1,6 @@
 // ============================================
-// BDCS Student Layout — "Aether Minimal"
-// Institutional Precision | Luxury Refined
+// BDCS Student Layout
+// Institutional Premium
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -166,7 +166,7 @@ export default function StudentLayout() {
             </header>
 
             {/* ── MAIN CONTENT AREA ────────────────────────────────── */}
-            <main className="relative z-10 w-full min-h-screen pt-16 md:pl-20">
+            <main className="relative w-full min-h-screen pt-16 md:pl-20">
                 <div className="max-w-7xl mx-auto px-6 md:px-12 py-6 pb-32">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -175,7 +175,6 @@ export default function StudentLayout() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.3, ease: "easeOut" }}
-                            className="gpu-render"
                         >
                             <Outlet />
                         </motion.div>

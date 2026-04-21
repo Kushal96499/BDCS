@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { collection, query, orderBy, limit, getDocs, startAfter, endBefore, limitToLast } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, startAfter, endBefore, limitToLast, getCountFromServer, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { format } from 'date-fns';
@@ -65,6 +65,8 @@ export default function SharedAuditLogs({ title, subtitle }) {
     const [hasNext, setHasNext] = useState(false);
     const [hasPrev, setHasPrev] = useState(false);
     const [totalDocs, setTotalDocs] = useState(0);
+    const [realTotalCount, setRealTotalCount] = useState(0);
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
     const rowsPerPageOptions = [
         { value: 10, label: '10 Logs' },
@@ -170,6 +172,28 @@ export default function SharedAuditLogs({ title, subtitle }) {
 
             setTotalDocs(filtered.length);
 
+            // Fetch Real Total Count (Scope-aware)
+            if (direction === 'initial' && !searchQuery && !dateRange.start && !dateRange.end) {
+                let countRef = query(baseRef);
+                
+                // Add basic scope filters for count (Indestructible - using single field where possible)
+                if (user.role === 'teacher') {
+                    countRef = query(baseRef, where('performedBy', '==', user.uid));
+                } else if (user.role !== 'admin') {
+                    // Try to filter by college name or ID if available (System-wide if admin)
+                    if (user.collegeName) {
+                        countRef = query(baseRef, where('performerCollege', '==', user.collegeName));
+                    }
+                }
+
+                getCountFromServer(countRef)
+                    .then(snap => setRealTotalCount(snap.data().count))
+                    .catch(e => {
+                        console.warn('Count fetch failed, falling back to all:', e);
+                        getCountFromServer(query(baseRef)).then(s => setRealTotalCount(s.data().count));
+                    });
+            }
+
             // Paginate filtered results manually
             const startIdx = direction === 'initial' ? 0 : (currentPage - 1) * rowsPerPage;
             const page = filtered.slice(
@@ -209,7 +233,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
             }
         }, 500); // 500ms Debounce
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, dateRange]);
 
     useEffect(() => {
         if (user?.uid && !searchQuery) {
@@ -228,43 +252,72 @@ export default function SharedAuditLogs({ title, subtitle }) {
     };
 
     // Paginate and filter for action type display
-    const displayLogs = logs
-        .filter(log => filterAction === 'all' || log.action === filterAction)
-        .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    const displayLogs = React.useMemo(() => {
+        return logs
+            .filter(log => {
+                const matchesAction = filterAction === 'all' || log.action === filterAction;
+                
+                // Date Range Filter
+                let matchesDate = true;
+                if (dateRange.start || dateRange.end) {
+                    const logTimestamp = log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp);
+                    if (dateRange.start) {
+                        const startDate = new Date(dateRange.start);
+                        startDate.setHours(0, 0, 0, 0);
+                        if (logTimestamp < startDate) matchesDate = false;
+                    }
+                    if (dateRange.end) {
+                        const endDate = new Date(dateRange.end);
+                        endDate.setHours(23, 59, 59, 999);
+                        if (logTimestamp > endDate) matchesDate = false;
+                    }
+                }
 
-    const uniqueActions = ['all', ...new Set(logs.map(log => log.action))];
-    const actionOptions = uniqueActions.map(a => ({ 
-        value: a, 
-        label: a === 'all' ? 'Specific Filter' : a.replace('_', ' ').toUpperCase() 
-    }));
+                return matchesAction && matchesDate;
+            })
+            .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    }, [logs, filterAction, dateRange, currentPage, rowsPerPage]);
+
+    const actionOptions = React.useMemo(() => {
+        const uniqueActions = ['all', ...new Set(logs.map(log => log.action))];
+        return uniqueActions.map(a => ({ 
+            value: a, 
+            label: a === 'all' ? 'Specific Filter' : a.replace('_', ' ').toUpperCase() 
+        }));
+    }, [logs]);
 
     return (
-        <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-red-50 flex items-center justify-center p-2.5">
                         <img src="/assets/biyani-logo.png" alt="Biyani" className="w-full h-full object-contain" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-1">Activity History</h2>
-                        <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-widest flex items-center gap-2">
-                             <span className="w-2 h-2 bg-[#E31E24] rounded-full animate-pulse" />
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-1">Activity History</h2>
+                        <p className="text-[9px] font-black text-[#E31E24] uppercase tracking-widest flex items-center gap-2">
+                             <span className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse" />
                              Tracking System Records • Session Logs
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                     <button onClick={() => { setCurrentPage(1); fetchLogs('initial'); }} className="p-3 bg-white border border-gray-100 shadow-sm rounded-2xl hover:bg-gray-50 transition-all active:scale-95" title="Refresh Feed">
+                <div className="flex items-center gap-3 md:gap-5">
+                    <div className="hidden md:flex bg-white/80 border border-gray-100 px-5 py-2.5 rounded-2xl shadow-sm backdrop-blur-md flex-col items-center min-w-[100px]">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5">DB Records</p>
+                        <p className="text-xl font-black tracking-tighter text-gray-900">{realTotalCount}</p>
+                    </div>
+                    <button onClick={() => { setCurrentPage(1); fetchLogs('initial'); }} className="p-3 bg-white border border-gray-100 shadow-sm rounded-2xl hover:bg-gray-50 transition-all active:scale-95" title="Refresh Feed">
                         <svg className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     </button>
                 </div>
             </div>
 
             {/* Filter Suite */}
-            <div className="relative z-30 bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-gray-100 p-8 shadow-sm">
+            <div className="relative z-30 bg-white/60 backdrop-blur-md rounded-2xl border border-gray-100 p-6 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                     <div>
                         <Select 
+                            id="audit-rows-per-page"
                             label="Rows In Page"
                             name="rowsPerPage"
                             value={rowsPerPage}
@@ -272,25 +325,52 @@ export default function SharedAuditLogs({ title, subtitle }) {
                             options={rowsPerPageOptions}
                         />
                     </div>
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-1">
                         <div className="relative group">
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">Transaction Search</label>
+                            <label htmlFor="audit-search" className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">Transaction Search</label>
                             <div className="relative">
                                 <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth={3}/></svg>
                                 </span>
                                 <input 
+                                    id="audit-search"
+                                    name="audit-search"
                                     type="text" 
-                                    placeholder="Entity name, actor or action ID..." 
+                                    placeholder="Search details..." 
                                     value={searchQuery} 
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-12 pr-5 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:bg-white focus:border-[#E31E24] focus:ring-4 focus:ring-red-500/5 outline-none text-sm font-bold text-gray-900 transition-all placeholder:text-gray-300" 
+                                    className="w-full pl-12 pr-5 py-3.5 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:border-[#E31E24] focus:ring-4 focus:ring-red-500/5 outline-none text-xs font-bold text-gray-900 transition-all placeholder:text-gray-300" 
                                 />
                             </div>
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                        <div>
+                            <label htmlFor="audit-start-date" className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">From Date</label>
+                            <input 
+                                id="audit-start-date"
+                                name="startDate"
+                                type="date" 
+                                value={dateRange.start}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:border-[#E31E24] outline-none text-[10px] font-black text-gray-900 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="audit-end-date" className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2">To Date</label>
+                            <input 
+                                id="audit-end-date"
+                                name="endDate"
+                                type="date" 
+                                value={dateRange.end}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:border-[#E31E24] outline-none text-[10px] font-black text-gray-900 transition-all"
+                            />
+                        </div>
+                    </div>
                     <div>
                         <Select 
+                            id="audit-action-filter"
                             label="Action Filter"
                             name="filterAction"
                             value={filterAction}
@@ -301,7 +381,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
                 </div>
             </div>
 
-            <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden flex flex-col min-h-[500px] shadow-2xl shadow-gray-200/50">
+            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-gray-100 overflow-hidden flex flex-col min-h-[500px] shadow-2xl shadow-gray-200/50">
                 <div className="flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-48 space-y-4">
@@ -319,11 +399,11 @@ export default function SharedAuditLogs({ title, subtitle }) {
                         <table className="min-w-full divide-y divide-gray-100 table-auto">
                             <thead>
                                 <tr className="bg-gray-50/30">
-                                    <th className="px-4 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Time Recorded</th>
-                                    <th className="px-4 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Action By</th>
-                                    <th className="px-4 md:px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Activity</th>
-                                    <th className="px-4 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Resource</th>
-                                    <th className="px-4 md:px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Details</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Time Recorded</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Action By</th>
+                                    <th className="px-6 py-4 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Activity</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Resource</th>
+                                    <th className="px-6 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Details</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 bg-white/30">
@@ -331,49 +411,49 @@ export default function SharedAuditLogs({ title, subtitle }) {
                                     return (
                                         <tr key={log.id} className="group hover:bg-red-50/20 transition-all duration-300">
                                             {/* Execution Timeline */}
-                                            <td className="px-8 py-6">
+                                            <td className="px-6 py-4">
                                                 <div className="flex flex-col min-w-[140px]">
-                                                    <span className="text-[11px] font-black text-gray-900 tracking-tight">{safeFormat(log.timestamp, 'MMM d, yyyy')}</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{safeFormat(log.timestamp, 'hh:mm a')}</span>
+                                                    <span className="text-[10px] font-black text-gray-900 tracking-tight">{safeFormat(log.timestamp, 'MMM d, yyyy')}</span>
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{safeFormat(log.timestamp, 'hh:mm a')}</span>
                                                 </div>
                                             </td>
 
                                             {/* Factor Persona */}
-                                            <td className="px-8 py-6">
+                                            <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all shrink-0 uppercase">
+                                                    <div className="w-9 h-9 rounded-xl bg-gray-900 text-white flex items-center justify-center text-[9px] font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all shrink-0 uppercase">
                                                         {log.performedByName?.[0] || 'A'}
                                                     </div>
                                                     <div className="flex flex-col min-w-[160px]">
-                                                        <span className="text-sm font-black text-gray-900 group-hover:text-[#E31E24] transition-colors">{log.performedByName}</span>
-                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{log.performedByRole}</span>
+                                                        <span className="text-xs font-black text-gray-900 group-hover:text-[#E31E24] transition-colors">{log.performedByName}</span>
+                                                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{log.performedByRole}</span>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             {/* Protocol */}
-                                            <td className="px-8 py-6 text-center">
-                                                <span className={`inline-flex px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.1em] rounded-lg border shadow-sm ${getActionColor(log.action)}`}>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-flex px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] rounded-lg border shadow-sm ${getActionColor(log.action)}`}>
                                                     {log.action?.replace('_', ' ')}
                                                 </span>
                                             </td>
 
                                             {/* Targeted Entity */}
-                                            <td className="px-8 py-6">
+                                            <td className="px-6 py-4">
                                                 <div className="flex flex-col min-w-[200px]">
-                                                    <span className="text-sm font-black text-gray-900 tracking-tight leading-none mb-1.5">{log.entityLabel || 'Redacted Entity'}</span>
+                                                    <span className="text-sm font-black text-gray-900 tracking-tight leading-none mb-1">{log.entityLabel || 'Redacted Entity'}</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-gray-200"></span>
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{log.entityType}</span>
+                                                        <span className="w-1 h-1 rounded-full bg-gray-200"></span>
+                                                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{log.entityType}</span>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             {/* Insight */}
-                                            <td className="px-4 md:px-8 py-6 text-right">
+                                            <td className="px-6 py-4 text-right">
                                                 <button 
                                                     onClick={() => { setSelectedLog(log); setIsModalOpen(true); }}
-                                                    className="px-4 md:px-6 py-2.5 text-[10px] font-black text-gray-400 hover:text-white hover:bg-gray-900 border border-gray-100 rounded-xl transition-all uppercase tracking-widest active:scale-95 shadow-sm hover:shadow-xl shrink-0"
+                                                    className="px-4 py-2 text-[9px] font-black text-gray-400 hover:text-white hover:bg-gray-900 border border-gray-100 rounded-xl transition-all uppercase tracking-widest active:scale-95 shadow-sm hover:shadow-xl shrink-0"
                                                 >
                                                     View
                                                 </button>
@@ -432,7 +512,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
                     <motion.div 
                         initial={{ opacity: 0, y: 20, scale: 0.98 }} 
                         animate={{ opacity: 1, y: 0, scale: 1 }} 
-                        className="relative bg-white sm:rounded-[2.5rem] rounded-t-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[95dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden border border-gray-100 shadow-gray-900/10"
+                        className="relative bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl w-full max-w-4xl max-h-[95dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden border border-gray-100 shadow-gray-900/10"
                     >
                         {/* Modal Header */}
                         <div className="px-8 py-6 md:px-12 md:py-8 border-b border-gray-50 flex justify-between items-center bg-white shrink-0">
@@ -444,7 +524,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
                                     <h3 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Audit Details</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[10px] font-black text-[#E31E24] uppercase tracking-wider px-2 py-0.5 bg-red-50 rounded border border-red-100/50">
-                                            #{String(selectedLog?.id || '---').slice(0, 8).toUpperCase()}
+                                            {selectedLog?.entityLabel || 'SYSTEM'}
                                         </span>
                                         <span className="w-1 h-1 bg-gray-200 rounded-full" />
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{selectedLog.entityType || 'Registry'}</span>
@@ -457,7 +537,7 @@ export default function SharedAuditLogs({ title, subtitle }) {
                         </div>
 
                         {/* Modal Content */}
-                        <div className="p-8 md:p-10 md:pt-6 pt-4 overflow-y-auto space-y-10 custom-scrollbar smooth-scroll">
+                        <div className="p-8 md:p-10 md:pt-4 pt-2 overflow-y-auto space-y-6 custom-scrollbar smooth-scroll">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                                 <DataPoint label="Action Type" value={String(selectedLog?.action || 'UNKNOWN').toUpperCase()} isAction color={getActionColor(selectedLog?.action)} />
                                 <DataPoint label="Exact Time" value={safeFormat(selectedLog?.timestamp, 'PPP pp')} />

@@ -1,7 +1,7 @@
 // ============================================
 // BDCS - Department Management (Principal)
 // View departments and assign HODs
-// Modernized "Neo-Campus" Edition
+// Modernized "Neo-Campus" Redesign - Tabular Format
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -57,13 +57,13 @@ export default function DepartmentManagement() {
         };
         const style = colors[color] || { bg: 'bg-gray-50', icon: 'text-gray-400' };
         return (
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-50 flex flex-col justify-between overflow-hidden relative group hover:shadow-xl hover:border-blue-100 transition-all duration-500">
-                <div className={`w-14 h-14 rounded-2xl ${style.bg} flex items-center justify-center ${style.icon} mb-6 transition-transform group-hover:rotate-6 shadow-sm`}>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:shadow-xl hover:border-blue-100 transition-all duration-300">
+                <div className={`w-12 h-12 rounded-2xl ${style.bg} flex items-center justify-center ${style.icon} mb-4 shadow-sm`}>
                     {icon}
                 </div>
                 <div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                    <h3 className="text-4xl font-black text-gray-900 tracking-tight">{value}</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+                    <h3 className="text-3xl font-black text-gray-900 tracking-tight">{value}</h3>
                 </div>
             </div>
         );
@@ -77,132 +77,130 @@ export default function DepartmentManagement() {
     };
 
     return (
-        <div className="space-y-10 pb-12 animate-fade-in">
+        <div className="space-y-8 pb-12 animate-fade-in">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative">
-                <div className="space-y-4">
-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
-                        Department Management
-                    </h1>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">Departments</h1>
                     <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                         <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                        Management Registry • {user?.collegeName}
+                        Department List • {user?.collegeName}
                     </p>
                 </div>
                 
                 <button
                     onClick={handleSync}
                     disabled={syncing}
-                    data-tooltip="Refresh department list"
-                    className="p-4 bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 hover:bg-gray-900 hover:text-white transition-all active:scale-90 group relative"
+                    className="flex items-center gap-2 px-6 py-3 bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-900 hover:text-white transition-all active:scale-95 group font-bold text-xs"
                 >
-                    <svg className={`w-6 h-6 ${syncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth={2.5}/></svg>
+                    <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth={3}/></svg>
+                    Refresh List
                 </button>
             </div>
 
             {/* Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <MetricCard 
-                    label="Total Departments" 
+                    label="Departments" 
                     value={stats.total} 
-                    icon={<svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M4 6h16M4 12h16M4 18h16"/></svg>} 
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M4 6h16M4 12h16M4 18h16"/></svg>} 
                     color="blue" 
                 />
                 <MetricCard 
-                    label="Assigned HODs" 
+                    label="HOD Assigned" 
                     value={stats.withHOD} 
-                    icon={<svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} 
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} 
                     color="emerald" 
                 />
                 <MetricCard 
-                    label="No HOD assigned" 
+                    label="HOD Pending" 
                     value={stats.withoutHOD} 
-                    icon={<svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} 
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} 
                     color="amber" 
                 />
                 <MetricCard 
-                    label="Total Teachers" 
+                    label="Teachers" 
                     value={stats.totalTeachers} 
-                    icon={<svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m8-10a4 4 0 11-8 0 4 4 0 018 0z"/></svg>} 
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m8-10a4 4 0 11-8 0 4 4 0 018 0z"/></svg>} 
                     color="violet" 
                 />
             </div>
 
-            {/* Main Content */}
-            <div className="space-y-8">
-                <div className="flex items-center gap-4">
-                    <div className="w-1.5 h-8 bg-blue-600 rounded-full" />
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Departments</h2>
-                </div>
-
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {[1, 2, 3].map(i => <div key={i} className="h-80 rounded-[3rem] bg-white animate-pulse border border-gray-50" />)}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {departments.map((dept) => (
-                            <motion.div
-                                whileHover={{ y: -5 }}
-                                key={dept.id}
-                                className="bg-white rounded-[3rem] shadow-sm border border-gray-100 flex flex-col overflow-hidden relative group"
-                            >
-                                <div className="p-10 pb-8 flex-1">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform shadow-sm">
-                                            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                        </div>
-                                        <span className="px-4 py-1.5 rounded-full bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-widest border border-gray-100">
-                                            {dept.code || 'MGMT'}
-                                        </span>
-                                    </div>
-                                    
-                                    <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-8 leading-tight group-hover:text-blue-600 transition-colors">
-                                        {dept.name}
-                                    </h3>
-
-                                    <div className={`p-6 rounded-[2rem] border transition-all mb-8 ${dept.currentHOD ? 'bg-emerald-50/50 border-emerald-100' : 'bg-amber-50/50 border-amber-100'}`}>
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className={`w-2 h-2 rounded-full ${dept.currentHOD ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Management</p>
-                                        </div>
-                                        {dept.currentHOD ? (
+            {/* Main Table Content */}
+            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50">
+                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Department</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">HOD Assigned</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Teachers</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Students</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {loading ? (
+                                [1, 2, 3, 4, 5].map(i => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="px-8 py-6"><div className="h-4 bg-gray-100 rounded w-32" /></td>
+                                        <td className="px-8 py-6"><div className="h-4 bg-gray-100 rounded w-48" /></td>
+                                        <td className="px-8 py-6"><div className="h-4 bg-gray-100 rounded w-12 mx-auto" /></td>
+                                        <td className="px-8 py-6"><div className="h-4 bg-gray-100 rounded w-12 mx-auto" /></td>
+                                        <td className="px-8 py-6 text-right"><div className="h-8 bg-gray-100 rounded w-24 ml-auto" /></td>
+                                    </tr>
+                                ))
+                            ) : departments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-8 py-20 text-center">
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No departments found</p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                departments.map((dept) => (
+                                    <tr key={dept.id} className="group hover:bg-blue-50/30 transition-colors">
+                                        <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-white border border-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs shadow-sm">
-                                                    {dept.currentHODName?.charAt(0)}
+                                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-[10px]">
+                                                    {dept.code || 'DEPT'}
                                                 </div>
-                                                <p className="font-black text-gray-900 text-sm tracking-tight truncate">{dept.currentHODName}</p>
+                                                <span className="font-black text-gray-900 tracking-tight">{dept.name}</span>
                                             </div>
-                                        ) : (
-                                            <p className="text-xs font-bold text-amber-600 italic">No HOD assigned</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-50/50 border-t border-gray-100 p-8 flex items-center justify-between">
-                                    <div className="flex gap-6">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Teachers</span>
-                                            <span className="font-black text-gray-900 text-sm">{dept.stats?.teachers || 0}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Students</span>
-                                            <span className="font-black text-gray-900 text-sm">{dept.stats?.students || 0}</span>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => { setSelectedDepartment(dept); setShowAssignmentModal(true); }}
-                                        className="px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-gray-900 hover:text-white hover:border-black transition-all shadow-sm active:scale-95"
-                                    >
-                                        {dept.currentHOD ? 'Re-assign' : 'Delegate'}
-                                    </button>
-                                </div>
-                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 rounded-full bg-blue-500/5 blur-[50px]" />
-                            </motion.div>
-                        ))}
-                    </div>
-                )}
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            {dept.currentHOD ? (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-black text-[10px]">
+                                                        {dept.currentHODName?.charAt(0)}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-gray-700">{dept.currentHODName}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs font-bold text-amber-500 italic">No HOD assigned</span>
+                                            )}
+                                        </td>
+                                        <td className="px-8 py-6 text-center font-black text-gray-600">{dept.stats?.teachers || 0}</td>
+                                        <td className="px-8 py-6 text-center font-black text-gray-600">{dept.stats?.students || 0}</td>
+                                        <td className="px-8 py-6 text-right">
+                                            {!dept.currentHOD ? (
+                                                <button
+                                                    onClick={() => { setSelectedDepartment(dept); setShowAssignmentModal(true); }}
+                                                    className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95"
+                                                >
+                                                    Assign HOD
+                                                </button>
+                                            ) : (
+                                                <span className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                                    Assigned
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* HOD Assignment Modal */}

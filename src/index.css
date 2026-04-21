@@ -19,9 +19,18 @@
     --aether-crimson: #E31E24;
     --aether-crimson-soft: rgba(227, 30, 36, 0.05);
     
-    /* Material Depth (Satin Finish) */
+    /* Gen Z Premium Highlights */
+    --vibrant-red: linear-gradient(135deg, #E31E24 0%, #FF4B5C 100%);
+    --vibrant-indigo: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+    --vibrant-emerald: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    
+    /* Material Depth (Premium Finish) */
     --aether-border: rgba(15, 23, 42, 0.06);
-    --aether-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+    --aether-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    --aether-shadow-lg: 0 20px 40px rgba(15, 23, 42, 0.08);
+    --aether-shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.12);
     --aether-glass: rgba(255, 255, 255, 0.85);
 
     /* Typography Settings */
@@ -47,20 +56,35 @@ body {
     font-weight: 800;
 }
 
-/* Aether Glass Utilities */
+/* Premium Card Architecture */
 .aether-card {
     background: var(--aether-white);
     border: 1px solid var(--aether-border);
     box-shadow: var(--aether-shadow);
-    border-radius: 2rem;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 2.5rem;
+    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    position: relative;
+    overflow: hidden;
 }
 
 .aether-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
-    border-color: rgba(15, 23, 42, 0.1);
+    transform: translateY(-8px) scale(1.005);
+    box-shadow: var(--aether-shadow-premium);
+    border-color: rgba(227, 30, 36, 0.1);
 }
+
+/* Glassmorphism Utilities */
+.glass-effect {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+}
+
+/* Vibrant Gradients */
+.bg-vibrant-red { background: var(--vibrant-red); }
+.bg-vibrant-indigo { background: var(--vibrant-indigo); }
+.bg-vibrant-emerald { background: var(--vibrant-emerald); }
 
 /* Institutional Rail Navigation */
 .nav-rail {
@@ -79,17 +103,22 @@ body {
 .action-button {
     background: var(--aether-slate);
     color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 1rem;
-    font-weight: 700;
+    padding: 0.75rem 2rem;
+    border-radius: 1.25rem;
+    font-weight: 800;
     font-size: 0.875rem;
-    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .action-button:hover {
     background: var(--aether-crimson);
-    transform: scale(1.02);
-    box-shadow: 0 10px 20px rgba(227, 30, 36, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(227, 30, 36, 0.2);
 }
 
 /* Performance Optimized Utilities */
@@ -102,30 +131,35 @@ body {
 .data-table-refined {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 0.5rem;
+    border-spacing: 0 0.75rem;
 }
 
 .data-table-refined tr {
     background: var(--aether-white);
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+}
+
+.data-table-refined tr:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .data-table-refined td {
-    padding: 1rem 1.5rem;
+    padding: 1.25rem 1.5rem;
     border-top: 1px solid var(--aether-border);
     border-bottom: 1px solid var(--aether-border);
 }
 
 .data-table-refined td:first-child {
     border-left: 1px solid var(--aether-border);
-    border-top-left-radius: 1rem;
-    border-bottom-left-radius: 1rem;
+    border-top-left-radius: 1.5rem;
+    border-bottom-left-radius: 1.5rem;
 }
 
 .data-table-refined td:last-child {
     border-right: 1px solid var(--aether-border);
-    border-top-right-radius: 1rem;
-    border-bottom-right-radius: 1rem;
+    border-top-right-radius: 1.5rem;
+    border-bottom-right-radius: 1.5rem;
 }
 
 /* Custom Scrollbar */
@@ -144,23 +178,19 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
     background: #CBD5E1;
-    background-clip: padding-box;
 }
 
 /* Scrollbar Utilities */
 .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(15, 23, 42, 0.08);
     border-radius: 20px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(15, 23, 42, 0.15);
 }
@@ -168,7 +198,6 @@ body {
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
-
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -178,4 +207,33 @@ body {
 .smooth-scroll {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+}
+
+/* Calendar Specific Redesign */
+.calendar-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.25rem;
+    border: 1px solid var(--aether-border);
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    cursor: default;
+    background: white;
+}
+
+.calendar-cell:hover {
+    border-color: var(--aether-crimson);
+    transform: scale(1.05);
+}
+
+.calendar-cell.sunday {
+    background: rgba(227, 30, 36, 0.03);
+    border-color: rgba(227, 30, 36, 0.08);
+}
+
+.calendar-cell.sunday span {
+    color: var(--aether-crimson);
+    opacity: 0.8;
 }

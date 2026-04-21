@@ -378,14 +378,9 @@ export default function StudentManagement() {
             )
         },
         {
-            header: 'Roll No.',
+            header: 'ID / Roll No.',
             field: 'rollNumber',
-            render: (row) => <span className="font-mono text-sm">{row.rollNumber || row.enrollmentNumber}</span>
-        },
-        {
-            header: 'Enrollment No.',
-            field: 'enrollmentNumber',
-            render: (row) => <span className="font-mono text-sm text-gray-400">{row.enrollmentNumber}</span>
+            render: (row) => <span className="font-mono text-sm font-bold text-gray-900">{row.rollNumber || 'N/A'}</span>
         },
         {
             header: 'Semester',

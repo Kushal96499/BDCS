@@ -3,10 +3,10 @@
 // Premium Input Component
 // ============================================
 
-import React, { useState, forwardRef } from 'react';
+import React, { useState, forwardRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Input = forwardRef(({
+const Input = memo(forwardRef(({
     label,
     name,
     type = 'text',
@@ -52,7 +52,7 @@ const Input = forwardRef(({
                     placeholder={placeholder}
                     autoComplete={autoComplete}
                     className={`
-                        w-full px-5 py-3.5
+                        w-full px-5 py-2.5
                         text-sm font-semibold text-gray-900
                         bg-gray-50/50 hover:bg-white
                         border rounded-2xl
@@ -101,7 +101,7 @@ const Input = forwardRef(({
             </AnimatePresence>
         </div>
     );
-});
+}));
 
 Input.displayName = 'Input';
 

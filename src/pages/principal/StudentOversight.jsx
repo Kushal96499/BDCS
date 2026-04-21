@@ -35,8 +35,7 @@ export default function StudentOversight() {
             const sampleQuery = query(
                 collection(db, 'users'),
                 where('collegeId', '==', user.collegeId),
-                where('role', '==', 'student'),
-                limit(30)
+                where('role', '==', 'student')
             );
             const snapshot = await getDocs(sampleQuery);
             const studentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -109,7 +108,7 @@ export default function StudentOversight() {
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-14 border border-white/50 relative overflow-hidden shadow-2xl shadow-blue-500/5"
+                className="bg-white/40 backdrop-blur-xl rounded-[2rem] p-6 md:p-10 border border-white/50 relative overflow-hidden shadow-2xl shadow-blue-500/5"
             >
                 <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/5 blur-[100px] -mr-48 -mt-48 rounded-full" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[80px] -ml-32 -mb-32 rounded-full" />
@@ -120,16 +119,16 @@ export default function StudentOversight() {
                             <span className="w-2 h-2 rounded-full bg-[#E31E24] animate-pulse" />
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#E31E24]">Academic Oversight</span>
                         </div>
-                        <h2 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter leading-none">
+                        <h2 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tighter leading-none">
                             Student <span className="text-[#E31E24]">Register</span>
                         </h2>
                         <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">{user?.collegeName}</p>
                     </div>
 
                     <div className="flex justify-center md:justify-end">
-                        <div className="bg-white/80 border border-gray-100 px-6 py-4 md:px-8 md:py-5 rounded-[2rem] shadow-sm backdrop-blur-md flex flex-col items-center min-w-[120px] md:min-w-[140px]">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Records</p>
-                            <p className="text-2xl md:text-3xl font-black tracking-tighter text-gray-900">{stats.total}{stats.isLimited ? '+' : ''}</p>
+                        <div className="bg-white/80 border border-gray-100 px-5 py-3 md:px-6 md:py-4 rounded-[1.5rem] shadow-sm backdrop-blur-md flex flex-col items-center min-w-[100px] md:min-w-[120px]">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Records</p>
+                            <p className="text-xl md:text-2xl font-black tracking-tighter text-gray-900">{stats.total}</p>
                         </div>
                     </div>
                 </div>
@@ -138,10 +137,13 @@ export default function StudentOversight() {
             {/* Filter Deck - Modern & Simple */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="md:col-span-2 relative group">
+                    <label htmlFor="student-search" className="sr-only">Search students</label>
                     <input
+                        id="student-search"
+                        name="student-search"
                         type="text"
                         placeholder="Search by student name or email..."
-                        className="w-full pl-14 pr-6 py-5 bg-white/70 backdrop-blur-md border border-gray-100 focus:border-[#E31E24] focus:bg-white rounded-[1.5rem] outline-none transition-all font-bold text-sm shadow-sm placeholder:text-gray-400 placeholder:font-medium"
+                        className="w-full pl-14 pr-6 py-4 bg-white/70 backdrop-blur-md border border-gray-100 focus:border-[#E31E24] focus:bg-white rounded-[1.25rem] outline-none transition-all font-bold text-sm shadow-sm placeholder:text-gray-400 placeholder:font-medium"
                         value={filters.search}
                         onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
                     />
@@ -185,30 +187,30 @@ export default function StudentOversight() {
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Try adjusting your search filters.</p>
                 </motion.div>
             ) : (
-                <div className="bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5">
+                <div className="bg-white/50 backdrop-blur-xl rounded-[2rem] border border-gray-100 overflow-hidden shadow-2xl shadow-blue-500/5">
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
                         <table className="min-w-full divide-y divide-gray-100 table-auto">
                             <thead>
                                 <tr className="bg-gray-50/30">
-                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID</th>
-                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details</th>
-                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Department & Sem</th>
-                                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID / Roll No</th>
-                                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Status</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Student Details</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">Dept & Sem</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">ID / Roll No</th>
+                                    <th className="px-6 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">NOC Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 bg-white/30">
                                 {students.map((student, index) => (
                                     <tr key={student.id} className="group hover:bg-red-50/30 transition-all duration-300">
                                         {/* S.No */}
-                                        <td className="px-8 py-6 text-[10px] font-black text-gray-300 font-mono w-10">
+                                        <td className="px-6 py-4 text-[10px] font-black text-gray-300 font-mono w-10">
                                             {String(index + 1).padStart(2, '0')}
                                         </td>
 
                                         {/* Persona */}
-                                        <td className="px-8 py-6">
+                                        <td className="px-6 py-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-sm font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all duration-500 shrink-0">
+                                                <div className="w-10 h-10 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-xs font-black shadow-lg group-hover:bg-[#E31E24] group-hover:rotate-6 transition-all duration-500 shrink-0">
                                                     {student.name?.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="flex flex-col min-w-[200px]">
@@ -219,7 +221,7 @@ export default function StudentOversight() {
                                         </td>
 
                                         {/* Academic Scope */}
-                                        <td className="px-8 py-6">
+                                        <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1 min-w-[150px]">
                                                 <div className="px-3 py-1 bg-red-50 text-[#E31E24] text-[8px] font-black uppercase tracking-[0.2em] border border-red-100/50 rounded-full w-fit">
                                                     {student.departmentName || 'General'}
@@ -231,18 +233,14 @@ export default function StudentOversight() {
                                         </td>
 
                                         {/* Identification */}
-                                        <td className="px-8 py-6">
+                                        <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-sm font-black text-gray-900 tracking-tight">#{student.rollNumber || 'NOT SET'}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                                    <span className="text-[9px] font-bold text-gray-400 font-mono tracking-widest uppercase">{student.enrollmentNumber || 'NO ENROLLMENT'}</span>
-                                                </div>
                                             </div>
                                         </td>
 
                                         {/* NOC Status */}
-                                        <td className="px-8 py-6 text-right">
+                                        <td className="px-6 py-4 text-right">
                                             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border backdrop-blur-sm transition-all shadow-sm ${
                                                 student.nocStatus === 'cleared'
                                                     ? 'bg-emerald-50 border-emerald-100 text-emerald-600'
@@ -250,7 +248,7 @@ export default function StudentOversight() {
                                             }`}>
                                                 <span className={`w-2 h-2 rounded-full ${student.nocStatus === 'cleared' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
                                                 <span className="text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                                                    {student.nocStatus === 'cleared' ? 'AUTHORIZED' : 'PENDING'}
+                                                    {student.nocStatus === 'cleared' ? 'NOC CLEAR' : 'NOC PENDING'}
                                                 </span>
                                             </div>
                                         </td>

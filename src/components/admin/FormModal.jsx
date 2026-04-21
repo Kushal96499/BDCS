@@ -54,7 +54,7 @@ export default function FormModal({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
+                        className="absolute inset-0 bg-gray-900/40 backdrop-blur-md"
                         onClick={handleBackdropClick}
                     />
 
@@ -63,7 +63,8 @@ export default function FormModal({
                         initial={{ y: 20, opacity: 0, scale: 0.98 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 20, opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        style={{ willChange: 'transform, opacity' }}
                         className={`relative bg-white w-full ${sizeClasses[size]} sm:rounded-[2.5rem] rounded-t-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden`}
                     >
                         {/* Mobile Handle */}
@@ -72,9 +73,9 @@ export default function FormModal({
                         </div>
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-8 py-4 sm:pt-8 shrink-0">
+                        <div className="flex items-center justify-between px-6 py-4 sm:pt-6 shrink-0">
                             <div>
-                                <h3 className="text-xl font-black text-gray-900 tracking-tight">{title}</h3>
+                                <h3 className="text-lg font-black text-gray-900 tracking-tight">{title}</h3>
                                 <div className="h-1 w-12 bg-[#E31E24] rounded-full mt-1" />
                             </div>
                             <button
@@ -90,12 +91,12 @@ export default function FormModal({
 
                         {/* Body */}
                         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-                            <div className="px-8 py-6 overflow-y-auto flex-1 pb-10 custom-scrollbar overscroll-contain">
+                            <div className="px-6 py-4 overflow-y-auto flex-1 pb-8 custom-scrollbar overscroll-contain">
                                 {children}
                             </div>
 
                             {/* Footer */}
-                            <div className="px-8 py-6 mb-safe bg-gray-50/50 border-t border-gray-50 flex flex-col sm:flex-row justify-end gap-3 shrink-0">
+                            <div className="px-6 py-4 mb-safe bg-gray-50/50 border-t border-gray-50 flex flex-col sm:flex-row justify-end gap-3 shrink-0">
                                 <Button
                                     type="button"
                                     variant="secondary"

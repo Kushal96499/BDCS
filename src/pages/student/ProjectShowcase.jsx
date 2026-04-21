@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+// ============================================
+// BDCS - Project Showcase (Simple & Clean Redesign)
+// ============================================
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, limit, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
@@ -7,12 +11,13 @@ import { uploadFileToConvex } from '../../utils/storage';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import PremiumSelect from '../../components/common/PremiumSelect';
 
 const PROJECT_TYPES = [
     { id: 'software', label: 'Software', icon: '💻' },
     { id: 'research', label: 'Research', icon: '🧪' },
     { id: 'pharmacy', label: 'Pharmacy', icon: '💊' },
-    { id: 'case_study', label: 'Cast Study', icon: '📊' },
+    { id: 'case_study', label: 'Case Study', icon: '📊' },
     { id: 'creative', label: 'Creative', icon: '🎨' },
     { id: 'hardware', label: 'Hardware', icon: '🏗️' },
     { id: 'assignment', label: 'Assignment', icon: '📚' },
@@ -21,11 +26,12 @@ const PROJECT_TYPES = [
 
 export default function ProjectShowcase() {
     const { user, loading: authLoading } = useAuth();
-    const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'my'
+    const [activeTab, setActiveTab] = useState('feed'); 
     const [activeFilter, setActiveFilter] = useState('All');
     const [campusFilter, setCampusFilter] = useState('All');
     const [collegeFilter, setCollegeFilter] = useState('All');
     const [deptFilter, setDeptFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
     
     const [feedProjects, setFeedProjects] = useState([]);
     const [myProjects, setMyProjects] = useState([]);
@@ -33,25 +39,52 @@ export default function ProjectShowcase() {
     const [showModal, setShowModal] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [selectedProject, setSelectedProject] = useState(null); // For detail view
+    const [selectedProject, setSelectedProject] = useState(null);
 
-    // Convex storage hooks
     const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
-    // Form State
     const [formData, setFormData] = useState({
         title: '',
         projectType: 'software',
         description: '',
         tags: '',
         externalLink: '',
-        visibility: 'Public', // Public, Department, Batch, Private
-        imageUrl: '',   // Convex serving URL (for display)
-        imageId: '',    // Convex storageId (persisted to Firestore)
-        role: 'Solo',   // Solo | Team
-        semester: user?.currentSemester || 1,
+        visibility: 'Public', 
+        imageUrl: '',   
+        imageId: '',    
+        role: 'Solo',   
+        semester: 1,
         teamMembers: ''
     });
+
+    // Organizational Data State
+    const [orgData, setOrgData] = useState({ 
+        campuses: [], 
+        colleges: [], 
+        departments: [],
+        ready: false 
+    });
+
+    useEffect(() => {
+        if (!user) return;
+
+        console.log("Setting up Project Explorer Listeners...");
+
+        const unsubC = onSnapshot(collection(db, 'campuses'), snap => {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setOrgData(prev => ({ ...prev, campuses: list, ready: true }));
+        });
+        const unsubCl = onSnapshot(collection(db, 'colleges'), snap => {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setOrgData(prev => ({ ...prev, colleges: list }));
+        });
+        const unsubD = onSnapshot(collection(db, 'departments'), snap => {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setOrgData(prev => ({ ...prev, departments: list }));
+        });
+
+        return () => { unsubC(); unsubCl(); unsubD(); };
+    }, [user]);
 
     useEffect(() => {
         if (user) {
@@ -72,15 +105,11 @@ export default function ProjectShowcase() {
                 const snap = await getDocs(q);
                 setMyProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             } else {
-                // Community Feed Logic (Public + Batch + Dept)
                 const queries = [];
-                queries.push(getDocs(query(collection(db, 'projects'), where('visibility', '==', 'Public'), orderBy('createdAt', 'desc'), limit(50))));
+                queries.push(getDocs(query(collection(db, 'projects'), where('visibility', '==', 'Public'), orderBy('createdAt', 'desc'), limit(100))));
 
                 if (user.batchId) {
-                    queries.push(getDocs(query(collection(db, 'projects'), where('visibility', '==', 'Batch'), where('batchId', '==', user.batchId), limit(50))));
-                }
-                if (user.departmentId) {
-                    queries.push(getDocs(query(collection(db, 'projects'), where('visibility', '==', 'Department'), where('departmentId', '==', user.departmentId), limit(50))));
+                    queries.push(getDocs(query(collection(db, 'projects'), where('visibility', '==', 'Batch'), where('batchId', '==', user.batchId))));
                 }
 
                 const snapshots = await Promise.all(queries);
@@ -95,7 +124,6 @@ export default function ProjectShowcase() {
                     });
                 });
 
-                // Client-side sort
                 allDocs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 setFeedProjects(allDocs);
             }
@@ -109,40 +137,53 @@ export default function ProjectShowcase() {
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         setUploading(true);
         try {
-            // 1. Get upload URL from Convex
-            // 2. POST file, receive storageId
-            // 3. Resolve permanent serving URL
             const { storageId, url } = await uploadFileToConvex(
                 file,
                 generateUploadUrl,
                 async (id) => {
-                    // Inline resolver: call Convex HTTP API to get the URL
-                    const res = await fetch(
-                        `${import.meta.env.VITE_CONVEX_SITE_URL}/getFileUrl?storageId=${encodeURIComponent(id)}`
-                    );
+                    const res = await fetch(`${import.meta.env.VITE_CONVEX_SITE_URL}/getFileUrl?storageId=${encodeURIComponent(id)}`);
                     if (!res.ok) return null;
                     const data = await res.json();
                     return data.url ?? null;
                 }
             );
             setFormData(prev => ({ ...prev, imageUrl: url, imageId: storageId }));
-            toast.success('Cover image uploaded! ✨');
+            toast.success('Image uploaded');
         } catch (error) {
             console.error('Upload error:', error);
-            toast.error('Failed to upload image. Please try a different image or format.');
+            toast.error('Upload failed');
         } finally {
             setUploading(false);
         }
+    };
+
+    const resolveOrgNames = async (student) => {
+        const names = { campusName: '', collegeName: '', departmentName: '' };
+        try {
+            if (student.departmentId) {
+                const d = await getDoc(doc(db, 'departments', student.departmentId));
+                if (d.exists()) names.departmentName = d.data().name;
+            }
+            if (student.collegeId) {
+                const c = await getDoc(doc(db, 'colleges', student.collegeId));
+                if (c.exists()) names.collegeName = c.data().name;
+            }
+            if (student.campusId) {
+                const cp = await getDoc(doc(db, 'campuses', student.campusId));
+                if (cp.exists()) names.campusName = cp.data().name;
+            }
+        } catch (e) {
+            console.error("Resolution error:", e);
+        }
+        return names;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             const tagsArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
-            // Build Firestore payload — always strip raw formData shape
             const payload = {
                 title: formData.title,
                 projectType: formData.projectType,
@@ -150,71 +191,58 @@ export default function ProjectShowcase() {
                 tags: tagsArray,
                 externalLink: formData.externalLink,
                 visibility: formData.visibility,
-                imageUrl: formData.imageUrl,   // Convex serving URL
-                imageId: formData.imageId,     // Convex storageId
+                imageUrl: formData.imageUrl,
+                imageId: formData.imageId,
                 role: formData.role,
                 semester: formData.semester,
                 teamMembers: formData.teamMembers,
             };
 
             if (editingId) {
-                await updateDoc(doc(db, 'projects', editingId), {
-                    ...payload,
-                    updatedAt: serverTimestamp()
-                });
-                toast.success('Project updated! ✨');
+                await updateDoc(doc(db, 'projects', editingId), { ...payload, updatedAt: serverTimestamp() });
+                toast.success('Project updated');
             } else {
+                const orgNames = await resolveOrgNames(user);
                 await addDoc(collection(db, 'projects'), {
                     ...payload,
                     studentId: user.uid,
                     studentName: user.name,
                     batchId: user.batchId,
                     departmentId: user.departmentId,
-                    departmentName: user.departmentName || '',
+                    departmentName: orgNames.departmentName || user.departmentName || '',
                     collegeId: user.collegeId || '',
-                    collegeName: user.collegeName || '',
+                    collegeName: orgNames.collegeName || user.collegeName || '',
                     campusId: user.campusId || '',
-                    campusName: user.campusName || '',
+                    campusName: orgNames.campusName || user.campusName || '',
                     createdAt: serverTimestamp()
                 });
-                toast.success('Project published 🚀');
+                toast.success('Project added');
             }
 
             setShowModal(false);
             setEditingId(null);
-            setFormData({
-                title: '',
-                projectType: 'software',
-                description: '',
-                tags: '',
-                externalLink: '',
-                visibility: 'Public',
-                imageUrl: '',
-                imageId: '',
-                role: 'Solo',
-                semester: user?.currentSemester || 1,
-                teamMembers: ''
-            });
+            resetForm();
             fetchProjects();
         } catch (error) {
-            console.error('Submit project error:', error);
+            console.error('Submit error:', error);
             toast.error('Failed to save project');
         }
     };
 
+    const resetForm = () => {
+        setFormData({
+            title: '', projectType: 'software', description: '', tags: '',
+            externalLink: '', visibility: 'Public', imageUrl: '', imageId: '',
+            role: 'Solo', semester: user?.currentSemester || 1, teamMembers: ''
+        });
+    };
+
     const handleEdit = (project) => {
         setFormData({
-            title: project.title,
-            projectType: project.projectType,
-            description: project.description,
-            tags: project.tags?.join(', ') || '',
-            externalLink: project.externalLink || '',
-            visibility: project.visibility,
-            imageUrl: project.imageUrl || '',
-            imageId: project.imageId || '',
-            role: project.role || 'Solo',
-            semester: project.semester || 1,
-            teamMembers: project.teamMembers || ''
+            title: project.title, projectType: project.projectType, description: project.description,
+            tags: project.tags?.join(', ') || '', externalLink: project.externalLink || '',
+            visibility: project.visibility, imageUrl: project.imageUrl || '', imageId: project.imageId || '',
+            role: project.role || 'Solo', semester: project.semester || 1, teamMembers: project.teamMembers || ''
         });
         setEditingId(project.id);
         setShowModal(true);
@@ -234,260 +262,227 @@ export default function ProjectShowcase() {
 
     const projectsToShow = activeTab === 'my' ? myProjects : feedProjects;
     
-    // Multi-level filtering logic for Innovation Hub
-    const filteredProjects = projectsToShow.filter(p => {
-        const matchesCategory = activeFilter === 'All' || p.projectType === activeFilter.toLowerCase();
-        const matchesCampus = campusFilter === 'All' || p.campusName === campusFilter;
-        const matchesCollege = collegeFilter === 'All' || p.collegeName === collegeFilter;
-        const matchesDept = deptFilter === 'All' || p.departmentName === deptFilter;
+    const campusOptions = useMemo(() => orgData.campuses, [orgData.campuses]);
+    const collegeOptions = useMemo(() => {
+        if (campusFilter === 'All') return orgData.colleges;
+        const campus = orgData.campuses.find(c => (c.name || c.id) === campusFilter);
+        return campus ? orgData.colleges.filter(c => c.campusId === campus.id) : [];
+    }, [orgData.campuses, orgData.colleges, campusFilter]);
+    
+    const deptOptions = useMemo(() => {
+        if (collegeFilter === 'All') {
+            if (campusFilter === 'All') return orgData.departments;
+            const campus = orgData.campuses.find(c => (c.name || c.id) === campusFilter);
+            if (!campus) return [];
+            const collegeIds = orgData.colleges.filter(c => c.campusId === campus.id).map(c => c.id);
+            return orgData.departments.filter(d => collegeIds.includes(d.collegeId));
+        }
+        const college = orgData.colleges.find(c => (c.name || c.id) === collegeFilter);
+        return college ? orgData.departments.filter(d => d.collegeId === college.id) : [];
+    }, [orgData, campusFilter, collegeFilter]);
+
+    const filteredProjects = useMemo(() => {
+        const clean = (s) => (s || '').toString().trim().toLowerCase();
         
-        return matchesCategory && matchesCampus && matchesCollege && matchesDept;
-    });
+        // Resolve selected IDs for robust filtering using cleaned names
+        const selectedCampus = orgData.campuses.find(c => clean(c.name || c.id) === clean(campusFilter));
+        const selectedCollege = orgData.colleges.find(c => clean(c.name || c.id) === clean(collegeFilter));
+        const selectedDept = orgData.departments.find(d => clean(d.name || d.id) === clean(deptFilter));
 
-    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-    const cardVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
+        return projectsToShow.filter(p => {
+            const sLower = clean(searchQuery);
+            const matchesSearch = !searchQuery || 
+                clean(p.title).includes(sLower) || 
+                clean(p.studentName).includes(sLower);
 
-    if (authLoading) return (
-        <div className="flex h-[60vh] items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E31E24]"></div>
-        </div>
-    );
+            const categoryVal = clean(activeFilter || 'All');
+            const matchesCategory = categoryVal === 'all' || clean(p.projectType) === categoryVal;
+            
+            // Org data fallback: if project is missing org info, use student's profile info if it's their project
+            const pCampusId = p.campusId || (p.studentId === user?.uid ? user?.campusId : null);
+            const pCollegeId = p.collegeId || (p.studentId === user?.uid ? user?.collegeId : null);
+            const pDeptId = p.departmentId || (p.studentId === user?.uid ? user?.departmentId : null);
+            
+            const pCampusName = p.campusName || (p.studentId === user?.uid ? user?.campusName : '');
+            const pCollegeName = p.collegeName || (p.studentId === user?.uid ? user?.collegeName : '');
+            const pDeptName = p.departmentName || (p.studentId === user?.uid ? user?.departmentName : '');
+
+            // Ultra-robust check: compare IDs first, then use soft string matching
+            const matchesCampus = campusFilter === 'All' || 
+                (selectedCampus && pCampusId === selectedCampus.id) ||
+                clean(pCampusName) === clean(campusFilter) ||
+                clean(pCampusName).includes(clean(campusFilter));
+                
+            const matchesCollege = collegeFilter === 'All' || 
+                (selectedCollege && pCollegeId === selectedCollege.id) ||
+                clean(pCollegeName) === clean(collegeFilter) ||
+                clean(pCollegeName).includes(clean(collegeFilter));
+                
+            const matchesDept = deptFilter === 'All' || 
+                (selectedDept && pDeptId === selectedDept.id) ||
+                clean(pDeptName) === clean(deptFilter) ||
+                clean(pDeptName).includes(clean(deptFilter));
+            
+            return matchesSearch && matchesCategory && matchesCampus && matchesCollege && matchesDept;
+        });
+    }, [projectsToShow, searchQuery, activeFilter, campusFilter, collegeFilter, deptFilter, orgData]);
+
+    const resetFilters = () => {
+        setActiveFilter('All');
+        setCampusFilter('All');
+        setCollegeFilter('All');
+        setDeptFilter('All');
+        setSearchQuery('');
+    };
+
+    if (authLoading) return <div className="animate-pulse space-y-8"><div className="h-64 bg-slate-100 rounded-3xl" /></div>;
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD] pb-32 font-sans overflow-x-hidden pt-0 md:pt-1">
-            <header className="bg-white/95 backdrop-blur-3xl border-b border-gray-100 py-1.5 md:py-8 z-30 px-3 md:px-6 relative shadow-sm md:shadow-none">
-                <div className="max-w-7xl mx-auto flex flex-col gap-2 md:gap-4">
-                    <div className="flex flex-row items-center justify-between gap-2">
-                        {/* Desktop Only Branding */}
-                        <div className="space-y-0.5 hidden md:block">
-                            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Innovation Hub</h1>
-                            <p className="text-gray-400 text-sm font-black uppercase tracking-widest italic opacity-70">Biyani Campus Network 🚀</p>
-                        </div>
-
-                        {/* Mobile Header: Just the tab switcher */}
-                        <div className="flex items-center justify-between w-full md:w-auto gap-3">
-                            <div className="p-0.5 bg-gray-50 border border-gray-100 rounded-full flex flex-1 md:flex-none">
-                                {['feed', 'my'].map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`flex-1 md:flex-none px-4 md:px-6 py-1.5 md:py-2.5 rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.15em] transition-all duration-300 ${activeTab === tab
-                                            ? 'bg-white shadow-md text-[#E31E24] scale-[1.02]'
-                                            : 'text-gray-400 hover:text-gray-600'
-                                            }`}
-                                    >
-                                        {tab === 'feed' ? 'Explore' : 'Mine'}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Desktop Create Button */}
-                            <button
-                                onClick={() => { setEditingId(null); setShowModal(true); }}
-                                className="hidden md:flex bg-[#E31E24] hover:bg-black text-white px-6 py-3 rounded-[1.25rem] font-black text-xs shadow-xl shadow-red-100 transition-all items-center gap-2 shrink-0 active:scale-95"
-                            >
-                                <span className="text-lg leading-none">+</span>
-                                <span className="uppercase tracking-widest">Create Project</span>
-                            </button>
-                        </div>
+        <div className="text-slate-900 pb-32">
+            
+            {/* ── PREMIUM HEADER ────────────────────────────── */}
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white/40 p-6 md:p-8 rounded-[2.5rem] backdrop-blur-3xl border border-white/60 shadow-xl shadow-slate-100/30">
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                         <div className="px-2.5 py-1 bg-red-50/50 rounded-full border border-red-100/50 flex items-center gap-1.5 backdrop-blur-md">
+                             <span className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse shadow-[0_0_8px_rgba(227,30,36,0.3)]" />
+                             <p className="text-[8px] font-black text-[#E31E24] uppercase tracking-[0.2em]">Innovation Hub</p>
+                         </div>
                     </div>
+                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">
+                        Projects<span className="text-[#E31E24]">.</span>
+                    </h1>
+                </div>
 
-                    {/* Advanced Institutional Filters - Responsive Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-                        {/* Innovation Category */}
-                        <div className="relative">
-                            <select
-                                value={activeFilter}
-                                onChange={(e) => setActiveFilter(e.target.value)}
-                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
-                            >
-                                <option value="All">✨ All Innovations</option>
-                                {PROJECT_TYPES.map(t => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.icon} {t.label}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                            </div>
-                        </div>
-
-                        {/* Campus Filter */}
-                        <div className="relative">
-                            <select
-                                value={campusFilter}
-                                onChange={(e) => setCampusFilter(e.target.value)}
-                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
-                            >
-                                <option value="All">📍 All Campus</option>
-                                {[...new Set(projectsToShow.map(p => p.campusName).filter(Boolean))].map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                            </div>
-                        </div>
-
-                        {/* College Filter */}
-                        <div className="relative">
-                            <select
-                                value={collegeFilter}
-                                onChange={(e) => setCollegeFilter(e.target.value)}
-                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
-                            >
-                                <option value="All">🏛️ All Colleges</option>
-                                {[...new Set(projectsToShow.filter(p => campusFilter === 'All' || p.campusName === campusFilter).map(p => p.collegeName).filter(Boolean))].map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                            </div>
-                        </div>
-
-                        {/* Department Filter */}
-                        <div className="relative">
-                            <select
-                                value={deptFilter}
-                                onChange={(e) => setDeptFilter(e.target.value)}
-                                className="appearance-none w-full bg-white border border-gray-100 text-gray-700 py-3 pl-4 pr-10 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#E31E24]/20 shadow-sm cursor-pointer hover:border-gray-200 transition-colors"
-                            >
-                                <option value="All">🏢 All Depts</option>
-                                {[...new Set(projectsToShow.filter(p => collegeFilter === 'All' || p.collegeName === collegeFilter).map(p => p.departmentName).filter(Boolean))].map(d => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                            </div>
-                        </div>
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="hidden sm:block">
+                        <StatBadge label="Global Repository" value={feedProjects.length} />
                     </div>
+                    <button onClick={() => { setEditingId(null); resetForm(); setShowModal(true); }} className="flex-1 sm:flex-none px-8 py-4 bg-slate-950 text-white rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#E31E24] transition-all shadow-2xl shadow-slate-200 active:scale-95 group">
+                         <span className="group-hover:rotate-90 transition-transform duration-500">🚀</span> Add Project
+                    </button>
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+            {/* ── PREMIUM FILTERS & SEARCH ────────────────── */}
+            <div className="relative z-30 mt-8">
+                <div className="bg-white/60 border border-white/40 p-4 md:p-6 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/30 backdrop-blur-3xl space-y-4 md:space-y-6">
+                    <div className="flex flex-col lg:flex-row gap-4 md:gap-6 items-stretch lg:items-center">
+                        {/* Tab Switcher */}
+                        <div className="flex p-1 bg-slate-200/30 rounded-xl md:rounded-2xl w-full lg:w-auto border border-white/50 backdrop-blur-md">
+                             {['feed', 'my'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 lg:flex-none px-4 md:px-8 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-slate-950 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+                                >
+                                    {tab === 'feed' ? 'Feed' : 'My Projects'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Filter Grid - Forced grid to prevent overflow with long names */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 lg:flex-1 gap-3 md:gap-4">
+                            <div className="flex-1 shadow-sm rounded-xl md:rounded-2xl overflow-visible">
+                                <PremiumSelect 
+                                    label="Category" 
+                                    value={activeFilter} 
+                                    options={[
+                                        { value: 'All', label: 'All Categories' },
+                                        ...PROJECT_TYPES.map(t => ({ value: t.id, label: t.label }))
+                                    ]} 
+                                    onChange={(e) => setActiveFilter(e.target.value)} 
+                                />
+                            </div>
+                            <div className="flex-1 shadow-sm rounded-xl md:rounded-2xl overflow-visible">
+                                <PremiumSelect 
+                                    label="Campus" 
+                                    value={campusFilter} 
+                                    options={[
+                                        { value: 'All', label: 'All Campuses' },
+                                        ...campusOptions.map(c => ({ value: c.name || c.id, label: c.name || c.id }))
+                                    ]} 
+                                    onChange={e => { setCampusFilter(e.target.value); setCollegeFilter('All'); setDeptFilter('All'); }} 
+                                />
+                            </div>
+                            <div className="flex-1 shadow-sm rounded-xl md:rounded-2xl overflow-visible">
+                                <PremiumSelect 
+                                    label="College" 
+                                    value={collegeFilter} 
+                                    options={[
+                                        { value: 'All', label: 'All Colleges' },
+                                        ...collegeOptions.map(c => ({ value: c.name || c.id, label: c.name || c.id }))
+                                    ]} 
+                                    onChange={e => { setCollegeFilter(e.target.value); setDeptFilter('All'); }} 
+                                    disabled={campusFilter === 'All'}
+                                />
+                            </div>
+                            <div className="flex-1 shadow-sm rounded-xl md:rounded-2xl overflow-visible">
+                                <PremiumSelect 
+                                    label="Department" 
+                                    value={deptFilter} 
+                                    options={[
+                                        { value: 'All', label: 'All Departments' },
+                                        ...deptOptions.map(d => ({ value: d.name || d.id, label: d.name || d.id }))
+                                    ]} 
+                                    onChange={e => setDeptFilter(e.target.value)} 
+                                    disabled={collegeFilter === 'All'}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Integrated Search Bar */}
+                    <div className="relative group">
+                        <input 
+                            type="text" 
+                            placeholder="Search projects or members..." 
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="w-full bg-white/50 border border-slate-100/50 rounded-xl md:rounded-2xl px-12 md:px-14 py-3 md:py-4 text-[10px] md:text-[11px] font-bold text-slate-900 focus:ring-8 focus:ring-slate-50 focus:bg-white focus:border-[#E31E24]/30 outline-none transition-all shadow-inner"
+                        />
+                        <span className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 opacity-30 text-[10px] md:text-sm">🔍</span>
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-500 rounded-full text-[10px] transition-all">✕</button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── CONTENT GRID ───────────────────────────────────── */}
+            <main className="mt-10 md:mt-16">
                 {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="bg-white h-64 sm:h-80 rounded-2xl animate-pulse border border-gray-100"></div>
-                        ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="bg-slate-50 h-[300px] rounded-3xl animate-pulse" />)}
                     </div>
                 ) : filteredProjects.length === 0 ? (
-                    <div className="text-center py-20">
-                        <div className="text-5xl mb-4">{activeTab === 'my' ? '📰' : '🔭'}</div>
-                        <p className="font-black text-gray-700 text-xl">{activeTab === 'my' ? 'No projects yet' : 'Nothing found'}</p>
-                        <p className="text-sm text-gray-400 mt-2">{activeTab === 'my' ? 'Create your first project above!' : 'Try a different filter.'}</p>
+                    <div className="text-center py-32 bg-white rounded-[2rem] border border-dashed border-slate-100">
+                        <div className="text-6xl mb-6 opacity-20">🚀</div>
+                        <h3 className="text-xl font-bold text-slate-800 uppercase tracking-tight mb-2">No Projects Found</h3>
+                        <button onClick={resetFilters} className="mt-6 px-8 py-3 bg-slate-950 text-white text-[10px] font-bold rounded-xl hover:bg-[#E31E24] transition-all uppercase tracking-widest">Reset Filters</button>
                     </div>
                 ) : (
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
-                    >
-                        {filteredProjects.map((project) => (
-                            <ProjectCard
-                                key={project.id}
-                                project={project}
-                                isOwner={user.uid === project.studentId}
-                                onView={() => setSelectedProject(project)}
-                                onEdit={() => handleEdit(project)}
-                                onDelete={() => handleDelete(project.id)}
-                            />
-                        ))}
+                    <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+                        <AnimatePresence mode="popLayout">
+                            {filteredProjects.map((p, i) => (
+                                <SimpleProjectCard
+                                    key={p.id}
+                                    project={p}
+                                    isOwner={user.uid === p.studentId}
+                                    index={i}
+                                    onView={() => setSelectedProject(p)}
+                                    onEdit={() => handleEdit(p)}
+                                    onDelete={() => handleDelete(p.id)}
+                                />
+                            ))}
+                        </AnimatePresence>
                     </motion.div>
                 )}
             </main>
 
-            {/* MODAL (Keeping existing structure but cleaner UI) */}
-            <AnimatePresence>
-                {showModal && (
-                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
-                            onClick={() => setShowModal(false)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[1.5rem] md:rounded-[2rem] w-full max-w-2xl max-h-[90vh] md:max-h-[85vh] shadow-2xl relative z-50 flex flex-col overflow-hidden"
-                        >
-                            <div className="px-5 py-4 md:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                <h2 className="text-lg md:text-xl font-black text-gray-900 uppercase tracking-tight">
-                                    {editingId ? 'Edit Project' : 'New Project'}
-                                </h2>
-                                <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-600 transition-colors">✕</button>
-                            </div>
-
-                            <div className="p-5 md:p-6 overflow-y-auto no-scrollbar">
-                                {/* ... FORM CONTENT (Keeping Logic, Styling simplified) ... */}
-                                <form id="projectForm" onSubmit={handleSubmit} className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
-                                            <input required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold text-gray-900 focus:ring-2 focus:ring-biyani-red/20 outline-none" placeholder="Project Name" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Type</label>
-                                                <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium" value={formData.projectType} onChange={e => setFormData({ ...formData, projectType: e.target.value })}>
-                                                    {PROJECT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Visibility</label>
-                                                <div className="flex p-1 bg-gray-50 rounded-xl border border-gray-200">
-                                                    {['Public', 'Batch'].map(v => (
-                                                        <button type="button" key={v} onClick={() => setFormData({ ...formData, visibility: v })} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all ${formData.visibility === v ? 'bg-white shadow text-gray-900' : 'text-gray-400'}`}>{v}</button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
-                                            <textarea required rows="4" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-medium text-gray-700 focus:ring-2 focus:ring-biyani-red/20 outline-none" placeholder="Describe your project..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea>
-                                        </div>
-
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Tags (comma separated)</label>
-                                            <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium" placeholder="React, AI, Design..." value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} />
-                                        </div>
-
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">External Link</label>
-                                            <input type="url" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-blue-600" placeholder="https://..." value={formData.externalLink} onChange={e => setFormData({ ...formData, externalLink: e.target.value })} />
-                                        </div>
-
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Cover Image</label>
-                                            <input type="file" onChange={handleImageUpload} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                                            {formData.imageUrl && <div className="mt-2 h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200"><img src={formData.imageUrl} className="w-full h-full object-cover" /></div>}
-                                        </div>
-
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50/50">
-                                <button type="submit" form="projectForm" disabled={uploading} className="w-full bg-[#E31E24] hover:bg-black text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all disabled:opacity-50 shadow-xl shadow-red-100">
-                                    {uploading ? 'Processing...' : 'Publish Project 🚀'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Project Detail Modal */}
             <AnimatePresence>
                 {selectedProject && (
-                    <ProjectDetailModal
+                    <SimpleProjectModal
                         project={selectedProject}
                         isOwner={user.uid === selectedProject.studentId}
                         onClose={() => setSelectedProject(null)}
@@ -497,268 +492,287 @@ export default function ProjectShowcase() {
                 )}
             </AnimatePresence>
 
-            {/* Mobile Floating Action Button (FAB) */}
-            <button
-                onClick={() => { setEditingId(null); setShowModal(true); }}
-                className="md:hidden fixed bottom-24 right-5 z-40 bg-[#E31E24] text-white w-14 h-14 rounded-2xl shadow-[0_8px_32px_rgba(227,30,36,0.3)] flex items-center justify-center text-3xl active:scale-90 transition-all active:rotate-45"
-            >
-                +
-            </button>
+            <AnimatePresence>
+                {showModal && (
+                    <SimpleFormModal
+                        editingId={editingId}
+                        formData={formData}
+                        setFormData={setFormData}
+                        onClose={() => setShowModal(false)}
+                        handleSubmit={handleSubmit}
+                        uploading={uploading}
+                        handleImageUpload={handleImageUpload}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-// --- Project Card Component ---
-function ProjectCard({ project, isOwner, onView, onEdit, onDelete }) {
+// ─────────────────────────────────────────────
+// SIMPLE SUB-COMPONENTS
+// ─────────────────────────────────────────────
+
+function StatBadge({ label, value, color = 'slate' }) {
+    const colors = {
+        slate: 'bg-slate-50 text-slate-500 border-slate-100',
+        red: 'bg-red-50 text-[#E31E24] border-red-100',
+    };
+    return (
+        <div className={`px-5 py-2.5 rounded-xl border flex items-center gap-3 ${colors[color] || colors.slate}`}>
+            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}:</span>
+            <span className="text-sm font-black tracking-tighter">{value}</span>
+        </div>
+    );
+}
+
+// Legacy sub-components removed for inlining logic
+
+function SimpleSelectInput({ label, options, value, onChange }) {
+    const mappedOptions = options.map(opt => ({ value: opt.id, label: opt.label }));
+    return (
+        <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</p>
+            <PremiumSelect
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                options={mappedOptions}
+            />
+        </div>
+    );
+}
+
+function SimpleInput({ label, value, onChange, type = "text", ...props }) {
+    return (
+        <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</p>
+            <input 
+                type={type}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-6 py-4 text-xs font-bold text-slate-900 focus:ring-4 focus:ring-red-50 focus:bg-white focus:border-[#E31E24] outline-none transition-all placeholder:text-slate-300"
+                {...props}
+            />
+        </div>
+    );
+}
+
+function SimpleProjectCard({ project, isOwner, index, onView, onEdit, onDelete }) {
+    const { user } = useAuth();
     const typeInfo = PROJECT_TYPES.find(t => t.id === project.projectType) || PROJECT_TYPES[0];
 
     return (
         <motion.div
-            variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}
-            className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col h-full cursor-pointer"
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, type: 'spring', damping: 25, stiffness: 120 }}
             onClick={onView}
+            className="group relative bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.06)] hover:-translate-y-2 transition-all duration-700 cursor-pointer overflow-hidden flex flex-col h-full active:scale-[0.98] isolate"
         >
-            {/* Thumbnail */}
-            <div className="aspect-[16/10] md:aspect-[2/1] bg-gray-50 relative overflow-hidden">
+            <div className="aspect-[16/11] relative overflow-hidden bg-slate-50">
                 {project.imageUrl ? (
-                    <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <img src={project.imageUrl} className="w-full h-full object-cover transition-transform duration-[3s] ease-out group-hover:scale-110" alt="Thumbnail" />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-7xl opacity-5 filter grayscale brightness-50">
-                        {typeInfo.icon}
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-200">
+                        <span className="text-6xl group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">{typeInfo.icon}</span>
                     </div>
                 )}
+                
+                {/* Overlay Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                {/* Badges - refined glassmorphism */}
-                <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 shadow-xl">
-                    <span className="bg-black/60 backdrop-blur-xl px-2.5 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest text-white border border-white/10">
-                        {project.projectType}
-                    </span>
-                    <span className={`px-2.5 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest border backdrop-blur-xl
-                        ${project.visibility === 'Public' ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/20' : 'bg-amber-500/20 text-amber-100 border-amber-500/20'}`}>
-                        {project.visibility}
-                    </span>
+                <div className="absolute top-5 left-5 px-3.5 py-1.5 bg-white/90 backdrop-blur-md shadow-xl rounded-xl text-[8px] font-black text-slate-950 uppercase tracking-[0.2em] border border-white/50">
+                   {typeInfo.label}
                 </div>
-
+                
                 {isOwner && (
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="w-8 h-8 flex items-center justify-center bg-white rounded-xl shadow-lg hover:bg-gray-50 text-xs transition-colors">✏️</button>
-                        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="w-8 h-8 flex items-center justify-center bg-white rounded-xl shadow-lg hover:bg-red-50 text-red-500 text-xs transition-colors">🗑️</button>
+                    <div className="absolute top-5 right-5 flex gap-2 translate-y-[-10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-[#E31E24] hover:text-white transition-all">✏️</button>
+                        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-red-500 hover:text-white transition-all">🗑️</button>
                     </div>
                 )}
             </div>
 
-            <div className="p-4 md:p-5 flex-1 flex flex-col">
-                <div className="flex justify-between items-start mb-1.5 md:mb-2 gap-2">
-                    <h3 className="text-sm md:text-base font-black text-gray-900 leading-tight group-hover:text-[#E31E24] transition-colors flex-1 pr-1 uppercase tracking-tight">
+            <div className="p-8 flex-1 flex flex-col">
+                <div className="flex-1 space-y-3">
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-[1] group-hover:text-[#E31E24] transition-colors line-clamp-2">
                         {project.title}
                     </h3>
+                    <p className="text-slate-400 text-[11px] font-bold leading-relaxed line-clamp-3 opacity-90 uppercase tracking-tight">{project.description}</p>
                 </div>
 
-                <p className="text-gray-500 text-[11px] md:text-sm line-clamp-2 mb-3 md:mb-4 leading-relaxed font-medium">
-                    {project.description}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5 mb-4 md:mb-6">
-                    {project.tags?.slice(0, 3).map((tag, i) => (
-                        <span key={i} className="px-2 py-1 rounded-lg bg-gray-50 border border-gray-100 text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                            {tag}
-                        </span>
-                    ))}
-                </div>
-
-                <div className="mt-auto flex items-center justify-between pt-3 md:pt-4 border-t border-gray-50">
-                    <div className="flex flex-col gap-1.5 overflow-hidden">
-                        <div className="flex items-center gap-2">
-                             <div className="w-6 h-6 rounded-lg bg-[#E31E24]/5 flex items-center justify-center text-[9px] font-black text-[#E31E24] shrink-0">
-                                {project.studentName?.[0]}
-                            </div>
-                            <span className="text-[9px] md:text-[10px] font-black text-gray-900 uppercase tracking-tight truncate">{project.studentName}</span>
+                <div className="pt-6 mt-8 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center text-xs text-white font-black shadow-lg shadow-slate-200">
+                            {project.studentName?.[0]}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-[7px] md:text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 truncate">
-                                🏛️ {project.collegeName || 'Institutional'}
-                            </span>
-                            <span className="text-[7px] md:text-[8px] font-bold text-[#E31E24]/60 uppercase tracking-widest truncate">
-                                Sem {project.semester}
-                            </span>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate w-32">{project.studentName}</p>
+                            <p className="text-[9px] font-black text-[#E31E24] uppercase tracking-widest truncate w-32">
+                                {(!project.departmentName || project.departmentName === 'General') ? (isOwner && user ? user.departmentName : 'Student') : project.departmentName}
+                            </p>
                         </div>
                     </div>
-                    {project.externalLink && (
-                        <a href={project.externalLink} target="_blank" rel="noreferrer" className="text-biyani-red hover:bg-red-50 p-2 rounded-full transition-colors shrink-0">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                        </a>
-                    )}
+                    
+                    <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:bg-[#E31E24] group-hover:text-white group-hover:border-[#E31E24] transition-all duration-501">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
                 </div>
             </div>
         </motion.div>
     );
 }
 
-// --- Project Detail Modal ---
-function ProjectDetailModal({ project, isOwner, onClose, onEdit, onDelete }) {
+function SimpleProjectModal({ project, isOwner, onClose, onEdit, onDelete }) {
+    const { user } = useAuth();
     const typeInfo = PROJECT_TYPES.find(t => t.id === project.projectType) || PROJECT_TYPES[0];
 
-    // Stop body scroll while modal is open
-    React.useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, []);
+    const isMobile = window.innerWidth < 768;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
-                onClick={onClose}
-            />
-
-            {/* Panel */}
-            <motion.div
-                initial={{ scale: 0.94, opacity: 0, y: 24 }}
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6 isolate">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl" />
+            <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.94, opacity: 0, y: 24 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="relative z-10 bg-white rounded-[1.5rem] md:rounded-[2.5rem] w-full max-w-2xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden"
+                exit={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 350, mass: 0.8 }}
+                style={{ willChange: 'transform, opacity' }}
+                className={`relative w-full max-w-5xl flex flex-col lg:flex-row bg-white overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.5)] isolate
+                    ${isMobile ? 'h-full max-h-[100dvh] rounded-t-[2.5rem] rounded-b-none' : 'max-h-[90vh] rounded-[3rem] p-0'}
+                `}
             >
-                {/* Hero Image or Gradient Banner */}
-                <div className="relative h-48 md:h-64 shrink-0 bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden">
+                <div className="w-full lg:w-1/2 bg-slate-50 relative overflow-hidden flex items-center justify-center min-h-[300px]">
                     {project.imageUrl ? (
-                        <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover opacity-90" />
+                        <img src={project.imageUrl} className="w-full h-full object-cover" alt="Detail" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-7xl opacity-30">
-                            {typeInfo.icon}
-                        </div>
+                        <div className="text-[10rem] grayscale opacity-10">{typeInfo.icon}</div>
                     )}
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    <button onClick={onClose} className="absolute top-6 left-6 lg:hidden w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center text-sm shadow-xl">✕</button>
+                    <div className="absolute bottom-6 left-6 px-4 py-2 bg-slate-950 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
+                        {typeInfo.label}
+                    </div>
+                </div>
 
-                    {/* Type pill on image */}
-                    <span className="absolute top-4 left-5 bg-black/40 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white">
-                        {typeInfo.icon} {typeInfo.label || project.projectType}
-                    </span>
+                <div className="flex-1 p-8 lg:p-14 overflow-y-auto no-scrollbar flex flex-col bg-white">
+                    <div className="flex items-center justify-between mb-8">
+                         <div className="space-y-1.5">
+                            <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-[0.2em]">Semester {project.semester} • {project.role}</p>
+                            <h3 className="text-2xl lg:text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{project.title}</h3>
+                         </div>
+                         <button onClick={onClose} className="hidden lg:flex w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-xl items-center justify-center text-sm transition-all shadow-sm border border-slate-100">✕</button>
+                    </div>
 
-                    {/* Close button */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-5 w-9 h-9 flex items-center justify-center rounded-xl bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-all"
-                    >
-                        ✕
-                    </button>
+                    <div className="space-y-8 flex-1">
+                        <p className="text-xs lg:text-sm font-bold text-slate-500 leading-relaxed whitespace-pre-wrap opacity-90">{project.description}</p>
+                        
+                        <div className="grid grid-cols-2 gap-6 border-t border-slate-50 pt-8">
+                             <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Student Name</p>
+                                <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{project.studentName}</p>
+                             </div>
+                             <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Department</p>
+                                <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
+                                    {(!project.departmentName || project.departmentName === 'General') ? (isOwner && user ? user.departmentName : 'Department') : project.departmentName}
+                                </p>
+                             </div>
+                        </div>
+                    </div>
 
-                    {/* Title on image */}
-                    <div className="absolute bottom-5 left-5 right-5">
-                        <h2 className="text-white text-xl md:text-2xl font-black leading-tight drop-shadow-2xl uppercase tracking-tight">
-                            {project.title}
+                    <div className="pt-10 flex flex-col sm:flex-row gap-3">
+                         {project.externalLink && (
+                             <a href={project.externalLink} target="_blank" rel="noreferrer" className="flex-1 py-4 rounded-xl bg-slate-950 text-white font-black uppercase tracking-widest text-[10px] text-center hover:bg-[#E31E24] transition-all shadow-lg active:scale-95">View Project</a>
+                         )}
+                         {isOwner && (
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <button onClick={onEdit} className="flex-1 sm:flex-none px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-white hover:shadow-lg transition-all text-xs">✏️</button>
+                                <button onClick={onDelete} className="flex-1 sm:flex-none px-6 py-4 bg-red-50 text-red-500 border border-red-100 rounded-xl hover:bg-red-500 hover:text-white transition-all text-xs">🗑️</button>
+                            </div>
+                         )}
+                    </div>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
+function SimpleFormModal({ editingId, formData, setFormData, onClose, handleSubmit, uploading, handleImageUpload }) {
+    const isMobile = window.innerWidth < 768;
+
+    return (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6 isolate">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl" onClick={onClose} />
+            <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 350, mass: 0.8 }}
+                className={`relative w-full max-w-4xl bg-white overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.15)] flex flex-col
+                    ${isMobile ? 'h-full max-h-[100dvh] rounded-t-[2.5rem] rounded-b-none' : 'max-h-[90vh] rounded-[3rem] p-0'}
+                `}
+            >
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30 backdrop-blur-xl">
+                    <div className="space-y-1">
+                        <p className="text-[9px] font-black text-[#E31E24] uppercase tracking-[0.2em]">Project Builder</p>
+                        <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">
+                            {editingId ? 'Edit Project' : 'Add Project'}
                         </h2>
-                        <div className="flex items-center gap-2 mt-2">
-                            <div className="w-6 h-6 rounded-lg bg-white/20 border border-white/20 backdrop-blur-md flex items-center justify-center text-[10px] font-black text-white">
-                                {project.studentName?.[0] || '?'}
-                            </div>
-                            <span className="text-white/90 text-[11px] font-black uppercase tracking-wider">{project.studentName}</span>
-                            <span className="text-white/40 text-xs">/</span>
-                            <span className="text-white/70 text-[11px] font-bold uppercase tracking-widest">Sem {project.semester}</span>
-                        </div>
                     </div>
+                    <button onClick={onClose} className="w-10 h-10 bg-white hover:bg-slate-50 rounded-xl flex items-center justify-center text-sm transition-all shadow-sm border border-slate-100">✕</button>
                 </div>
 
-                {/* Scrollable body */}
-                <div className="overflow-y-auto p-5 md:p-8 flex-1 space-y-5 md:space-y-6 no-scrollbar">
+                <div className="p-8 md:p-10 overflow-y-auto no-scrollbar flex-1 bg-white">
+                    <form id="projectFormSimple" onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <SimpleInput label="Project Title" value={formData.title} onChange={v => setFormData({...formData, title: v})} placeholder="Awesome Project Name" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <SimpleSelectInput label="Category" options={PROJECT_TYPES.map(t => ({id: t.id, label: t.label}))} value={formData.projectType} onChange={v => setFormData({...formData, projectType: v})} />
+                                    <SimpleSelectInput label="Visibility" options={[{id: 'Public', label: 'Public'}, {id: 'Batch', label: 'My Batch'}]} value={formData.visibility} onChange={v => setFormData({...formData, visibility: v})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Description</p>
+                                    <textarea required rows="5" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-xs font-bold text-slate-900 focus:ring-4 focus:ring-red-50 focus:bg-white focus:border-[#E31E24] outline-none resize-none transition-all placeholder:text-slate-300" placeholder="Tell us about your project..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                </div>
+                            </div>
 
-                    {/* Meta badges row */}
-                    <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1.5 rounded-xl bg-gray-50 text-gray-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-gray-100 italic">
-                            👥 {project.role || 'Solo'}
-                        </span>
-                        <span className="px-3 py-1.5 rounded-xl bg-gray-50 text-gray-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-gray-100 italic">
-                            🔎 {project.visibility || 'Public'}
-                        </span>
-                        {project.campusName && (
-                            <span className="px-3 py-1.5 rounded-xl bg-red-50 text-[#E31E24] text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-red-100 italic">
-                                📍 {project.campusName}
-                            </span>
-                        )}
-                        {project.departmentName && (
-                            <span className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-blue-100 italic">
-                                🏢 {project.departmentName}
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-2">
-                        <p className="text-[9px] md:text-[10px] font-black text-[#E31E24] uppercase tracking-[0.2em] italic opacity-60">About Project</p>
-                        <p className="text-gray-700 text-xs md:text-sm leading-relaxed font-bold whitespace-pre-wrap">
-                            {project.description || 'No description provided.'}
-                        </p>
-                    </div>
-
-                    {/* Tags */}
-                    {project.tags?.length > 0 && (
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Tags</p>
-                            <div className="flex flex-wrap gap-2">
-                                {project.tags.map((tag, i) => (
-                                    <span key={i} className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 uppercase tracking-wide">
-                                        #{tag}
-                                    </span>
-                                ))}
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <SimpleSelectInput label="Role" options={[{id: 'Solo', label: 'Solo'}, {id: 'Team', label: 'Team'}]} value={formData.role} onChange={v => setFormData({...formData, role: v})} />
+                                    <SimpleInput label="Semester" type="number" min="1" max="8" value={formData.semester} onChange={v => setFormData({...formData, semester: parseInt(v)})} />
+                                </div>
+                                <SimpleInput label="External Link" placeholder="https://github.com/..." type="url" value={formData.externalLink} onChange={v => setFormData({...formData, externalLink: v})} />
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project Image</p>
+                                    <div className="relative overflow-hidden rounded-2xl bg-slate-50 border-2 border-dashed border-slate-100 hover:border-[#E31E24]/30 transition-all cursor-pointer aspect-[16/9] flex items-center justify-center group/upload">
+                                        <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                                        {formData.imageUrl ? (
+                                            <>
+                                                <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Preview" />
+                                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/upload:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Change Image</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="text-center space-y-2">
+                                                <div className="text-3xl grayscale opacity-20">🖼️</div>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tap to Upload</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    )}
-
-                    {/* Team Members */}
-                    {project.teamMembers && (
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Team Members</p>
-                            <p className="text-gray-700 text-sm font-medium">{project.teamMembers}</p>
-                        </div>
-                    )}
-
-                    {/* External Link */}
-                    {project.externalLink && (
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Live / Repository</p>
-                            <a
-                                href={project.externalLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm font-bold hover:bg-blue-100 transition-colors"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                View Project →
-                            </a>
-                        </div>
-                    )}
+                    </form>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-5 border-t border-gray-100 shrink-0">
-                    {isOwner ? (
-                        <div className="flex gap-3">
-                            <button
-                                onClick={onEdit}
-                                className="flex-1 py-3.5 rounded-2xl border-2 border-gray-100 font-black text-xs uppercase tracking-widest text-gray-700 hover:border-gray-900 hover:bg-gray-50 transition-all active:scale-95"
-                            >
-                                ✏️ Edit
-                            </button>
-                            <button
-                                onClick={onDelete}
-                                className="flex-1 py-3.5 rounded-2xl bg-red-50 border-2 border-red-50 font-black text-xs uppercase tracking-widest text-red-600 hover:bg-red-100 transition-all active:scale-95"
-                            >
-                                🗑️ Delete
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={onClose}
-                            className="w-full py-3 rounded-xl bg-gray-100 font-bold text-sm text-gray-700 hover:bg-gray-200 transition-all"
-                        >
-                            Close
-                        </button>
-                    )}
+                <div className="p-8 border-t border-slate-50 bg-slate-50/20 backdrop-blur-xl flex items-center gap-4">
+                    <button type="button" onClick={onClose} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancel</button>
+                    <button type="submit" form="projectFormSimple" disabled={uploading} className="flex-1 bg-slate-950 hover:bg-[#E31E24] text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-xl active:scale-95 disabled:opacity-50">
+                        {uploading ? 'Uploading...' : (editingId ? 'Update Project' : 'Add Project')}
+                    </button>
                 </div>
             </motion.div>
         </div>

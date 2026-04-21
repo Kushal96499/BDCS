@@ -142,19 +142,7 @@ export default function HODLayout() {
                     </nav>
 
                     <div className="px-4 mt-auto pt-6 border-t border-gray-50 space-y-4">
-                        {/* Session Security Notice */}
-                        <div className="px-5 py-3.5 bg-gradient-to-br from-[#E31E24]/10 to-transparent rounded-[1.5rem] border border-[#E31E24]/20 backdrop-blur-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-12 h-12 bg-[#E31E24]/10 blur-xl rounded-full -mr-6 -mt-6" />
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <div className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse shadow-[0_0_8_rgba(227,30,36,0.5)]" />
-                                <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-[0.15em] leading-none">
-                                    Security Protocol
-                                </p>
-                            </div>
-                            <p className="text-[9px] font-bold text-[#E31E24]/70 leading-relaxed uppercase tracking-tight">
-                                Session expires after 2 hours
-                            </p>
-                        </div>
+
 
                         <button
                             onClick={() => {

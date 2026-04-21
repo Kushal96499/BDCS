@@ -340,12 +340,43 @@ export async function publishTest(testId, teacherUser) {
         );
         const resultsSnap = await getDocs(resultsQuery);
 
-        const updatePromises = resultsSnap.docs.map(resultDoc =>
-            updateDoc(doc(db, 'test_results', resultDoc.id), {
-                isPublished: true,
-                publishedAt: serverTimestamp()
-            })
-        );
+        const resolvedBatchId = testData.batchId || (typeof testData.batch === 'string' ? testData.batch : testData.batch?.id);
+        
+        let updatePromises = [];
+
+        if (resultsSnap.size > 0) {
+            updatePromises = resultsSnap.docs.map(resultDoc =>
+                updateDoc(doc(db, 'test_results', resultDoc.id), {
+                    isPublished: true,
+                    publishedAt: serverTimestamp()
+                })
+            );
+        }
+        
+        // Self-healing: Always check for students who might have missing indexed fields or uninitialized records
+        if (resolvedBatchId) {
+            const studentsQuery = query(
+                collection(db, 'users'),
+                where('batchId', '==', resolvedBatchId),
+                where('role', '==', 'student')
+            );
+            const studentsSnap = await getDocs(studentsQuery);
+            
+            const extraPromises = studentsSnap.docs.map(studentDoc => {
+                const resultId = `${testId}_${studentDoc.id}`;
+                // Use setDoc with merge instead of updateDoc to handle non-existent documents
+                return setDoc(doc(db, 'test_results', resultId), {
+                    test: testId,
+                    student: studentDoc.id,
+                    isPublished: true,
+                    publishedAt: serverTimestamp(),
+                    semester: testData.semester,
+                    subject: testData.subject
+                }, { merge: true }).catch(err => console.error(`Failed to heal result ${resultId}:`, err));
+            });
+            
+            updatePromises = [...updatePromises, ...extraPromises];
+        }
 
         await Promise.all(updatePromises);
 
@@ -365,6 +396,39 @@ export async function publishTest(testId, teacherUser) {
         // TODO: Send notifications to students
     } catch (error) {
         console.error('Error publishing test:', error);
+        throw error;
+    }
+}
+
+/**
+ * Postpone a test to a new date
+ * @param {string} testId - Test ID
+ * @param {string|Date} newDate - New date
+ * @param {Object} user - Performing teacher
+ */
+export async function postponeTest(testId, newDate, user) {
+    try {
+        const testRef = doc(db, 'tests', testId);
+        const dateObj = new Date(newDate);
+        
+        await updateDoc(testRef, {
+            testDate: Timestamp.fromDate(dateObj),
+            status: 'draft',
+            updatedAt: serverTimestamp(),
+            updatedBy: user.uid,
+            attendanceSessionId: null, // IMPORTANT: Clear old attendance link
+            attendanceStatus: 'missing'
+        });
+
+        await logSystemAction(
+            'tests',
+            testId,
+            'POSTPONE_TEST',
+            { newDate: dateObj.toISOString() },
+            user
+        );
+    } catch (error) {
+        console.error('Error postponing test:', error);
         throw error;
     }
 }

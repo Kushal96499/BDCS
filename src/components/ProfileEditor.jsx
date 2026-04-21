@@ -101,12 +101,6 @@ export default function ProfileEditor({ userId, userData, onUpdate }) {
                             <p className="text-sm font-mono font-medium text-gray-700 mt-1">{lockedFields.employeeId}</p>
                         </div>
                     )}
-                    {lockedFields.enrollmentNumber && (
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-wide">Enrollment Number</label>
-                            <p className="text-sm font-mono font-medium text-gray-700 mt-1">{lockedFields.enrollmentNumber}</p>
-                        </div>
-                    )}
                     {lockedFields.joiningDate && (
                         <div>
                             <label className="text-xs text-gray-500 uppercase tracking-wide">Joining Date</label>

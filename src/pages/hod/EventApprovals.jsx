@@ -11,6 +11,8 @@ import DataTable from '../../components/admin/DataTable';
 import StatusPill from '../../components/common/StatusPill';
 import { toast } from '../../components/admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { createPortal } from 'react-dom';
 
 export default function EventApprovals() {
     const { user, loading: authLoading } = useAuth();
@@ -18,6 +20,7 @@ export default function EventApprovals() {
     const [filteredEvents, setFilteredEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentFilter, setCurrentFilter] = useState('pending');
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
     useEffect(() => {
         if (!authLoading && user) fetchRequests();
@@ -128,7 +131,7 @@ export default function EventApprovals() {
             render: (row) => (
                 <div className="flex flex-col gap-1">
                     <div className="text-sm font-bold text-gray-700">{row.date ? new Date(row.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD'}</div>
-                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{row.venue || 'Global Campus'}</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{row.venue || 'Global Campus'} • {row.startTime || row.time || 'TBA'}</div>
                 </div>
             )
         },
@@ -140,24 +143,34 @@ export default function EventApprovals() {
         {
             header: 'Operations',
             field: 'actions',
-            render: (row) => row.status === 'pending' || row.status === 'pending_hod' ? (
+            render: (row) => (
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => handleAction(row.id, 'approved')}
-                        className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 active:scale-95"
+                        onClick={() => setSelectedEvent(row)}
+                        className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all border border-slate-100 active:scale-95"
+                        title="View Details"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                     </button>
-                    <button
-                        onClick={() => handleAction(row.id, 'rejected')}
-                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-black hover:text-white transition-all border border-red-100 active:scale-95"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-            ) : (
-                <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest italic">
-                    Resolved
+
+                    { (row.status === 'pending' || row.status === 'pending_hod') ? (
+                        <>
+                            <button
+                                onClick={() => handleAction(row.id, 'approved')}
+                                className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 active:scale-95"
+                                title="Approve"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
+                            </button>
+                            <button
+                                onClick={() => handleAction(row.id, 'rejected')}
+                                className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-black hover:text-white transition-all border border-red-100 active:scale-95"
+                                title="Reject"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </>
+                    ) : null}
                 </div>
             )
         }
@@ -206,7 +219,146 @@ export default function EventApprovals() {
                     emptyMessage={`Event archive is void for isolated sector: ${currentFilter}`}
                 />
             </div>
+
+            {/* Premium Detail Modal */}
+            <AnimatePresence>
+                {selectedEvent && (
+                    <DetailModal 
+                        event={selectedEvent} 
+                        onClose={() => setSelectedEvent(null)} 
+                        onApprove={() => { handleAction(selectedEvent.id, 'approved'); setSelectedEvent(null); }}
+                        onReject={() => { handleAction(selectedEvent.id, 'rejected'); setSelectedEvent(null); }}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
+function DetailModal({ event, onClose, onApprove, onReject }) {
+    const isMobile = window.innerWidth < 768;
+    const dateObj = event.date ? new Date(event.date) : new Date();
+    
+    if (typeof document === 'undefined') return null;
+    
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 md:p-6 isolate">
+            {/* Full-Screen Backdrop */}
+            <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                onClick={onClose} 
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" 
+            />
+            
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: isMobile ? 100 : 20 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 350, mass: 0.8 }}
+                style={{ willChange: 'transform, opacity' }}
+                className={`w-full max-w-5xl relative z-10 flex flex-col md:flex-row bg-slate-950 overflow-hidden isolate shadow-[0_50px_100px_rgba(0,0,0,0.5)] 
+                    ${isMobile ? 'h-full max-h-[100dvh] rounded-t-[2.5rem] rounded-b-none' : 'max-h-[90vh] rounded-[3rem] p-0'}
+                `}
+            >
+                {/* Visual Section (Poster) */}
+                <div className="w-full md:w-2/5 h-72 md:h-auto bg-slate-950 flex-shrink-0 relative flex flex-col items-center justify-center border-r border-white/5 z-20">
+                    {/* PHYSICAL GAP MASK: This covers the sub-pixel white leak at the top */}
+                    <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-950 z-50 rounded-t-[inherit]" />
+                    
+                    {event.posterUrl ? (
+                         <div className="relative w-full h-full group/poster cursor-zoom-in flex items-center justify-center p-4 md:p-8" onClick={() => window.open(event.posterUrl, '_blank')}>
+                            <img src={event.posterUrl} alt={event.title} className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/poster:scale-[1.02]" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/poster:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] font-black text-white uppercase tracking-widest">Click to View Full</span>
+                            </div>
+                         </div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-white p-6 md:p-12 text-center">
+                            <span className="text-4xl md:text-6xl mb-4 opacity-50">📅</span>
+                            <h3 className="text-lg md:text-xl font-black uppercase tracking-widest leading-tight">{event.title}</h3>
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Section */}
+                <div className="flex-1 flex flex-col min-h-0 bg-white relative z-20">
+                    {/* TOP GAP MASK FOR WHITE SIDE */}
+                    <div className="absolute top-0 right-0 w-full h-1.5 bg-white z-50 rounded-tr-[inherit] md:block hidden" />
+                    
+                    <div className="p-5 md:p-12 overflow-y-auto no-scrollbar flex-1">
+                        <div className="flex justify-between items-start gap-4 mb-6 md:mb-8">
+                             <div className="space-y-3 md:space-y-4">
+                                 <div className="flex items-center gap-2 mb-2">
+                                     <span className="px-2.5 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-md">
+                                         {event.type}
+                                     </span>
+                                 </div>
+                                 <h2 className="text-xl md:text-4xl font-black text-slate-900 uppercase tracking-tight leading-[0.9]">
+                                    {event.title}
+                                 </h2>
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-l-2 border-red-600 pl-3">
+                                        {format(dateObj, 'PPPP')}
+                                    </span>
+                                 </div>
+                             </div>
+                             <button onClick={onClose} className="w-9 h-9 md:w-12 md:h-12 bg-slate-50 hover:bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-xs md:text-lg transition-all shrink-0">✕</button>
+                        </div>
+
+                        <div className="space-y-6 md:space-y-10">
+                            <div className="p-4 md:p-8 bg-slate-50 rounded-[1.2rem] md:rounded-[2rem] border border-slate-100 grid grid-cols-2 sm:grid-cols-2 gap-4 md:gap-8 text-left">
+                                <DetailItem label="Location" value={event.venue || 'Campus Wide'} />
+                                <DetailItem label="Start Time" value={event.startTime || event.time || 'TBA'} />
+                                <DetailItem label="Organizer" value={event.organizerName || 'Biyani College'} />
+                                <DetailItem label="Scope" value={event.scope || 'Department'} />
+                                {event.registrationLink && <DetailItem label="Reg. Link" value={<a href={event.registrationLink} target="_blank" className="text-blue-600 lowercase underline">Check Link</a>} />}
+                            </div>
+
+                            <div className="space-y-4 text-left">
+                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    <span className="w-6 h-[2px] bg-red-600" /> Description
+                                </h4>
+                                <p className="text-sm md:text-base font-medium text-slate-600 leading-relaxed whitespace-pre-wrap pl-9">
+                                    {event.description || 'No description provided.'}
+                                </p>
+                            </div>
+
+                            {/* Footer Actions (In-flow) */}
+                            <div className="pt-10 md:pt-14 mt-10 border-t border-slate-50 flex flex-col sm:flex-row gap-3 md:gap-4">
+                                {(event.status === 'pending' || event.status === 'pending_hod') && (
+                                    <>
+                                        <button 
+                                            onClick={onApprove}
+                                            className="flex-1 py-3.5 md:py-5 rounded-xl md:rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-[9px] md:text-[11px] shadow-lg hover:bg-emerald-600 transition-all active:scale-[0.98]"
+                                        >
+                                            Approve Manifest
+                                        </button>
+                                        <button 
+                                            onClick={onReject}
+                                            className="flex-1 py-3.5 md:py-5 rounded-xl md:rounded-2xl bg-slate-950 text-white font-black uppercase tracking-widest text-[9px] md:text-[11px] shadow-lg hover:bg-red-600 transition-all active:scale-[0.98]"
+                                        >
+                                            Reject Proposal
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={onClose} className="px-6 md:px-10 py-3.5 md:py-5 rounded-xl md:rounded-2xl border border-slate-100 text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-[11px] hover:bg-slate-50 transition-all">Close Viewer</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        </div>,
+        document.body
+    );
+}
+
+function DetailItem({ label, value }) {
+    return (
+        <div className="space-y-1">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+            <div className="text-sm font-bold text-slate-900 uppercase tracking-tight leading-none truncate">{value}</div>
+        </div>
+    );
+}

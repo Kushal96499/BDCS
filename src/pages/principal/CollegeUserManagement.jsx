@@ -143,22 +143,22 @@ export default function CollegeUserManagement() {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto">
             <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">HOD Management</h1>
-                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">HOD Management</h1>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                          {user?.collegeName || 'Institutional'} • HOD List
                     </p>
                 </div>
                 <button
                     onClick={() => setShowForm(!showForm)}
-                    className={`w-full md:w-auto px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 border ${showForm ? 'bg-white text-gray-900 border-gray-100 hover:bg-gray-50' : 'bg-gray-900 text-white border-white/10 hover:bg-[#E31E24]'}`}
+                    className={`w-full md:w-auto px-6 py-3 rounded-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 border ${showForm ? 'bg-white text-gray-900 border-gray-100 hover:bg-gray-50' : 'bg-gray-900 text-white border-white/10 hover:bg-[#E31E24]'}`}
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d={showForm ? "M6 18L18 6M6 6l12 12" : "M12 4v16m8-8H4"} />
                     </svg>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{showForm ? 'Cancel Operation' : 'Create / Assign HOD'}</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">{showForm ? 'Cancel Operation' : 'Create / Assign HOD'}</span>
                 </button>
             </div>
 
@@ -172,8 +172,10 @@ export default function CollegeUserManagement() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                                <label htmlFor="hod-firstName" className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
                                 <input
+                                    id="hod-firstName"
+                                    name="firstName"
                                     type="text"
                                     value={formData.firstName}
                                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
@@ -182,8 +184,10 @@ export default function CollegeUserManagement() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                                <label htmlFor="hod-lastName" className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
                                 <input
+                                    id="hod-lastName"
+                                    name="lastName"
                                     type="text"
                                     value={formData.lastName}
                                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
@@ -192,8 +196,10 @@ export default function CollegeUserManagement() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                <label htmlFor="hod-email" className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                                 <input
+                                    id="hod-email"
+                                    name="email"
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -202,8 +208,10 @@ export default function CollegeUserManagement() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                                <label htmlFor="hod-phone" className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
                                 <input
+                                    id="hod-phone"
+                                    name="phone"
                                     type="tel"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -211,8 +219,10 @@ export default function CollegeUserManagement() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Faculty ID (EMP) *</label>
+                                <label htmlFor="hod-emp-id" className="block text-sm font-medium text-gray-700 mb-2">Faculty ID (EMP) *</label>
                                 <input
+                                    id="hod-emp-id"
+                                    name="employeeId"
                                     type="text"
                                     placeholder="institutional ID"
                                     value={formData.employeeId}
@@ -225,8 +235,10 @@ export default function CollegeUserManagement() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Department *</label>
+                                <label htmlFor="hod-department" className="block text-sm font-medium text-gray-700 mb-2">Assign to Department *</label>
                                 <select
+                                    id="hod-department"
+                                    name="departmentId"
                                     value={formData.departmentId}
                                     onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biyani-red focus:border-transparent"
@@ -242,8 +254,10 @@ export default function CollegeUserManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Joining Date *</label>
+                                <label htmlFor="hod-joining-date" className="block text-sm font-medium text-gray-700 mb-2">Joining Date *</label>
                                 <input
+                                    id="hod-joining-date"
+                                    name="joiningDate"
                                     type="date"
                                     value={formData.joiningDate}
                                     onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
@@ -283,23 +297,26 @@ export default function CollegeUserManagement() {
             )}
 
             {/* Existing HODs List - PREMIUM TABLE */}
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
-                <div className="p-8 border-b border-gray-50 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/40 border border-gray-100 overflow-hidden">
+                <div className="p-5 md:p-6 border-b border-gray-50 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>
-                        <h3 className="text-xl font-black text-gray-900 tracking-tight">Active HODs</h3>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{hods.length} Total HODs Found</p>
+                        <h3 className="text-lg font-black text-gray-900 tracking-tight">Active HODs</h3>
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{hods.length} Total HODs Found</p>
                     </div>
                     
                     <div className="relative w-full md:w-96 group">
                         <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-biyani-red transition-colors">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth={3}/></svg>
                         </span>
+                        <label htmlFor="hod-search" className="sr-only">Search HODs</label>
                         <input 
+                            id="hod-search"
+                            name="hod-search"
                             type="text" 
-                            placeholder="SEARCH BY NAME, DEPT OR EMAIL..." 
+                            placeholder="Search by name or department..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-14 pr-6 py-4 bg-white border border-gray-100 rounded-2xl focus:border-biyani-red focus:ring-4 focus:ring-red-500/5 outline-none text-sm font-bold text-gray-900 transition-all placeholder:text-gray-300"
+                            className="w-full pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-xl focus:border-biyani-red focus:ring-4 focus:ring-red-500/5 outline-none text-xs font-bold text-gray-900 transition-all placeholder:text-gray-300"
                         />
                     </div>
                 </div>
@@ -322,11 +339,11 @@ export default function CollegeUserManagement() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50/50">
-                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">HOD Name</th>
-                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Info</th>
-                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Department</th>
-                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
-                                    <th className="p-8 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">HOD Name</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Info</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Department</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -338,41 +355,43 @@ export default function CollegeUserManagement() {
                                 }).map(hod => (
                                     <tr 
                                         key={hod.id} 
-                                        className="group hover:bg-red-50/20 transition-all duration-300 cursor-pointer"
-                                        onClick={() => {
-                                            setSelectedHOD(hod);
-                                            setShowDetailPanel(true);
-                                        }}
+                                        className="group hover:bg-red-50/20 transition-all duration-300"
                                     >
-                                        <td className="p-8">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-xs font-black shadow-lg group-hover:bg-biyani-red group-hover:rotate-6 transition-all uppercase">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg group-hover:bg-biyani-red group-hover:rotate-6 transition-all uppercase">
                                                     {hod.name?.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-base font-black text-gray-900 group-hover:text-biyani-red transition-colors leading-none mb-1.5">{hod.name}</p>
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded inline-block">Primary Head</p>
+                                                    <p className="text-sm font-black text-gray-900 group-hover:text-biyani-red transition-colors leading-none mb-1.5">{hod.name}</p>
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded inline-block">Primary Head</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-8">
+                                        <td className="px-6 py-4">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-gray-700">{hod.email}</span>
-                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60">Email Address</span>
+                                                <span className="text-xs font-bold text-gray-700">{hod.email}</span>
+                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5 opacity-60">Email Address</span>
                                             </div>
                                         </td>
-                                        <td className="p-8 text-center">
-                                            <span className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-100/50">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-purple-100/50">
+                                                <div className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
                                                 {hod.departmentName || 'Unassigned'}
                                             </span>
                                         </td>
-                                        <td className="p-8 text-center">
+                                        <td className="px-6 py-4 text-center">
                                             <StatusPill status="ACTIVE" type="success" />
                                         </td>
-                                        <td className="p-8 text-right">
-                                            <button className="px-6 py-2.5 bg-white border border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all shadow-sm active:scale-95">
-                                                Edit Profile
+                                        <td className="px-6 py-4 text-right">
+                                            <button 
+                                                onClick={() => {
+                                                    setSelectedHOD(hod);
+                                                    setShowDetailPanel(true);
+                                                }}
+                                                className="px-4 py-2 bg-white border border-gray-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all shadow-sm active:scale-95"
+                                            >
+                                                Edit
                                             </button>
                                         </td>
                                     </tr>

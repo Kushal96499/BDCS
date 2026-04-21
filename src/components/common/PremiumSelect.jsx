@@ -18,7 +18,7 @@ export default function PremiumSelect({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
-    const selectedOption = options.find(opt => opt.value === value);
+    const selectedOption = options.find(opt => String(opt.value) === String(value));
 
     // Close on click outside
     useEffect(() => {
@@ -38,9 +38,9 @@ export default function PremiumSelect({
     };
 
     return (
-        <div className={`flex flex-col gap-2 ${className}`} ref={containerRef}>
+        <div className={`flex flex-col gap-1.5 ${className}`} ref={containerRef}>
             {label && (
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4">
                     {label}
                 </label>
             )}
@@ -49,28 +49,31 @@ export default function PremiumSelect({
                 <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={() => {
+                        console.log(`Opening Select [${label || 'No Label'}]:`, options);
+                        setIsOpen(!isOpen);
+                    }}
                     className={`
-                        w-full flex items-center justify-between px-6 py-4 rounded-2xl
-                        bg-white border border-gray-100 shadow-sm
-                        transition-all duration-300 outline-none
-                        ${isOpen ? 'ring-4 ring-gray-50 border-gray-300 scale-[1.01]' : 'hover:border-gray-200 hover:bg-gray-50/50'}
-                        ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer'}
+                        w-full flex items-center justify-between px-6 py-3.5 rounded-[1.25rem] md:rounded-[1.5rem]
+                        bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)]
+                        transition-all duration-500 outline-none
+                        ${isOpen ? 'ring-4 ring-slate-50 border-slate-300 scale-[1.01]' : 'hover:border-slate-200 hover:bg-slate-50/50'}
+                        ${disabled ? 'opacity-40 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}
                         ${error ? 'border-red-300 ring-red-50' : ''}
                     `}
                 >
-                    <div className="flex items-center gap-3">
-                        {icon && <div className={`w-5 h-5 ${isOpen ? 'text-gray-900' : 'text-gray-400'} transition-colors`}>{icon}</div>}
-                        <span className={`text-sm font-black tracking-tight ${selectedOption ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        {icon && <div className={`w-4 h-4 shrink-0 ${isOpen ? 'text-slate-900' : 'text-slate-400'} transition-colors`}>{icon}</div>}
+                        <span className={`text-[10px] md:text-[11px] font-black uppercase tracking-widest truncate ${selectedOption ? 'text-slate-900' : 'text-slate-400'}`}>
                             {selectedOption ? selectedOption.label : placeholder}
                         </span>
                     </div>
 
                     <motion.div
                         animate={{ rotate: isOpen ? 180 : 0 }}
-                        className="text-gray-300"
+                        className="text-slate-300 shrink-0 ml-2"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={4}>
                             <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </motion.div>
@@ -79,33 +82,36 @@ export default function PremiumSelect({
                 <AnimatePresence>
                     {isOpen && !disabled && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.1, ease: "easeOut" }}
-                            className="absolute z-[100] w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden py-2"
+                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                            className="absolute z-[100] w-full mt-2 bg-white/95 backdrop-blur-3xl border border-slate-100 rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden py-3"
                         >
-                            <div className="max-h-60 overflow-y-auto no-scrollbar">
+                            <div className="max-h-64 overflow-y-auto no-scrollbar scroll-smooth">
                                 {options.length > 0 ? (
-                                    options.map((opt, idx) => (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            onClick={() => handleSelect(opt.value)}
-                                            className={`
-                                                w-full flex items-center gap-3 px-5 py-3 text-left transition-all
-                                                ${value === opt.value ? 'bg-gray-50 text-gray-900 font-black' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
-                                            `}
-                                        >
-                                            <div className={`w-1.5 h-1.5 rounded-full transition-all ${value === opt.value ? 'bg-red-500' : 'bg-transparent'}`} />
-                                            <span className="text-xs font-bold tracking-tight">
-                                                {opt.label}
-                                            </span>
-                                        </button>
-                                    ))
+                                    options.map((opt, idx) => {
+                                        const isActive = String(value) === String(opt.value);
+                                        return (
+                                            <button
+                                                key={opt.value || idx}
+                                                type="button"
+                                                onClick={() => handleSelect(opt.value)}
+                                                className={`
+                                                    w-full flex items-center gap-4 px-6 py-4 text-left transition-all duration-300 min-h-[50px]
+                                                    ${isActive ? 'bg-slate-900 text-white font-black' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}
+                                                `}
+                                            >
+                                                <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${isActive ? 'bg-red-500 scale-125' : 'bg-slate-200'}`} />
+                                                <span className="text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-none">
+                                                    {opt.label || opt.value || 'Unnamed Segment'}
+                                                </span>
+                                            </button>
+                                        );
+                                    })
                                 ) : (
-                                    <div className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">
-                                        No Options Available
+                                    <div className="px-6 py-8 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] text-center">
+                                        Empty Sector
                                     </div>
                                 )}
                             </div>

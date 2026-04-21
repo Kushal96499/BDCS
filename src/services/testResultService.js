@@ -158,14 +158,16 @@ export async function updateStudentMark(testId, studentId, marksObtained, remark
         const resultId = `${testId}_${studentId}`;
         const resultRef = doc(db, 'test_results', resultId);
 
-        await updateDoc(resultRef, {
+        await setDoc(resultRef, {
+            test: testId,
+            student: studentId,
             marksObtained: parseFloat(marksObtained),
             percentage: parseFloat(percentage),
             passFailStatus,
             remarks: remarks || '',
             enteredBy: teacherUser.uid,
             enteredAt: serverTimestamp()
-        });
+        }, { merge: true });
 
         // Update test stats
         await updateTestStats(testId);
@@ -267,6 +269,44 @@ export async function initializeTestResults(testId) {
             console.log(`Cleaned up ${duplicatesRemoved} duplicate entries`);
         }
 
+        // --- NEW: Fix Random-ID Documents ---
+        // If we find docs where doc.id !== `${testId}_${studentId}`, migrate them.
+        const migrationBatch = writeBatch(db);
+        let migratedCount = 0;
+
+        studentResultMap.forEach((docs, studentId) => {
+            const deterministicId = `${testId}_${studentId}`;
+            const legacyDocs = docs.filter(docItem => docItem.id !== deterministicId);
+            const deterministicDoc = docs.find(docItem => docItem.id === deterministicId);
+
+            if (legacyDocs.length > 0) {
+                // We have legacy docs. 
+                // If we DON'T have a deterministic doc yet, migrate the "best" legacy doc.
+                // If we DO have a deterministic doc, merge legacy into it and delete legacy.
+                
+                const bestLegacy = legacyDocs[0]; // Already sorted by priority in previous step
+                
+                if (!deterministicDoc) {
+                    // Create deterministic doc with legacy data
+                    migrationBatch.set(doc(db, 'test_results', deterministicId), bestLegacy.data);
+                    migratedCount++;
+                }
+
+                // Delete ALL legacy docs
+                legacyDocs.forEach(ld => {
+                    migrationBatch.delete(doc(db, 'test_results', ld.id));
+                });
+            }
+        });
+
+        if (migratedCount > 0) {
+            await migrationBatch.commit();
+            console.log(`Migrated ${migratedCount} results to deterministic ID format`);
+            
+            // Re-fetch or adjust map if necessary? 
+            // For now, next time initialize runs or snapshots fix it.
+        }
+
         console.log(`Found ${existingResults.size - duplicatesRemoved} unique existing results`);
 
         // Get all students in this batch
@@ -347,8 +387,9 @@ export async function initializeTestResults(testId) {
                 return;
             }
 
-            // CREATE NEW: Placeholder for student not yet in results
-            const resultRef = doc(collection(db, 'test_results'));
+            // CREATE NEW: Placeholder with deterministic ID
+            const resId = `${testId}_${studentId}`;
+            const resultRef = doc(db, 'test_results', resId);
 
             const resultData = {
                 // Test Info
@@ -488,10 +529,12 @@ export async function getStudentResults(studentId, filters = {}) {
                 return {
                     ...result,
                     testDetails: testData ? {
+                        id: testDoc.id,
                         topic: testData.topic,
                         testDate: testData.testDate?.toDate(),
                         subjectName: testData.subjectName,
-                        testType: testData.testType
+                        testType: testData.testType,
+                        semester: testData.semester
                     } : null
                 };
             })

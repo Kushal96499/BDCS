@@ -8,9 +8,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '../../components/admin/Toast';
+import PremiumSelect from '../../components/common/PremiumSelect';
 
 import { proposeEvent, getMyProposals } from '../../services/eventService';
 import { format, parseISO } from 'date-fns';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { uploadFileToConvex } from '../../utils/storage';
 
 const SCOPE_OPTIONS = [
     {
@@ -53,7 +57,12 @@ export default function StudentEventRequest() {
         venue: '',
         scope: 'department',
         registrationLink: '', // optional Google Form URL
+        posterUrl: '',
+        posterId: '',
     });
+
+    const [uploading, setUploading] = useState(false);
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
     useEffect(() => {
         if (user?.uid) loadMyProposals();
@@ -70,6 +79,41 @@ export default function StudentEventRequest() {
 
     const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Basic validation
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File size too large (Max 5MB)');
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const { storageId, url } = await uploadFileToConvex(
+                file,
+                generateUploadUrl,
+                async (id) => {
+                    const res = await fetch(`${import.meta.env.VITE_CONVEX_SITE_URL}/getFileUrl?storageId=${encodeURIComponent(id)}`);
+                    if (!res.ok) return null;
+                    const data = await res.json();
+                    return data.url ?? null;
+                }
+            );
+
+            if (!url) throw new Error('Failed to resolve poster URL');
+
+            setForm(prev => ({ ...prev, posterUrl: url, posterId: storageId }));
+            toast.success('Poster uploaded successfully');
+        } catch (error) {
+            console.error('Upload error:', error);
+            toast.error('Failed to upload poster. Please try again.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.title.trim() || !form.date || !form.description.trim()) {
@@ -79,8 +123,12 @@ export default function StudentEventRequest() {
         setSubmitting(true);
         try {
             await proposeEvent(form, user);
+            console.info('[Poster-Verify] Proposal Submitted. PosterURL:', form.posterUrl);
             toast.success('Proposal sent to HOD 🚀');
-            setForm({ title: '', type: 'Cultural', description: '', date: '', venue: '', scope: 'department' });
+            setForm({ 
+                title: '', type: 'Cultural', description: '', date: '', venue: '', scope: 'department',
+                registrationLink: '', posterUrl: '', posterId: ''
+            });
             await loadMyProposals(); // refresh list
         } catch (err) {
             console.error(err);
@@ -158,15 +206,11 @@ export default function StudentEventRequest() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-black text-gray-700 uppercase tracking-widest mb-2">Event Type *</label>
-                        <select
+                        <PremiumSelect
                             value={form.type}
-                            onChange={e => handleChange('type', e.target.value)}
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-gray-900 outline-none font-medium"
-                        >
-                            {['Cultural', 'Sports', 'Technical', 'Workshop', 'Social'].map(t => (
-                                <option key={t}>{t}</option>
-                            ))}
-                        </select>
+                            onChange={(e) => handleChange('type', e.target.value)}
+                            options={['Cultural', 'Sports', 'Technical', 'Workshop', 'Social'].map(t => ({ value: t, label: t }))}
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-700 uppercase tracking-widest mb-2">Proposed Date *</label>
@@ -204,6 +248,43 @@ export default function StudentEventRequest() {
                         placeholder="Describe the event purpose, activities, estimated budget, and any requirements..."
                         className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-gray-900 outline-none font-medium resize-none"
                     />
+                </div>
+
+                {/* Poster / Image Upload */}
+                <div className="p-6 bg-slate-50 border border-dashed border-slate-200 rounded-3xl group">
+                    <label className="block text-[11px] font-black text-slate-900 uppercase tracking-widest mb-4">Event Poster (Recommended)</label>
+                    
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="w-full md:w-48 h-32 bg-white rounded-2xl border border-slate-100 overflow-hidden relative group/img shadow-sm">
+                            {form.posterUrl ? (
+                                <>
+                                    <img src={form.posterUrl} alt="Poster Preview" className="w-full h-full object-cover" />
+                                    <button 
+                                        type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, posterUrl: '', posterId: '' }))}
+                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest"
+                                    >
+                                        Remove
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                                    <span className="text-3xl mb-1">🖼️</span>
+                                    <span className="text-[8px] font-black uppercase tracking-tighter">No Preview</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex-1 space-y-3">
+                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                                Upload a high-quality poster to attract more students. PNG, JPG or WebP supported. Max 5MB.
+                            </p>
+                            <label className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-900 cursor-pointer hover:bg-slate-950 hover:text-white hover:border-slate-900 transition-all shadow-sm active:scale-95">
+                                <input type="file" onChange={handleImageUpload} accept="image/*" className="hidden" disabled={uploading} />
+                                {uploading ? 'Uploading...' : form.posterUrl ? 'Change Poster' : 'Select Poster'}
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Registration Link (optional) */}

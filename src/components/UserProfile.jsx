@@ -90,8 +90,8 @@ export default function UserProfile() {
                             {isStudent ? (
                                 <>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-600">Enrollment Number</label>
-                                        <p className="text-gray-900 mt-1 font-mono">{user.enrollmentNumber || 'N/A'}</p>
+                                        <label className="text-sm font-medium text-gray-600">Roll Number</label>
+                                        <p className="text-gray-900 mt-1 font-mono">{user.rollNumber || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-600">Current Semester</label>

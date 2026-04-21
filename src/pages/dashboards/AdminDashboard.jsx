@@ -77,7 +77,7 @@ export default function AdminDashboard() {
                             <div className="w-16 h-16 bg-yellow-50 text-yellow-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">🚧</div>
                             <h2 className="text-xl font-bold text-gray-900">Development In Progress</h2>
                             <p className="text-gray-500 max-w-md mx-auto mt-2">
-                                The Global Administrator panels are currently being built. Full control over Roles, Permissions, and System Configuration will be available here.
+                                The Administrator panels are currently being built. Full control over Roles, Permissions, and System Configuration will be available here.
                             </p>
                         </div>
                     </div>
