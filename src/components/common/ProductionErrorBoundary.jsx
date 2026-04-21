@@ -73,7 +73,7 @@ class ProductionErrorBoundary extends React.Component {
                         </div>
 
                         <p className="text-[9px] font-bold text-gray-300 uppercase tracking-tighter">
-                            Biyani Digital Campus System • Institutional Core v1.0
+                            Biyani Digital Campus System • Institutional
                         </p>
                     </motion.div>
                 </div>

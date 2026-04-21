@@ -732,7 +732,7 @@ async function updateTestStats(testId, forcedTotalStudents = null) {
             console.log(`Test ${testId} transitioned to COMPLETED (Date Passed)`);
         }
 
-        console.log(`Updated stats: Total=${totalStudents}, Entered=${resultsEntered}, Missing=${resultsMissing}`);
+        // Stats log removed for production
     } catch (error) {
         console.error('Error updating test stats:', error);
     }

@@ -146,7 +146,7 @@ export async function logAudit(
         const auditRef = collection(db, 'auditLogs');
         const docRef = await addDoc(auditRef, auditLog);
 
-        console.log('[Audit] Logged:', action, '-', auditLog.entityLabel || collectionName);
+        // Informative log removed for production
         return docRef.id;
     } catch (error) {
         console.error('[Audit] Failed to log action:', error);

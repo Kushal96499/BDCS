@@ -36,13 +36,11 @@ export function useAuth() {
             try {
                 if (firebaseUser) {
                     // Fetch user data from Firestore
-                    console.log('useAuth: Fetching doc for UID:', firebaseUser.uid);
                     const userDocRef = doc(db, 'users', firebaseUser.uid);
                     const userDoc = await getDoc(userDocRef);
 
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
-                        console.log('useAuth: User data found:', userData.role);
                         const activeRole = resolveActiveRole(userData);
 
                         // Sync sessionStorage

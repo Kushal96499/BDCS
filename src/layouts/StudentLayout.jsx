@@ -142,23 +142,26 @@ export default function StudentLayout() {
                                 <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">System Status: Online</span>
                             </div>
 
-                        {/* Profile Utility */}
+                        {/* Profile Utility - Refined Premium Design */}
                         <button 
                             onClick={() => navigate('/student/profile')}
-                            className="flex items-center gap-2.5 group px-0.5 py-0.5 pr-3 rounded-full hover:bg-white transition-all duration-300"
+                            className="flex items-center gap-3 group p-1.5 rounded-2xl bg-white border border-[#0F172A]/5 hover:border-[#E31E24]/20 hover:bg-white hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 active:scale-95"
                         >
-                            <div className="w-9 h-9 rounded-full border-2 border-[#E31E24] overflow-hidden transition-all duration-300 group-hover:scale-110 shadow-md flex items-center justify-center bg-white p-[1px]">
-                                {user?.photoURL ? (
-                                    <img src={user.photoURL} alt="" className="w-full h-full object-cover rounded-full" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center font-bold text-xs text-[#E31E24] bg-white capitalize">
-                                        {user?.name?.[0]}
-                                    </div>
-                                )}
+                            <div className="relative">
+                                <div className="w-8 h-8 rounded-[0.8rem] overflow-hidden border border-slate-100 group-hover:border-[#E31E24]/30 transition-all duration-500 shadow-sm flex items-center justify-center bg-slate-50">
+                                    {user?.photoURL ? (
+                                        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center font-black text-[10px] text-slate-400 bg-white capitalize">
+                                            {user?.name?.[0]}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
                             </div>
-                            <div className="hidden sm:block text-left">
-                                <p className="text-[10px] font-bold text-slate-900 leading-none capitalize">{user?.name?.split(' ')[0]}</p>
-                                <p className="text-[8px] font-medium text-slate-400 mt-1 uppercase tracking-tighter">Profile</p>
+                            <div className="hidden md:block text-left pr-2">
+                                <p className="text-[10px] font-black text-slate-900 leading-none tracking-tight mb-1 capitalize">{user?.name?.split(' ')[0]}</p>
+                                <p className="text-[7px] font-black text-[#E31E24] uppercase tracking-[0.2em] opacity-60">Account</p>
                             </div>
                         </button>
                     </div>

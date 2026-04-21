@@ -2,7 +2,7 @@
 // BDCS - Event Explorer (Simple & Clean Redesign)
 // ============================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isPast, parseISO, isToday } from 'date-fns';
@@ -11,14 +11,30 @@ import { toast } from '../../components/admin/Toast';
 import { getStudentEvents, getMyRegistrations, registerForEvent, getMyProposals } from '../../services/eventService';
 import PremiumSelect from '../../components/common/PremiumSelect';
 import { createPortal } from 'react-dom';
+import Skeleton, { EventCardSkeleton } from '../../components/common/Skeleton';
+import { 
+    GraduationCap, 
+    Music, 
+    Trophy, 
+    Lightbulb, 
+    Users, 
+    Star, 
+    Plus, 
+    Search, 
+    MapPin, 
+    Calendar, 
+    Clock, 
+    X,
+    Code2
+} from 'lucide-react';
 
 const EVENT_TYPES = [
-    { id: 'Technical', icon: '💻' },
-    { id: 'Cultural', icon: '🎭' },
-    { id: 'Sports', icon: '🏆' },
-    { id: 'Workshop', icon: '🧠' },
-    { id: 'Social', icon: '🤝' },
-    { id: 'Other', icon: '✨' }
+    { id: 'Technical', icon: <Code2 className="w-full h-full" /> },
+    { id: 'Cultural', icon: <Music className="w-full h-full" /> },
+    { id: 'Sports', icon: <Trophy className="w-full h-full" /> },
+    { id: 'Workshop', icon: <Lightbulb className="w-full h-full" /> },
+    { id: 'Social', icon: <Users className="w-full h-full" /> },
+    { id: 'Other', icon: <Star className="w-full h-full" /> }
 ];
 
 export default function EventExplorer() {
@@ -119,7 +135,28 @@ export default function EventExplorer() {
 
     const isPresident = user?.councilRole?.toLowerCase() === 'president';
 
-    if (loading && events.length === 0) return <div className="animate-pulse"><div className="h-64 bg-slate-100 rounded-3xl" /></div>;
+    if (loading && events.length === 0) return (
+        <div className="space-y-12">
+            <header className="flex justify-between items-end gap-8">
+                <div className="space-y-4">
+                    <Skeleton className="w-24 h-4" />
+                    <Skeleton className="w-48 h-12" />
+                </div>
+                <div className="flex gap-4">
+                    <Skeleton className="w-32 h-12 rounded-xl" />
+                    <Skeleton className="w-32 h-12 rounded-xl" />
+                </div>
+            </header>
+            <div className="h-20 bg-white rounded-[2rem] border border-slate-100 p-4 flex gap-4">
+                 <Skeleton className="w-32 h-full rounded-xl" />
+                 <Skeleton className="w-32 h-full rounded-xl" />
+                 <Skeleton className="flex-1 h-full rounded-xl" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {[1, 2, 3, 4].map(i => <EventCardSkeleton key={i} />)}
+            </div>
+        </div>
+    );
 
     return (
         <div className="text-slate-900 pb-32">
@@ -141,7 +178,7 @@ export default function EventExplorer() {
                     <StatBadge label="Going" value={myRegistrations.length} color="red" />
                     {isPresident && (
                         <Link to="/student/council/propose-event" className="px-6 py-4 bg-slate-950 text-white rounded-2xl flex items-center gap-3 text-[11px] font-bold uppercase tracking-widest hover:bg-[#E31E24] transition-all shadow-xl">
-                            <span className="text-xl font-light">+</span> Propose Event
+                            <Plus className="w-4 h-4" /> Propose Event
                         </Link>
                     )}
                 </div>
@@ -181,7 +218,7 @@ export default function EventExplorer() {
             <main>
                 {filteredEvents.length === 0 ? (
                     <div className="text-center py-32 bg-white rounded-[2rem] border border-dashed border-slate-100">
-                        <div className="text-6xl mb-6 opacity-20">📅</div>
+                        <Calendar className="w-12 h-12 mx-auto mb-6 opacity-20 text-slate-400" />
                         <h3 className="text-xl font-bold text-slate-800 uppercase tracking-tight mb-2">No Events Found</h3>
                         <p className="text-sm text-slate-400 font-medium">Try changing the filters or check back later.</p>
                     </div>
@@ -234,7 +271,7 @@ function StatBadge({ label, value, color = 'slate' }) {
     );
 }
 
-function SimpleEventCard({ event, index, currentUserId, onView }) {
+const SimpleEventCard = memo(({ event, index, currentUserId, onView }) => {
     return (
         <motion.div
             layout
@@ -251,10 +288,11 @@ function SimpleEventCard({ event, index, currentUserId, onView }) {
                         src={event.posterUrl} 
                         alt={event.title} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        loading="lazy"
                     />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
-                        <span className="text-4xl mb-2">📅</span>
+                        <Calendar className="w-8 h-8 mb-2 opacity-50" />
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-50 font-sans">No Poster Available</span>
                     </div>
                 )}
@@ -295,17 +333,17 @@ function SimpleEventCard({ event, index, currentUserId, onView }) {
 
                 <div className="flex items-center justify-between gap-4 mt-auto">
                     <div className="flex items-center gap-3 truncate">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-400 font-bold shrink-0 border border-slate-200">
-                            📍
+                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-red-50 group-hover:text-[#E31E24] transition-colors">
+                            <MapPin className="w-3.5 h-3.5" />
                         </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{event.venue || 'Campus Main Hub'}</p>
                     </div>
-                    <span className="text-[10px] font-black text-slate-950 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">DETAILS →</span>
+                    <span className="text-[10px] font-black text-slate-950 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Details →</span>
                 </div>
             </div>
         </motion.div>
     );
-}
+});
 
 function SimpleEventModal({ event, onClose, onRegister, isRegistering }) {
     const isMobile = window.innerWidth < 768;
@@ -347,7 +385,7 @@ function SimpleEventModal({ event, onClose, onRegister, isRegistering }) {
                          </div>
                     ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-white p-8 md:p-12 text-center">
-                            <span className="text-4xl md:text-6xl mb-4 opacity-50">📅</span>
+                            <Calendar className="w-12 h-12 mb-4 opacity-50" />
                             <h3 className="text-lg md:text-xl font-black uppercase tracking-widest leading-tight">{event.title}</h3>
                         </div>
                     )}
@@ -375,7 +413,7 @@ function SimpleEventModal({ event, onClose, onRegister, isRegistering }) {
                                     </span>
                                  </div>
                              </div>
-                             <button onClick={onClose} className="w-10 h-10 md:w-12 md:h-12 bg-slate-50 hover:bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-lg transition-all shrink-0">✕</button>
+                             <button onClick={onClose} className="w-10 h-10 md:w-12 md:h-12 bg-slate-50 hover:bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-lg transition-all shrink-0"><X className="w-5 h-5" /></button>
                         </div>
 
                         <div className="space-y-8 md:space-y-10">

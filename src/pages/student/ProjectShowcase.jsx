@@ -12,16 +12,33 @@ import { useAuth } from '../../hooks/useAuth';
 import { toast } from '../../components/admin/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumSelect from '../../components/common/PremiumSelect';
+import { 
+    Plus, 
+    Code2, 
+    FlaskConical, 
+    Pill, 
+    BarChart3, 
+    Palette, 
+    Box, 
+    BookOpen, 
+    Brain, 
+    Search, 
+    Image, 
+    Rocket, 
+    Edit3, 
+    Trash2,
+    X
+} from 'lucide-react';
 
 const PROJECT_TYPES = [
-    { id: 'software', label: 'Software', icon: '💻' },
-    { id: 'research', label: 'Research', icon: '🧪' },
-    { id: 'pharmacy', label: 'Pharmacy', icon: '💊' },
-    { id: 'case_study', label: 'Case Study', icon: '📊' },
-    { id: 'creative', label: 'Creative', icon: '🎨' },
-    { id: 'hardware', label: 'Hardware', icon: '🏗️' },
-    { id: 'assignment', label: 'Assignment', icon: '📚' },
-    { id: 'other', label: 'Other', icon: '🧠' }
+    { id: 'software', label: 'Software', icon: <Code2 className="w-full h-full" /> },
+    { id: 'research', label: 'Research', icon: <FlaskConical className="w-full h-full" /> },
+    { id: 'pharmacy', label: 'Pharmacy', icon: <Pill className="w-full h-full" /> },
+    { id: 'case_study', label: 'Case Study', icon: <BarChart3 className="w-full h-full" /> },
+    { id: 'creative', label: 'Creative', icon: <Palette className="w-full h-full" /> },
+    { id: 'hardware', label: 'Hardware', icon: <Box className="w-full h-full" /> },
+    { id: 'assignment', label: 'Assignment', icon: <BookOpen className="w-full h-full" /> },
+    { id: 'other', label: 'Other', icon: <Brain className="w-full h-full" /> }
 ];
 
 export default function ProjectShowcase() {
@@ -359,7 +376,7 @@ export default function ProjectShowcase() {
                         <StatBadge label="Global Repository" value={feedProjects.length} />
                     </div>
                     <button onClick={() => { setEditingId(null); resetForm(); setShowModal(true); }} className="flex-1 sm:flex-none px-8 py-4 bg-slate-950 text-white rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#E31E24] transition-all shadow-2xl shadow-slate-200 active:scale-95 group">
-                         <span className="group-hover:rotate-90 transition-transform duration-500">🚀</span> Add Project
+                         <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" /> Add Project
                     </button>
                 </div>
             </header>
@@ -441,9 +458,11 @@ export default function ProjectShowcase() {
                             onChange={e => setSearchQuery(e.target.value)}
                             className="w-full bg-white/50 border border-slate-100/50 rounded-xl md:rounded-2xl px-12 md:px-14 py-3 md:py-4 text-[10px] md:text-[11px] font-bold text-slate-900 focus:ring-8 focus:ring-slate-50 focus:bg-white focus:border-[#E31E24]/30 outline-none transition-all shadow-inner"
                         />
-                        <span className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 opacity-30 text-[10px] md:text-sm">🔍</span>
+                        <Search className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 opacity-30 w-4 h-4" />
                         {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-500 rounded-full text-[10px] transition-all">✕</button>
+                            <button onClick={() => setSearchQuery('')} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-500 rounded-full transition-all">
+                                <X className="w-3 h-3" />
+                            </button>
                         )}
                     </div>
                 </div>
@@ -457,7 +476,7 @@ export default function ProjectShowcase() {
                     </div>
                 ) : filteredProjects.length === 0 ? (
                     <div className="text-center py-32 bg-white rounded-[2rem] border border-dashed border-slate-100">
-                        <div className="text-6xl mb-6 opacity-20">🚀</div>
+                        <Rocket className="w-12 h-12 mx-auto mb-6 opacity-20 text-slate-400" />
                         <h3 className="text-xl font-bold text-slate-800 uppercase tracking-tight mb-2">No Projects Found</h3>
                         <button onClick={resetFilters} className="mt-6 px-8 py-3 bg-slate-950 text-white text-[10px] font-bold rounded-xl hover:bg-[#E31E24] transition-all uppercase tracking-widest">Reset Filters</button>
                     </div>
@@ -575,7 +594,9 @@ function SimpleProjectCard({ project, isOwner, index, onView, onEdit, onDelete }
                     <img src={project.imageUrl} className="w-full h-full object-cover transition-transform duration-[3s] ease-out group-hover:scale-110" alt="Thumbnail" />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-200">
-                        <span className="text-6xl group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">{typeInfo.icon}</span>
+                        <div className="w-12 h-12 text-slate-300 group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">
+                            {typeInfo.icon}
+                        </div>
                     </div>
                 )}
                 
@@ -588,8 +609,12 @@ function SimpleProjectCard({ project, isOwner, index, onView, onEdit, onDelete }
                 
                 {isOwner && (
                     <div className="absolute top-5 right-5 flex gap-2 translate-y-[-10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-[#E31E24] hover:text-white transition-all">✏️</button>
-                        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-[#E31E24] hover:text-white transition-all">
+                            <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-xl text-[10px] hover:bg-red-500 hover:text-white transition-all">
+                            <Trash2 className="w-4 h-4" />
+                        </button>
                     </div>
                 )}
             </div>
@@ -647,9 +672,13 @@ function SimpleProjectModal({ project, isOwner, onClose, onEdit, onDelete }) {
                     {project.imageUrl ? (
                         <img src={project.imageUrl} className="w-full h-full object-cover" alt="Detail" />
                     ) : (
-                        <div className="text-[10rem] grayscale opacity-10">{typeInfo.icon}</div>
+                        <div className="w-20 h-20 text-slate-200 grayscale opacity-10">
+                            {typeInfo.icon}
+                        </div>
                     )}
-                    <button onClick={onClose} className="absolute top-6 left-6 lg:hidden w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center text-sm shadow-xl">✕</button>
+                    <button onClick={onClose} className="absolute top-6 left-6 lg:hidden w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center text-sm shadow-xl">
+                        <X className="w-5 h-5" />
+                    </button>
                     <div className="absolute bottom-6 left-6 px-4 py-2 bg-slate-950 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
                         {typeInfo.label}
                     </div>
@@ -661,7 +690,9 @@ function SimpleProjectModal({ project, isOwner, onClose, onEdit, onDelete }) {
                             <p className="text-[10px] font-black text-[#E31E24] uppercase tracking-[0.2em]">Semester {project.semester} • {project.role}</p>
                             <h3 className="text-2xl lg:text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{project.title}</h3>
                          </div>
-                         <button onClick={onClose} className="hidden lg:flex w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-xl items-center justify-center text-sm transition-all shadow-sm border border-slate-100">✕</button>
+                         <button onClick={onClose} className="hidden lg:flex w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-xl items-center justify-center text-sm transition-all shadow-sm border border-slate-100">
+                            <X className="w-5 h-5" />
+                         </button>
                     </div>
 
                     <div className="space-y-8 flex-1">
@@ -687,8 +718,8 @@ function SimpleProjectModal({ project, isOwner, onClose, onEdit, onDelete }) {
                          )}
                          {isOwner && (
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <button onClick={onEdit} className="flex-1 sm:flex-none px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-white hover:shadow-lg transition-all text-xs">✏️</button>
-                                <button onClick={onDelete} className="flex-1 sm:flex-none px-6 py-4 bg-red-50 text-red-500 border border-red-100 rounded-xl hover:bg-red-500 hover:text-white transition-all text-xs">🗑️</button>
+                                <button onClick={onEdit} className="flex-1 sm:flex-none px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-white hover:shadow-lg transition-all text-xs"><Edit3 className="w-4 h-4" /></button>
+                                <button onClick={onDelete} className="flex-1 sm:flex-none px-6 py-4 bg-red-50 text-red-500 border border-red-100 rounded-xl hover:bg-red-500 hover:text-white transition-all text-xs"><Trash2 className="w-4 h-4" /></button>
                             </div>
                          )}
                     </div>
@@ -720,7 +751,9 @@ function SimpleFormModal({ editingId, formData, setFormData, onClose, handleSubm
                             {editingId ? 'Edit Project' : 'Add Project'}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 bg-white hover:bg-slate-50 rounded-xl flex items-center justify-center text-sm transition-all shadow-sm border border-slate-100">✕</button>
+                    <button onClick={onClose} className="w-10 h-10 bg-white hover:bg-slate-50 rounded-xl flex items-center justify-center text-sm transition-all shadow-sm border border-slate-100">
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 <div className="p-8 md:p-10 overflow-y-auto no-scrollbar flex-1 bg-white">
@@ -757,7 +790,7 @@ function SimpleFormModal({ editingId, formData, setFormData, onClose, handleSubm
                                             </>
                                         ) : (
                                             <div className="text-center space-y-2">
-                                                <div className="text-3xl grayscale opacity-20">🖼️</div>
+                                                <Image className="w-10 h-10 mx-auto text-slate-300 opacity-20" />
                                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tap to Upload</p>
                                             </div>
                                         )}

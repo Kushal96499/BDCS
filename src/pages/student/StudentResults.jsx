@@ -93,7 +93,7 @@ export default function StudentResults() {
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-12 pb-32">
             
             {/* ── EXAM SPOTLIGHT ──────────────────────────────────── */}
-            <motion.div variants={item} className="aether-card p-12 md:p-16 relative overflow-hidden bg-white shadow-2xl shadow-slate-200/50">
+            <motion.div variants={item} className="aether-card p-12 md:p-16 relative z-30 bg-white shadow-2xl shadow-slate-200/50">
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-red-50/30 to-transparent pointer-events-none" />
                 <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-50/30 rounded-full blur-3xl pointer-events-none" />
                 

@@ -5,6 +5,14 @@ import { format, startOfDay } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTestsByBatch } from '../../services/testService';
 import PremiumSelect from '../../components/common/PremiumSelect';
+import { 
+    TrendingUp, 
+    CheckCircle2, 
+    GraduationCap, 
+    Calendar, 
+    Hourglass, 
+    Check 
+} from 'lucide-react';
 
 const container = {
     hidden: { opacity: 0 },
@@ -115,11 +123,32 @@ export default function StudentTestHistory() {
 
         const standing = getStanding(average);
 
+        // Calculate best subject
+        const subjectAverages = {};
+        semMatch.forEach(r => {
+            const sub = r.testDetails?.subjectName || 'Unknown';
+            if (!subjectAverages[sub]) subjectAverages[sub] = { total: 0, count: 0 };
+            subjectAverages[sub].total += (r.percentage || 0);
+            subjectAverages[sub].count += 1;
+        });
+
+        let bestSub = { name: '---', score: 0 };
+        Object.entries(subjectAverages).forEach(([name, data]) => {
+            const avg = data.total / data.count;
+            if (avg > bestSub.score) {
+                bestSub = { name, score: avg };
+            }
+        });
+
         return {
             total: semMatch.length,
             pass: semMatch.filter(r => r.passFailStatus === 'PASS').length,
             average: average.toFixed(1),
-            standing
+            standing,
+            bestSub: {
+                ...bestSub,
+                score: bestSub.score.toFixed(1)
+            }
         };
     }, [results, selectedSem]);
 
@@ -155,7 +184,7 @@ export default function StudentTestHistory() {
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-10 pb-32 pt-2">
             
             {/* ── CLEAN PREMIUM HEADER ──────────────────────────── */}
-            <motion.header variants={item} className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white/40 p-8 rounded-[2.5rem] backdrop-blur-3xl border border-white/60 shadow-xl shadow-slate-100/30">
+            <motion.header variants={item} className="relative z-30 flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white/40 p-8 rounded-[2.5rem] backdrop-blur-3xl border border-white/60 shadow-xl shadow-slate-100/30">
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
                          <div className="px-2.5 py-1 bg-red-50/50 rounded-full border border-red-100/50 flex items-center gap-1.5 backdrop-blur-md">
@@ -168,27 +197,28 @@ export default function StudentTestHistory() {
                     </h1>
                 </div>
 
-                <div className="flex bg-slate-50/50 p-1.5 rounded-2xl border border-slate-100 overflow-x-auto no-scrollbar backdrop-blur-xl">
-                    {semesters.map(sem => (
-                        <button
-                            key={sem}
-                            onClick={() => setSelectedSem(sem)}
-                            className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap ${selectedSem === sem ? 'bg-slate-950 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600 hover:bg-white'}`}
-                        >
-                            {sem === 'all' ? 'Overall' : `Sem ${sem}`}
-                        </button>
-                    ))}
+                <div className="w-full lg:w-72 bg-slate-50/50 p-2 rounded-2xl border border-slate-100 overflow-visible backdrop-blur-xl transition-all">
+                    <PremiumSelect
+                        label="Semester"
+                        value={selectedSem}
+                        onChange={(e) => setSelectedSem(e.target.value)}
+                        options={semesters.map(sem => ({
+                            value: sem,
+                            label: sem === 'all' ? 'Overall View' : `Semester ${sem}`
+                        }))}
+                    />
                 </div>
             </motion.header>
 
             {/* ── STATS ROW: COMPACT EDITION ────────────────────── */}
             <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard label="Average Score" value={`${Math.round(semStats.average)}%`} icon="📈" color="red" />
-                <StatCard label="Class Tests Cleared" value={`${semStats.pass} / ${semStats.total}`} icon="✅" color="emerald" />
+                <StatCard label="Average Score" value={`${Math.round(semStats.average)}%`} icon={<TrendingUp className="w-5 h-5" />} color="red" />
+                <StatCard label="Class Tests Cleared" value={`${semStats.pass} / ${semStats.total}`} icon={<CheckCircle2 className="w-5 h-5" />} color="emerald" />
                 <StatCard 
-                    label="Academic Standing" 
-                    value={`${semStats.standing.label} (${semStats.standing.grade})`} 
-                    icon="🎓" 
+                    label="Subject Strength" 
+                    value={semStats.bestSub.name === '---' ? '---' : semStats.bestSub.name}
+                    subValue={semStats.bestSub.name === '---' ? '' : `${semStats.bestSub.score}% Mastery`}
+                    icon={<GraduationCap className="w-5 h-5" />} 
                     color="violet" 
                 />
             </motion.div>
@@ -272,7 +302,7 @@ function StatusCard({ test, type }) {
         <div className={`aether-card p-5 flex items-center justify-between group cursor-default transition-all duration-500 border border-slate-100/50 ${isUpcoming ? 'hover:border-amber-200 bg-amber-50/10' : 'hover:border-blue-200 bg-blue-50/10'}`}>
             <div className="flex items-center gap-4">
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform duration-500 ${isUpcoming ? 'bg-amber-50 text-amber-500 shadow-sm' : 'bg-blue-50 text-blue-500 shadow-sm'}`}>
-                    {isUpcoming ? '📅' : '⏳'}
+                    {isUpcoming ? <Calendar className="w-5 h-5" /> : <Hourglass className="w-5 h-5" />}
                 </div>
                 <div>
                     <h4 className="text-base font-black text-slate-900 uppercase tracking-tight group-hover:text-slate-950 transition-colors leading-none">{test.subjectName}</h4>
@@ -290,31 +320,34 @@ function StatusCard({ test, type }) {
     );
 }
 
-function StatCard({ label, value, icon, color }) {
+function StatCard({ label, value, subValue, icon, color }) {
     const colors = {
         red: 'text-[#E31E24] hover:border-red-200 bg-red-50/20',
         emerald: 'text-emerald-600 hover:border-emerald-200 bg-emerald-50/20',
-        indigo: 'text-indigo-600 hover:border-indigo-200 bg-indigo-50/20'
+        indigo: 'text-indigo-600 hover:border-indigo-200 bg-indigo-50/20',
+        violet: 'text-violet-600 hover:border-violet-200 bg-violet-50/20'
     };
     return (
         <div className={`aether-card p-6 group transition-all duration-500 border border-slate-100/50 ${colors[color]}`}>
-            <div className="flex items-center justify-between">
-                <div className="space-y-1.5">
+            <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1 min-w-0 flex-1">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">{label}</p>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-[#E31E24] transition-colors">{value}</h3>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight group-hover:text-[#E31E24] transition-colors truncate">{value}</h3>
+                    {subValue && <p className="text-[10px] font-bold text-slate-400 truncate">{subValue}</p>}
                 </div>
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-slate-100 shadow-sm group-hover:rotate-12 transition-all duration-500">
-                    <span className="text-xl">{icon}</span>
+                <div className={`w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-100 shadow-sm group-hover:rotate-12 transition-all duration-500`}>
+                    {icon}
                 </div>
             </div>
         </div>
     );
 }
 
-function SimpleResultCard({ result }) {
+const SimpleResultCard = React.forwardRef(({ result }, ref) => {
     const isPass = result.passFailStatus === 'PASS';
     return (
         <motion.div
+            ref={ref}
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -323,9 +356,9 @@ function SimpleResultCard({ result }) {
         >
             <div className="flex items-center gap-6 flex-1 w-full">
                 <div className="relative">
-                    <div className={`w-14 h-14 rounded-[1rem] flex flex-col items-center justify-center shrink-0 border transition-all duration-700 group-hover:scale-105 ${isPass ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-                        <span className="text-xl font-black tabular-nums tracking-tighter leading-none">{Math.round(result.percentage)}%</span>
-                        <span className="text-[7px] font-black uppercase tracking-widest mt-0.5 opacity-60">Score</span>
+                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 border transition-all duration-700 group-hover:scale-105 ${isPass ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+                        <span className="text-sm font-black tabular-nums tracking-tighter leading-none">{Math.round(result.percentage)}%</span>
+                        <span className="text-[6px] font-black uppercase tracking-widest mt-0.5 opacity-50">Score</span>
                     </div>
                 </div>
                 
@@ -359,4 +392,4 @@ function SimpleResultCard({ result }) {
             </div>
         </motion.div>
     );
-}
+});

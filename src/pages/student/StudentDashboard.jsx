@@ -1,11 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth';
 import { collection, query, where, onSnapshot, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { getDoc as getFirestoreDoc } from 'firebase/firestore';
+import Skeleton, { CardSkeleton } from '../../components/common/Skeleton';
+import { 
+    LayoutDashboard, 
+    ClipboardList, 
+    Rocket, 
+    Users, 
+    Search,
+    GraduationCap,
+    IdCard,
+    ArrowRight
+} from 'lucide-react';
 
 const container = {
     hidden: { opacity: 0 },
@@ -16,6 +27,91 @@ const item = {
     hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 200 } }
 };
+
+// Memoized Sub-components for better performance
+const IdentityToken = memo(({ label, value, icon, variant = 'slate' }) => {
+    const variants = {
+        slate: 'bg-slate-50 border-slate-200/60 text-slate-900',
+        red: 'bg-red-50/80 border-red-100 text-[#E31E24]',
+        indigo: 'bg-indigo-50/80 border-indigo-100 text-indigo-700'
+    };
+
+    return (
+        <motion.div 
+            whileHover={{ y: -1 }}
+            className={`px-4 py-2 rounded-2xl border flex items-center gap-3 transition-all duration-300 ${variants[variant]}`}
+        >
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                variant === 'red' ? 'bg-[#E31E24] text-white' : 
+                variant === 'indigo' ? 'bg-indigo-600 text-white' : 
+                'bg-slate-900 text-white'
+            }`}>
+                {React.cloneElement(icon, { className: "w-3.5 h-3.5" })}
+            </div>
+            <div className="flex flex-col items-start text-left min-w-0 leading-none">
+                <span className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">{label}</span>
+                <span className="text-[11px] md:text-[13px] font-black uppercase tracking-tight truncate w-full">{value}</span>
+            </div>
+        </motion.div>
+    );
+});
+
+const BentoCard = memo(({ title, desc, icon, onClick, stats, label, color }) => {
+    const overlays = {
+        slate: 'hover:border-slate-900 hover:bg-slate-50',
+        red: 'hover:border-[#E31E24] hover:bg-red-50',
+        indigo: 'hover:border-indigo-600 hover:bg-indigo-50'
+    };
+    return (
+        <motion.div
+            variants={item}
+            whileHover={{ y: -5, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onClick}
+            className={`aether-card p-8 cursor-pointer group flex flex-col justify-between min-h-[220px] transition-all duration-500 border border-slate-100 ${overlays[color]}`}
+        >
+            <div className="flex justify-between items-start">
+                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 group-hover:-rotate-12 transition-all duration-500 group-hover:bg-white shadow-sm">
+                    {icon}
+                </div>
+                <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+                    <h4 className="text-2xl font-black text-slate-900 group-hover:text-[#E31E24] transition-colors tabular-nums">{stats}</h4>
+                </div>
+            </div>
+
+            <div className="space-y-1 mt-8">
+                <h3 className="text-xl font-black uppercase tracking-tight leading-none group-hover:translate-x-1 transition-transform duration-500">{title}</h3>
+                <p className="text-slate-400 font-semibold text-[11px] leading-snug">{desc}</p>
+            </div>
+
+            <div className="pt-4 flex items-center justify-between border-t border-slate-50 opacity-40 group-hover:opacity-100 transition-all">
+                <span className="text-[9px] font-black uppercase tracking-widest">Open Analytics</span>
+                <span className="text-lg group-hover:translate-x-2 transition-transform">→</span>
+            </div>
+        </motion.div>
+    );
+});
+
+const QuickAction = memo(({ icon, label, to }) => {
+    const navigate = useNavigate();
+    return (
+        <button
+            onClick={() => navigate(to)}
+            className="w-full bg-white border border-slate-100 rounded-[2.2rem] p-8 flex items-center justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group shadow-lg shadow-slate-100/30"
+        >
+            <div className="flex items-center gap-4">
+                <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 group-hover:bg-red-50">
+                    {icon}
+                </div>
+                <span className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] group-hover:text-[#E31E24] transition-colors">{label}</span>
+            </div>
+            <div className="w-10 h-10 rounded-full border border-slate-50 flex items-center justify-center group-hover:rotate-45 transition-all text-slate-200 group-hover:text-slate-900">
+                <span className="text-xl">→</span>
+            </div>
+        </button>
+    );
+});
 
 export default function StudentDashboard() {
     const { user } = useAuth();
@@ -95,7 +191,7 @@ export default function StudentDashboard() {
         }
 
         return () => { unsubAtt(); unsubTests(); unsubProj(); unsubEvents(); unsubUpcoming(); };
-    }, [user?.uid]);
+    }, [user?.uid, user?.batchId]);
 
     useEffect(() => {
         if (!user?.courseName && user?.courseId) {
@@ -105,13 +201,40 @@ export default function StudentDashboard() {
         }
     }, [user?.courseName, user?.courseId]);
 
-    const firstName = user?.name?.split(' ')[0] || 'Student';
-
     if (loading) return (
-        <div className="space-y-8 animate-pulse w-full">
-            <div className="h-48 bg-white rounded-3xl border border-slate-100 shadow-sm" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[1, 2, 3].map(i => <div key={i} className="h-56 bg-white rounded-3xl border border-slate-100" />)}
+        <div className="space-y-10 w-full">
+            {/* Hero Skeleton */}
+            <div className="relative bg-white rounded-[3rem] p-10 border border-slate-100 overflow-hidden">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+                    <div className="flex-1 space-y-8 w-full">
+                        <div className="space-y-4">
+                            <Skeleton className="w-32 h-6" />
+                            <Skeleton className="w-2/3 h-16 md:h-24" />
+                        </div>
+                        <div className="flex gap-4">
+                            <Skeleton className="w-32 h-12 rounded-2xl" />
+                            <Skeleton className="w-32 h-12 rounded-2xl" />
+                            <Skeleton className="w-32 h-12 rounded-2xl" />
+                        </div>
+                    </div>
+                    <div className="w-full lg:w-96 flex gap-6 p-10 bg-slate-50/50 rounded-[3rem] border border-slate-100">
+                        <div className="flex-1 space-y-4">
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-12" />
+                            <Skeleton className="w-full h-2" />
+                        </div>
+                        <div className="flex-1 space-y-4 text-center">
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-12" />
+                            <Skeleton className="w-full h-6 rounded-full" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Bento Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => <CardSkeleton key={i} />)}
             </div>
         </div>
     );
@@ -142,45 +265,80 @@ export default function StudentDashboard() {
                     />
 
                     <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
-                        <div className="flex-1 space-y-8 md:space-y-10">
-                            <div className="space-y-3 md:space-y-4">
+                        {/* LEFT: Identity & Welcome */}
+                        <div className="flex-1 space-y-8 w-full">
+                            <div className="space-y-4">
                                 <div className="flex items-center justify-center lg:justify-start gap-2">
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-[#E31E24]/5 backdrop-blur-xl rounded-full border border-[#E31E24]/10">
-                                        <span className="w-1.5 h-1.5 bg-[#E31E24] rounded-full animate-pulse shadow-[0_0_8px_rgba(227,30,36,0.4)]" />
-                                        <p className="text-[8px] md:text-[10px] font-black text-[#E31E24] uppercase tracking-[0.25em]">Student Identity Card</p>
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-[#E31E24]/5 rounded-full border border-[#E31E24]/10">
+                                        <span className="w-1 h-1 bg-[#E31E24] rounded-full animate-pulse" />
+                                        <p className="text-[9px] font-black text-[#E31E24] uppercase tracking-[0.2em]">Student Identity Card</p>
                                     </div>
                                 </div>
                                 <h1 className="text-4xl md:text-7xl font-black text-slate-950 tracking-tighter uppercase leading-[0.9]">
                                     Welcome,<br />
-                                    <span className="text-[#E31E24] inline-block mt-1 md:mt-2">
+                                    <span className="text-[#E31E24] inline-block mt-1">
                                         {user?.name?.split(' ')[0] || 'Scholar'}
                                     </span>
                                 </h1>
                             </div>
 
-                            <div className="flex flex-wrap justify-center lg:justify-start gap-2 md:gap-4">
-                                <HeroPill label="Course" value={displayCourseName || user?.courseName || 'Student'} color="slate" />
-                                <HeroPill label="Sem" value={user?.currentSemester || 'Auto'} icon="🎓" color="red" />
-                                <HeroPill label="Roll No" value={user?.rollNumber || user?.uid?.slice(-6).toUpperCase()} icon="🆔" color="indigo" />
-                            </div>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-6 md:gap-10 bg-slate-50/50 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 backdrop-blur-2xl shadow-sm group/stats w-full lg:w-auto">
-                            <div className="flex-1 text-center px-4 md:px-8 border-r border-slate-100">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Attendance</p>
-                                <h3 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter tabular-nums">{stats.attendance}%</h3>
-                                <div className="mt-2 md:mt-3 h-1 md:h-1.5 w-full bg-slate-200/50 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${stats.attendance}%` }}
-                                        className="h-full bg-[#E31E24]"
+                            <div className="space-y-3 max-w-2xl mx-auto lg:mx-0 w-full">
+                                {/* Row 1: Course (Compact width) */}
+                                <div className="w-fit max-w-full">
+                                    <IdentityToken 
+                                        label="Course" 
+                                        value={displayCourseName || user?.courseName || 'Student'} 
+                                        icon={<GraduationCap />} 
+                                        variant="slate" 
+                                    />
+                                </div>
+                                
+                                {/* Row 2: Sem & Roll No (Side-by-side on mobile) */}
+                                <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
+                                    <IdentityToken 
+                                        label="Sem" 
+                                        value={user?.currentSemester || 'Auto'} 
+                                        icon={<Users />} 
+                                        variant="red" 
+                                    />
+                                    <IdentityToken 
+                                        label="Roll No" 
+                                        value={user?.rollNumber || user?.uid?.slice(-6).toUpperCase()} 
+                                        icon={<IdCard />} 
+                                        variant="indigo" 
                                     />
                                 </div>
                             </div>
-                            <div className="flex-1 text-center px-4 md:px-8">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Upcoming</p>
-                                <h3 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter tabular-nums">{stats.upcomingTests.length}</h3>
-                                <div className="mt-2 md:mt-3 text-[8px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 py-1 px-2 md:px-3 rounded-full">Tests Pending</div>
+                        </div>
+
+                        {/* RIGHT: Combined Analytics Strip (Always row on mobile) */}
+                        <div className="w-full lg:w-auto shrink-0 flex items-center justify-center">
+                            <div className="flex flex-row items-center justify-around w-full lg:w-auto gap-6 md:gap-16 bg-slate-50/50 p-6 md:p-14 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 backdrop-blur-2xl shadow-sm">
+                                <div className="text-center flex-1 lg:flex-none">
+                                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Attendance</p>
+                                    <h3 className="text-4xl md:text-7xl font-black text-slate-900 tracking-tighter tabular-nums">
+                                        {stats.attendance}<span className="text-xl md:text-2xl text-[#E31E24]">%</span>
+                                    </h3>
+                                    <div className="mt-3 md:mt-4 h-1 md:h-1.5 w-full bg-slate-200/50 rounded-full overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.attendance}%` }}
+                                            className="h-full bg-[#E31E24]"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="w-px h-12 md:h-20 bg-slate-200/60" />
+
+                                <div className="text-center flex-1 lg:flex-none">
+                                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 md:mb-4">Upcoming</p>
+                                    <h3 className="text-4xl md:text-7xl font-black text-slate-900 tracking-tighter tabular-nums">
+                                        {stats.upcomingTests.length}
+                                    </h3>
+                                    <div className="mt-3 md:mt-4 text-[8px] md:text-[9px] font-black text-[#E31E24] uppercase tracking-widest bg-red-50 px-2 md:px-3 py-1 rounded-full border border-red-100">
+                                        Tests Pending
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -192,7 +350,7 @@ export default function StudentDashboard() {
                 <BentoCard
                     title="Attendance"
                     desc="Track your daily presence."
-                    icon="📊"
+                    icon={<LayoutDashboard className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                     onClick={() => navigate('/student/attendance')}
                     stats={`${stats.attendance}%`}
                     label="Current"
@@ -201,7 +359,7 @@ export default function StudentDashboard() {
                 <BentoCard
                     title="Results"
                     desc="View class test records."
-                    icon="📋"
+                    icon={<ClipboardList className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                     onClick={() => navigate('/student/test-history')}
                     stats={stats.testsCount}
                     label="Tests"
@@ -210,7 +368,7 @@ export default function StudentDashboard() {
                 <BentoCard
                     title="Projects"
                     desc="Showcase your work."
-                    icon="🚀"
+                    icon={<Rocket className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                     onClick={() => navigate('/student/projects')}
                     stats={stats.projectsCount}
                     label="Active"
@@ -261,85 +419,10 @@ export default function StudentDashboard() {
                 </motion.div>
 
                 <motion.div variants={item} className="lg:col-span-2 space-y-6">
-                    <QuickAction icon="🏛️" label="Campus Council" to="/student/council" />
-                    <QuickAction icon="🤳" label="Student Directory" to="/student/directory" />
+                    <QuickAction icon={<Users className="w-3 h-3 md:w-3.5 md:h-3.5" />} label="Campus Council" to="/student/council" />
+                    <QuickAction icon={<Search className="w-3 h-3 md:w-3.5 md:h-3.5" />} label="Student Directory" to="/student/directory" />
                 </motion.div>
             </div>
         </motion.div>
-    );
-}
-
-function HeroPill({ label, value, icon, color = 'slate' }) {
-    const colors = {
-        slate: 'text-slate-600 border-slate-200 bg-slate-50',
-        red: 'text-[#E31E24] border-red-100 bg-red-50/50',
-        indigo: 'text-indigo-600 border-indigo-100 bg-indigo-50/50'
-    };
-    return (
-        <div className={`px-3 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border flex items-center gap-2 md:gap-3 transition-all hover:bg-white hover:scale-105 backdrop-blur-xl ${colors[color]}`}>
-            {icon && <span className="text-[10px] md:text-xs opacity-70">{icon}</span>}
-            <div className="flex items-center gap-1">
-                <span className="text-[7px] md:text-[9px] font-black uppercase tracking-widest opacity-40">{label}:</span>
-                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-tight text-slate-800">{value}</span>
-            </div>
-        </div>
-    );
-}
-
-
-function BentoCard({ title, desc, icon, onClick, stats, label, color }) {
-    const overlays = {
-        slate: 'hover:border-slate-900 hover:bg-slate-50',
-        red: 'hover:border-[#E31E24] hover:bg-red-50',
-        indigo: 'hover:border-indigo-600 hover:bg-indigo-50'
-    };
-    return (
-        <motion.div
-            variants={item}
-            whileHover={{ y: -5, scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onClick}
-            className={`aether-card p-8 cursor-pointer group flex flex-col justify-between min-h-[220px] transition-all duration-500 border border-slate-100 ${overlays[color]}`}
-        >
-            <div className="flex justify-between items-start">
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl group-hover:scale-110 group-hover:-rotate-12 transition-all duration-500 group-hover:bg-white shadow-sm">
-                    {icon}
-                </div>
-                <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-                    <h4 className="text-2xl font-black text-slate-900 group-hover:text-[#E31E24] transition-colors tabular-nums">{stats}</h4>
-                </div>
-            </div>
-
-            <div className="space-y-1">
-                <h3 className="text-xl font-black uppercase tracking-tight leading-none group-hover:translate-x-1 transition-transform duration-500">{title}</h3>
-                <p className="text-slate-400 font-semibold text-[11px] leading-snug">{desc}</p>
-            </div>
-
-            <div className="pt-4 flex items-center justify-between border-t border-slate-50 opacity-40 group-hover:opacity-100 transition-all">
-                <span className="text-[9px] font-black uppercase tracking-widest">Open Analytics</span>
-                <span className="text-lg group-hover:translate-x-2 transition-transform">→</span>
-            </div>
-        </motion.div>
-    );
-}
-
-function QuickAction({ icon, label, to }) {
-    const navigate = useNavigate();
-    return (
-        <button
-            onClick={() => navigate(to)}
-            className="w-full bg-white border border-slate-100 rounded-[2.2rem] p-8 flex items-center justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group shadow-lg shadow-slate-100/30"
-        >
-            <div className="flex items-center gap-6">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 group-hover:bg-red-50">
-                    <span className="text-3xl">{icon}</span>
-                </div>
-                <span className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] group-hover:text-[#E31E24] transition-colors">{label}</span>
-            </div>
-            <div className="w-10 h-10 rounded-full border border-slate-50 flex items-center justify-center group-hover:rotate-45 transition-all text-slate-200 group-hover:text-slate-900">
-                <span className="text-xl">→</span>
-            </div>
-        </button>
     );
 }
