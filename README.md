@@ -1,6 +1,6 @@
 # 🛡️ Kushal Kumawat | Biyani Digital Campus System (BDCS)
 
-[![LIVE DEPLOYMENT](https://img.shields.io/badge/LIVE%20DEPLOYMENT-BDCS--PORTAL-blueviolet?style=for-the-badge&logo=vercel)](https://your-vercel-link.app)
+[![LIVE DEPLOYMENT](https://img.shields.io/badge/LIVE%20DEPLOYMENT-BDCS--PORTAL-blueviolet?style=for-the-badge&logo=vercel)](https://bdcs-livid.vercel.app/)
 [![BUILD](https://img.shields.io/badge/BUILD-OPTIMIZED-green?style=for-the-badge&logo=vite)](https://vitejs.dev/)
 [![SECURITY](https://img.shields.io/badge/SECURITY-A+%20RATED-brightgreen?style=for-the-badge&logo=firebase)](https://firebase.google.com/)
 [![LICENSE](https://img.shields.io/badge/LICENSE-MIT-lightgrey?style=for-the-badge)](./LICENSE)
@@ -9,7 +9,7 @@
 
 > "Bridging the Gap Between Traditional Education Management and Advanced Web Engineering."
 
-[LinkedIn](https://linkedin.com/in/your-profile) • [Source Code](https://github.com/Kushal96499/BDCS) • [Institutional Website](https://biyanicolleges.org)
+[LinkedIn](https://linkedin.com/in/kushal-ku) • [Source Code](https://github.com/Kushal96499/BDCS) • [Institutional Website](https://www.biyanicolleges.org/)
 
 ---
 
