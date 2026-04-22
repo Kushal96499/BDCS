@@ -70,114 +70,134 @@ export default function StudentLayout() {
     }, []);
 
     const isActive = (path) => path === '/student' ? location.pathname === '/student' : location.pathname.startsWith(path);
+    
+    const handleNavigate = (path) => {
+        const restricted = isBacklog && RESTRICTED_ITEMS.includes(NAV_ITEMS.find(i => i.path === path)?.name);
+        if (!restricted) {
+            navigate(path);
+        }
+    };
+
     const currentPage = NAV_ITEMS.find(item => isActive(item.path))?.name || 'Dashboard';
 
     return (
-        <div className="min-h-screen bg-[#F8F9FA] text-[#0F172A] selection:bg-[#E31E24]/10 font-sans">
-            {/* ── DESKTOP RAIL NAVIGATION ────────────────────────────── */}
-            <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-20 z-50 nav-rail flex-col items-center py-8">
-                {/* Branding */}
-                <button onClick={() => navigate('/student')} className="mb-12 group transition-transform active:scale-95 duration-500">
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-sm border border-[#0F172A]/5 group-hover:shadow-md transition-all duration-300">
-                        <img src="/assets/biyani-logo.png" alt="BDCS" className="w-full h-full object-contain" />
-                    </div>
-                </button>
+        <div className="min-h-screen bg-[#FDFCFB] flex flex-col md:flex-row font-sans text-gray-900 selection:bg-red-50 selection:text-[#E31E24] overflow-x-hidden w-full">
+            <div className="fixed inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
 
-                {/* Nav Stack */}
-                <nav className="flex-1 flex flex-col gap-8">
-                    {NAV_ITEMS.map((item) => {
-                        const active = isActive(item.path);
-                        const restricted = isBacklog && RESTRICTED_ITEMS.includes(item.name);
-
-                        return (
-                            <button
-                                key={item.path}
-                                onClick={() => !restricted && navigate(item.path)}
-                                className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group
-                                    ${restricted ? 'text-gray-300 cursor-not-allowed' :
-                                    active ? 'text-[#E31E24]' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-                            >
-                                <div className="w-5 h-5 transition-transform duration-300 group-hover:scale-110">
-                                    {item.icon}
-                                </div>
-                                
-                                {active && (
-                                    <motion.div 
-                                        layoutId="active-nav-bead" 
-                                        className="absolute -right-[1.1rem] w-1.5 h-6 bg-[#E31E24] rounded-full shadow-[0_0_12px_rgba(227,30,36,0.3)]" 
-                                    />
-                                )}
-
-                                {/* Label Tooltip */}
-                                <div className="absolute left-16 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 -translate-x-4 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap uppercase tracking-widest z-[100]">
-                                    {item.name}
-                                </div>
-                            </button>
-                        );
-                    })}
-                </nav>
-
-            </aside>
-
-
-            {/* ── TOP UTILITY HEADER (PRISTINE) ────────────────────────── */}
-            <header className={`fixed top-0 left-0 md:left-20 right-0 z-40 transition-all duration-300 px-6 md:px-12 ${scrolled ? 'h-14 bg-[#F8F9FA]/90 backdrop-blur-xl border-b border-[#0F172A]/5 py-2 shadow-sm' : 'h-16 bg-transparent py-2'}`}>
-                <div className="h-full flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div className="hidden lg:block">
-                                <h2 className="text-[8px] font-bold uppercase tracking-[0.4em] text-[#E31E24] mb-0.5">Student Area</h2>
-                                <h1 className="text-lg font-heading tracking-tight uppercase text-slate-900 leading-none">{currentPage}</h1>
+            {/* ── DESKTOP/TABLET SIDEBAR ────────────────────────────── */}
+            <aside className="hidden md:flex fixed inset-y-0 left-0 xl:w-64 md:w-20 lg:w-20 flex-col z-50 transition-all duration-300">
+                <div className="h-full bg-white/80 backdrop-blur-2xl border-r border-[#0F172A]/5 flex flex-col py-8 shadow-[10px_0_40px_rgba(0,0,0,0.02)]">
+                    <div className="px-5 xl:px-8 mb-10 flex items-center justify-center xl:justify-start">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center p-1.5 border border-[#E31E24]/10 shrink-0">
+                                <img src="/assets/biyani-logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
-                            {/* Mobile Logo */}
-                            <div className="lg:hidden flex items-center gap-3">
-                                <img src="/assets/biyani-logo.png" className="w-7 h-7 rounded-lg" alt="" />
-                                <h1 className="text-xs font-heading tracking-widest uppercase text-slate-900">{currentPage}</h1>
+                            <div className="hidden xl:block">
+                                <h1 className="text-sm font-black tracking-tighter text-gray-900 leading-tight">BDCS</h1>
+                                <p className="text-[10px] font-bold text-[#E31E24] tracking-widest uppercase">Student</p>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="flex items-center gap-4 md:gap-8">
-                            {/* High-Density Status Pill */}
-                            <div className="hidden sm:flex items-center gap-2.5 px-3.5 py-1.5 bg-white border border-[#0F172A]/5 rounded-full shadow-sm">
-                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">System Status: Online</span>
-                            </div>
-
-                        {/* Profile Utility - Refined Premium Design */}
-                        <button 
-                            onClick={() => navigate('/student/profile')}
-                            className="flex items-center gap-3 group p-1.5 rounded-2xl bg-white border border-[#0F172A]/5 hover:border-[#E31E24]/20 hover:bg-white hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 active:scale-95"
-                        >
-                            <div className="relative">
-                                <div className="w-8 h-8 rounded-[0.8rem] overflow-hidden border border-slate-100 group-hover:border-[#E31E24]/30 transition-all duration-500 shadow-sm flex items-center justify-center bg-slate-50">
-                                    {user?.photoURL ? (
-                                        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center font-black text-[10px] text-slate-400 bg-white capitalize">
-                                            {user?.name?.[0]}
-                                        </div>
+                    <nav className="flex-1 px-3 xl:px-4 space-y-2 overflow-y-auto no-scrollbar items-center xl:items-start flex flex-col">
+                        {NAV_ITEMS.map((item) => {
+                            const active = isActive(item.path);
+                            const restricted = isBacklog && RESTRICTED_ITEMS.includes(item.name);
+                            
+                            return (
+                                <button
+                                    key={item.path}
+                                    onClick={() => handleNavigate(item.path)}
+                                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 group relative
+                                        ${restricted ? 'opacity-40 cursor-not-allowed' :
+                                        active ? 'bg-red-50 text-[#E31E24]' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'}`}
+                                >
+                                    {active && (
+                                        <motion.div layoutId="active-nav-bead" className="absolute left-0 w-1 h-6 bg-[#E31E24] rounded-r-full" />
                                     )}
-                                </div>
-                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
+                                    <div className={`w-5 h-5 shrink-0 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                        {item.icon}
+                                    </div>
+                                    <span className={`text-sm font-bold tracking-tight hidden xl:block ${active ? 'font-black' : ''}`}>
+                                        {item.name}
+                                    </span>
+
+                                    {/* Tooltip for Rail Mode */}
+                                    <div className="absolute left-16 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black rounded-lg opacity-0 -translate-x-4 group-hover:translate-x-0 lg:group-hover:opacity-100 xl:group-hover:hidden transition-all pointer-events-none whitespace-nowrap uppercase tracking-widest z-[100]">
+                                        {item.name} {restricted && '(Restricted)'}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="px-3 xl:px-4 mt-auto pt-6 border-t border-slate-50 flex flex-col items-center xl:items-start space-y-4">
+                        <button
+                            onClick={() => navigate('/student/profile')}
+                            className="w-full flex items-center gap-3 px-2 py-2.5 rounded-2xl transition-all group hover:bg-slate-50 justify-center xl:justify-start"
+                        >
+                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-white shadow-sm bg-slate-50 flex items-center justify-center text-[#E31E24] font-black text-xs shrink-0 transition-all">
+                                {user?.name?.[0]}
                             </div>
-                            <div className="hidden md:block text-left pr-2">
-                                <p className="text-[10px] font-black text-slate-900 leading-none tracking-tight mb-1 capitalize">{user?.name?.split(' ')[0]}</p>
-                                <p className="text-[7px] font-black text-[#E31E24] uppercase tracking-[0.2em] opacity-60">Account</p>
+                            <div className="hidden xl:block flex-1 text-left min-w-0">
+                                <p className="text-xs font-black text-slate-900 truncate">{user?.name?.split(' ')[0]}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">My Account</p>
                             </div>
+                        </button>
+
+                        <button
+                            onClick={() => auth.signOut().then(() => navigate('/login'))}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all group justify-center xl:justify-start"
+                        >
+                            <svg className="w-5 h-5 shrink-0 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="text-sm font-bold hidden xl:block">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            {/* ── MOBILE NAVBAR ─────────────────────────────────────── */}
+            <header className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-500 ${scrolled ? 'bg-white/90 backdrop-blur-2xl border-b border-[#0F172A]/5 py-3' : 'bg-[#FDFCFB]/80 backdrop-blur-md py-4'}`}>
+                <div className="px-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center p-1.5 border border-slate-100">
+                            <img src="/assets/biyani-logo.png" alt="Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                            <h2 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none mb-1">{currentPage}</h2>
+                            <p className="text-[7px] font-bold text-[#E31E24] uppercase tracking-widest opacity-60">Student Hub</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate('/student/profile')} className="w-8 h-8 rounded-lg bg-red-50 text-[#E31E24] flex items-center justify-center font-black text-[10px] border border-red-100 active:scale-90 transition-transform">
+                            {user?.name?.[0]}
                         </button>
                     </div>
                 </div>
             </header>
 
-            {/* ── MAIN CONTENT AREA ────────────────────────────────── */}
-            <main className="relative w-full min-h-screen pt-16 md:pl-20">
-                <div className="max-w-7xl mx-auto px-6 md:px-12 py-6 pb-32">
+            {/* ── MAIN CONTENT ────────────────────────────────────────── */}
+            <main className="flex-1 min-w-0 w-full md:ml-20 lg:ml-20 xl:ml-64 min-h-screen relative flex flex-col transition-all duration-500">
+                <header className="hidden md:flex sticky top-0 z-30 w-full pt-6 pb-2 px-10 pointer-events-none items-center justify-between">
+                        <nav className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pointer-events-auto bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                            <span>Campus</span>
+                            <span className="text-slate-300">/</span>
+                            <span className="text-[#E31E24]">{currentPage}</span>
+                        </nav>
+                </header>
+
+                <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-32 md:pb-12 px-4 sm:px-6 md:px-10 overflow-x-hidden`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={location.pathname}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            initial={{ opacity: 0, scale: 0.99, y: 5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.99, y: -5 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="max-w-7xl mx-auto"
                         >
                             <Outlet />
                         </motion.div>
@@ -185,16 +205,18 @@ export default function StudentLayout() {
                 </div>
             </main>
 
-            {/* ── MOBILE NAV DOCK ───────────────────────────────────── */}
+            {/* ── MOBILE NAV DOCK (Native App Feel) ─────────────────── */}
             <div className="md:hidden fixed bottom-6 left-6 right-6 z-50">
                 <nav className="w-full bg-white/90 backdrop-blur-2xl border border-[#0F172A]/5 px-6 py-4 rounded-3xl flex items-center justify-between shadow-[0_15px_50px_rgba(0,0,0,0.1)]">
                     {NAV_ITEMS.map((item) => {
                         const active = isActive(item.path);
+                        const restricted = isBacklog && RESTRICTED_ITEMS.includes(item.name);
+                        
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => navigate(item.path)}
-                                className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? 'text-[#E31E24]' : 'text-slate-400'}`}
+                                onClick={() => handleNavigate(item.path)}
+                                className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${restricted ? 'opacity-30' : active ? 'text-[#E31E24]' : 'text-slate-400'}`}
                             >
                                 <div className={`w-5 h-5 transition-transform duration-300 ${active ? 'scale-110' : 'active:scale-90'}`}>
                                     {item.icon}
@@ -210,5 +232,3 @@ export default function StudentLayout() {
         </div>
     );
 }
-
-

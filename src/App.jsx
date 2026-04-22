@@ -1,6 +1,9 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import OfflineIndicator from './components/common/OfflineIndicator';
+import OfflineFallback from './components/common/OfflineFallback';
 
 // Layouts
 import AdminLayout from './layouts/AdminLayout';
@@ -91,15 +94,35 @@ const LoadingScreen = () => (
 );
 
 export default function App() {
+    const [isNetworkOffline, setIsNetworkOffline] = React.useState(!navigator.onLine);
+
+    React.useEffect(() => {
+        const handleOnline = () => setIsNetworkOffline(false);
+        const handleOffline = () => setIsNetworkOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // State to track if we've hit a critical loading error that requires the fallback
+    const [criticalError, setCriticalError] = React.useState(false);
+
     // RECOVERY: Handle "Failed to fetch module" errors (Chunk load failures)
-    // This happens when a new version is deployed on Vercel and old chunks are missing.
     React.useEffect(() => {
         const handleChunkError = (e) => {
             const msg = e.message || '';
             if (msg.includes('Failed to fetch dynamically imported module') || 
                 msg.includes('Importing a module script failed') ||
                 msg.includes('module script')) {
-                console.warn('BDCS: Chunk load failure detected. Reloading for latest version...');
+                if (!navigator.onLine) {
+                    console.warn('BDCS: Offline chunk load failure.');
+                    setCriticalError(true);
+                    return;
+                }
+                console.warn('BDCS: Chunk load failure detected. Reloading...');
                 window.location.reload();
             }
         };
@@ -107,8 +130,24 @@ export default function App() {
         return () => window.removeEventListener('error', handleChunkError);
     }, []);
 
+    // If critical parts of the app fail to load and we are offline, show the fallback shell
+    if (criticalError || (isNetworkOffline && typeof window !== 'undefined' && !window.location.hash.includes('login') && !localStorage.getItem('app-hydrated'))) {
+       // Note: app-hydrated check is once we've successfully rendered once
+    }
+
+    // Capture first successful render
+    React.useEffect(() => {
+        localStorage.setItem('app-hydrated', 'true');
+    }, []);
+
+    if (criticalError && isNetworkOffline) {
+        return <OfflineFallback />;
+    }
+
     return (
         <Suspense fallback={<LoadingScreen />}>
+            <OfflineIndicator />
+            <PWAInstallPrompt />
             <SessionManager />
             <Routes>
                 <Route path="/login" element={<Login />} />

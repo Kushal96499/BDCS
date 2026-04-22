@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { auth } from '../config/firebase';
 import ToastContainer from '../components/admin/Toast';
-import UserProfileModal from '../components/UserProfileModal';
 
 const ROLE_THEME = {
     primary: '#7C3AED', // Violet
@@ -71,7 +70,6 @@ export default function TeacherLayout() {
 
     const [scrolled, setScrolled] = useState(false);
     const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -95,21 +93,22 @@ export default function TeacherLayout() {
         <div className="min-h-screen bg-[#FDFCFB] flex flex-col md:flex-row font-sans text-gray-900 selection:bg-violet-100 selection:text-violet-600 overflow-x-hidden w-full">
             <div className="fixed inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
 
-            <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 flex-col z-50 transition-all duration-300">
+            {/* ── DESKTOP/TABLET SIDEBAR ────────────────────────────── */}
+            <aside className="hidden md:flex fixed inset-y-0 left-0 xl:w-64 md:w-20 lg:w-20 flex-col z-50 transition-all duration-300">
                 <div className="h-full bg-white/80 backdrop-blur-2xl border-r border-gray-100 flex flex-col py-8 shadow-[10px_0_40px_rgba(0,0,0,0.02)]">
-                    <div className="px-8 mb-10">
+                    <div className="px-5 xl:px-8 mb-10 flex items-center justify-center xl:justify-start">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center p-1.5 border border-red-50">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center p-1.5 border border-red-50 shrink-0">
                                 <img src="/assets/biyani-logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
-                            <div>
+                            <div className="hidden xl:block">
                                 <h1 className="text-sm font-black tracking-tighter text-gray-900 leading-tight">BDCS</h1>
                                 <p className="text-[10px] font-bold text-violet-600 tracking-widest uppercase">Educator</p>
                             </div>
                         </div>
                     </div>
 
-                    <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar">
+                    <nav className="flex-1 px-3 xl:px-4 space-y-1.5 overflow-y-auto no-scrollbar items-center xl:items-start flex flex-col">
                         {NAV_ITEMS.map((item) => {
                             const active = isActive(item.path);
                             return (
@@ -122,70 +121,71 @@ export default function TeacherLayout() {
                                     {active && (
                                         <motion.div layoutId="nav-active-t" className="absolute left-0 w-1 h-6 bg-red-500 rounded-r-full" />
                                     )}
-                                    <div className={`w-5 h-5 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110 opacity-70'}`}>
+                                    <div className={`w-5 h-5 shrink-0 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110 opacity-70'}`}>
                                         {item.icon}
                                     </div>
-                                    <span className={`text-sm font-bold tracking-tight ${active ? 'font-black text-violet-700' : ''}`}>
+                                    <span className={`text-sm font-bold tracking-tight hidden xl:block ${active ? 'font-black text-violet-700' : ''}`}>
                                         {item.name}
                                     </span>
+
+                                    {/* Tooltip for Rail Mode */}
+                                    <div className="absolute left-16 px-3 py-1.5 bg-gray-900 text-white text-[10px] font-black rounded-lg opacity-0 -translate-x-4 group-hover:translate-x-0 lg:group-hover:opacity-100 xl:group-hover:hidden transition-all pointer-events-none whitespace-nowrap uppercase tracking-widest z-[100]">
+                                        {item.name}
+                                    </div>
                                 </button>
                             );
                         })}
                     </nav>
 
-                    <div className="px-4 mt-auto pt-6 border-t border-gray-50 space-y-4">
-
-
-                        <button
-                            onClick={() => {
-                                if (user?.role === 'student') {
-                                    setIsProfileModalOpen(true);
-                                }
-                            }}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all group ${user?.role === 'student' ? 'hover:bg-gray-50' : 'cursor-default'}`}
+                    <div className="px-3 xl:px-4 mt-auto pt-6 border-t border-gray-50 space-y-4 flex flex-col items-center xl:items-start">
+                        <div
+                            className="w-full flex items-center gap-3 px-2 py-2.5 rounded-2xl justify-center xl:justify-start"
                         >
-                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-white shadow-sm bg-gray-50 flex items-center justify-center text-violet-600 font-black text-xs shrink-0 ring-2 ring-transparent group-hover:ring-violet-50 transition-all uppercase">
+                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-white shadow-sm bg-gray-50 flex items-center justify-center text-violet-600 font-black text-xs shrink-0 ring-2 ring-transparent transition-all uppercase">
                                 {user?.name?.[0] || 'T'}
                             </div>
-                            <div className="flex-1 text-left">
+                            <div className="hidden xl:block flex-1 text-left min-w-0">
                                 <p className="text-xs font-black text-gray-900 truncate">{user?.name || 'Educator'}</p>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{user?.role?.replace('_', ' ')}</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">{user?.role?.replace('_', ' ')}</p>
                             </div>
-                        </button>
+                        </div>
 
                         <button
                             onClick={() => auth.signOut().then(() => navigate('/login'))}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all group"
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all group justify-center xl:justify-start"
                         >
-                            <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <svg className="w-5 h-5 shrink-0 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            <span className="text-sm font-bold">Sign Out</span>
+                            <span className="text-sm font-bold hidden xl:block">Sign Out</span>
                         </button>
                     </div>
                 </div>
             </aside>
 
-            <header className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-2xl border-b border-gray-100 py-3' : 'bg-transparent py-4'}`}>
+            {/* ── MOBILE NAVBAR ─────────────────────────────────────── */}
+            <header className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-2xl border-b border-gray-100 py-3' : 'bg-[#FDFCFB]/80 backdrop-blur-md py-4'}`}>
                 <div className="px-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center p-1.5 border border-gray-100">
                             <img src="/assets/biyani-logo.png" alt="Logo" className="w-full h-full object-contain" />
                         </div>
-                        <h2 className="text-[11px] font-black text-gray-900 uppercase tracking-widest leading-none mt-1">{currentPageName}</h2>
+                        <div>
+                            <h2 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] leading-none mb-1">{currentPageName}</h2>
+                            <p className="text-[7px] font-bold text-violet-600 uppercase tracking-widest opacity-60">Faculty Portal</p>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setMobileDrawerOpen(true)} className="p-2 text-gray-900 hover:bg-gray-100 rounded-xl transition-colors active:scale-90">
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path d="M4 6h16M4 12h16M4 18h7" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </button>
+                        <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center font-black text-[10px] border border-violet-100">
+                            {user?.name?.[0]}
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 min-w-0 w-full md:ml-64 min-h-screen relative flex flex-col">
+            {/* ── MAIN CONTENT ────────────────────────────────────────── */}
+            <main className="flex-1 min-w-0 w-full md:ml-20 lg:ml-20 xl:ml-64 min-h-screen relative flex flex-col transition-all duration-300">
                 <div className="hidden md:flex sticky top-0 z-30 w-full pt-6 pb-2 px-10 pointer-events-none items-center justify-between">
                         <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest pointer-events-auto bg-white/60 backdrop-blur-xl px-6 py-2.5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                             <span>Faculty</span>
@@ -194,7 +194,7 @@ export default function TeacherLayout() {
                         </nav>
                 </div>
 
-                <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-12 px-6 md:px-10`}>
+                <div className={`w-full ${scrolled ? 'md:pt-4' : 'md:pt-0'} pt-24 pb-32 md:pb-12 px-4 sm:px-6 md:px-10 overflow-x-hidden`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={location.pathname}
@@ -210,6 +210,39 @@ export default function TeacherLayout() {
                 </div>
             </main>
 
+            {/* ── MOBILE NAV DOCK (Native App Feel) ─────────────────── */}
+            <div className="md:hidden fixed bottom-6 left-6 right-6 z-50">
+                <nav className="w-full bg-white/90 backdrop-blur-2xl border border-gray-100 px-6 py-4 rounded-3xl flex items-center justify-between shadow-[0_15px_50px_rgba(0,0,0,0.1)]">
+                    {NAV_ITEMS.filter(i => i.showInMobileDock).map((item) => {
+                        const active = isActive(item.path);
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => handleNavigate(item.path)}
+                                className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? 'text-violet-600' : 'text-gray-400'}`}
+                            >
+                                <div className={`w-5 h-5 transition-transform duration-300 ${active ? 'scale-110' : 'active:scale-90'}`}>
+                                    {item.icon}
+                                </div>
+                                <span className={`text-[8px] font-bold uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-60'}`}>{item.name}</span>
+                            </button>
+                        )
+                    })}
+                    <button 
+                        onClick={() => setMobileDrawerOpen(true)}
+                        className="flex flex-col items-center gap-1.5 text-gray-400"
+                    >
+                        <div className="w-5 h-5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                        </div>
+                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">Menu</span>
+                    </button>
+                </nav>
+            </div>
+
+            {/* ── MOBILE DRAWER ─────────────────────────────────────── */}
             {typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {mobileDrawerOpen && (
@@ -218,7 +251,7 @@ export default function TeacherLayout() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-gray-900/80 backdrop-blur-xl z-[2000]"
+                                className="fixed inset-0 bg-gray-900/80 backdrop-blur-xl z-[2000] touch-none"
                                 onClick={() => setMobileDrawerOpen(false)}
                             />
                             <motion.div
@@ -226,18 +259,23 @@ export default function TeacherLayout() {
                                 animate={{ x: 0 }}
                                 exit={{ x: '100%' }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                className="fixed inset-y-0 right-0 w-80 bg-white z-[2100] shadow-2xl flex flex-col overflow-hidden"
+                                className="fixed inset-y-0 right-0 w-[85%] bg-white z-[2100] shadow-2xl flex flex-col overflow-hidden rounded-l-[2.5rem]"
                             >
                                 <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
-                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Navigation Hub</h3>
-                                    <button onClick={() => setMobileDrawerOpen(false)} className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400">
-                                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center p-1 border border-violet-100">
+                                            <img src="/assets/biyani-logo.png" className="w-full h-full object-contain" alt="" />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Faculty Menu</h3>
+                                    </div>
+                                    <button onClick={() => setMobileDrawerOpen(false)} className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 active:scale-90 transition-transform">
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                             <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
                                     </button>
                                 </div>
 
-                                <nav className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar">
+                                <nav className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar overscroll-contain">
                                     {NAV_ITEMS.map((item) => {
                                         const active = isActive(item.path);
                                         return (
@@ -254,7 +292,16 @@ export default function TeacherLayout() {
                                     })}
                                 </nav>
 
-                                <div className="p-8 border-t border-gray-50 bg-gray-50/30">
+                                <div className="p-8 border-t border-gray-50 bg-gray-50/30 space-y-4">
+                                     <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                        <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 font-black uppercase text-sm border border-violet-100">
+                                            {user?.name?.[0]}
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black text-gray-900 tracking-tight">{user?.name}</p>
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Faculty Member</p>
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={() => auth.signOut().then(() => navigate('/login'))}
                                         className="w-full flex items-center justify-center gap-4 py-5 rounded-2xl bg-white border-2 border-red-50 text-red-600 transition-all font-black text-sm shadow-sm active:scale-95 group"
@@ -273,7 +320,6 @@ export default function TeacherLayout() {
             )}
 
             <ToastContainer />
-            {isProfileModalOpen && <UserProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />}
         </div>
     );
 }
