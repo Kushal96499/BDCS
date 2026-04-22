@@ -29,8 +29,45 @@ In the current era of digital transformation, **BDCS** serves as a **Privacy-Fir
 
 The system utilizes a distributed architecture designed for low latency and high availability across all campus roles.
 
-![Technical Architecture Diagram Placeholder]
-*User → Cloudflare Edge → React UI / Shadcn UI → Real-time Services (Convex/Firebase)*
+```mermaid
+graph TD
+    %% User Layer
+    User((User/Student/Staff)) -->|HTTPS/PWA| SW{Service Worker}
+    
+    %% Resilience Layer
+    SW -->|Cache First| Cache[(Workbox Cache)]
+    SW -->|Network First| Vite[Vite Powered React Core]
+    
+    %% Application Core
+    subgraph "Application Core (React 18)"
+        Vite --> UI[Neo-Campus UI / Framer Motion]
+        UI --> RBAC{RBAC Guard}
+    end
+    
+    %% Security & Logic
+    RBAC -->|Authorize| FBAuth[Firebase Auth]
+    RBAC -->|Validated Request| Logic[Business Services / Logic]
+    
+    %% Persistence Layer
+    subgraph "Persistence & Real-time Layer"
+        Logic -->|Sync| Convex[Convex Real-time DB]
+        Logic -->|Document Storage| FBStore[Firebase Firestore/Storage]
+    end
+    
+    %% Deployment
+    Convex -.->|Edge Sync| Vercel((Vercel Edge))
+    Vite -.->|Deployed on| Vercel
+
+    %% Styling
+    style User fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style Vite fill:#646cff,color:#fff,stroke-width:2px
+    style SW fill:#ff9900,color:#fff
+    style Convex fill:#222,color:#fff
+    style FBAuth fill:#ffca28,color:#000
+    style RBAC fill:#e31e24,color:#fff
+```
+
+*Flow: User → Service Worker (PWA Shell) → React Core → Multi-cloud Persistence (Convex/Firebase)*
 
 ---
 
