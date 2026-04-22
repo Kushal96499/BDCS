@@ -107,7 +107,7 @@ graph TD
 
 | 📱 Immersive Dashboard | 🔐 Secure Management |
 | :---: | :---: |
-| ![Dashboard Screenshot] | ![Management Screenshot] |
+| <img width="1915" height="892" alt="Image" src="https://github.com/user-attachments/assets/17385f4a-bb94-43ae-9b65-bb2aa7097e4a" /> | ![Management Screenshot] |
 
 ---
 
